@@ -25,9 +25,9 @@ sudo apt-get upgrade -y
 echo "Step 2: Installing Python 3 and pip..."
 sudo apt-get install -y python3 python3-pip python3-venv
 
-# Install system dependencies
+# Install system dependencies (including build tools for ChromaDB)
 echo "Step 3: Installing system dependencies..."
-sudo apt-get install -y build-essential libssl-dev libffi-dev python3-dev
+sudo apt-get install -y build-essential libssl-dev libffi-dev python3-dev cmake ninja-build
 
 # Get the directory where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -43,7 +43,27 @@ fi
 echo "Step 5: Installing Python dependencies..."
 source venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements.txt
+
+# Install dependencies with optimizations for low RAM
+# Use --only-binary to prefer pre-built wheels and avoid compilation where possible
+# Install in smaller batches to reduce memory pressure
+echo "Installing core dependencies first..."
+pip install --only-binary :all: flask flask-cors apscheduler python-dotenv gunicorn requests python-dateutil pytz sqlalchemy
+
+echo "Installing Google API dependencies..."
+pip install --only-binary :all: google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
+
+echo "Installing OpenAI dependency..."
+pip install --only-binary :all: openai
+
+echo "Installing ChromaDB (this may take a while on low RAM systems)..."
+# For ChromaDB, we need to allow source builds but with optimizations
+# Set environment variables to reduce memory usage during compilation
+export MAKEFLAGS="-j1"  # Use single job to reduce memory
+export CFLAGS="-O1"     # Lower optimization to reduce memory during compile
+pip install chromadb --no-cache-dir
+
+echo "All dependencies installed successfully!"
 
 # Create necessary directories
 echo "Step 6: Creating necessary directories..."
