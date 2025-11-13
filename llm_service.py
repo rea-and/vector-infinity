@@ -123,7 +123,7 @@ class LLMService:
         """
         if not config.OPENAI_API_KEY:
             return {
-                "response": "Error: OpenAI API key not configured",
+                "response": "Error: OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file.",
                 "context_used": "",
                 "error": "API key missing"
             }
@@ -136,6 +136,16 @@ class LLMService:
                 plugin_names=plugin_names,
                 use_vector_search=use_vector_search
             )
+            
+            # If context is empty and vector search was used, try fallback
+            if not context and use_vector_search:
+                logger.warning("Vector search returned no results, falling back to date-based search")
+                context = self.build_context(
+                    query_text=prompt,
+                    limit=context_limit,
+                    plugin_names=plugin_names,
+                    use_vector_search=False
+                )
             
             # Build full prompt with context
             system_prompt = """You are a helpful assistant with access to the user's personal data including emails, 
@@ -171,10 +181,28 @@ Please provide a helpful response based on the context above."""
             }
         
         except Exception as e:
-            logger.error(f"Error generating LLM response: {e}", exc_info=True)
+            error_msg = str(e)
+            error_type = "unknown"
+            user_message = "Error generating response"
+            
+            # Check for specific error types
+            if "429" in error_msg or "quota" in error_msg.lower() or "insufficient_quota" in error_msg.lower():
+                error_type = "quota_exceeded"
+                user_message = "OpenAI API quota exceeded. Please check your billing and usage at https://platform.openai.com/usage. You may need to add credits to your account or upgrade your plan."
+            elif "rate_limit" in error_msg.lower():
+                error_type = "rate_limit"
+                user_message = "OpenAI API rate limit exceeded. Please try again in a few moments."
+            elif "invalid_api_key" in error_msg.lower() or "authentication" in error_msg.lower():
+                error_type = "auth_error"
+                user_message = "OpenAI API key is invalid. Please check your API key in the .env file."
+            else:
+                user_message = f"Error generating response: {error_msg}"
+            
+            logger.error(f"Error generating LLM response ({error_type}): {e}", exc_info=True)
             return {
-                "response": f"Error generating response: {str(e)}",
+                "response": user_message,
                 "context_used": "",
-                "error": str(e)
+                "error": error_type,
+                "error_details": error_msg
             }
 

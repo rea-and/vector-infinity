@@ -54,7 +54,12 @@ class VectorDB:
             )
             return response.data[0].embedding
         except Exception as e:
-            logger.error(f"Error generating embedding: {e}")
+            error_msg = str(e)
+            # Check for quota/rate limit errors
+            if "429" in error_msg or "quota" in error_msg.lower() or "rate_limit" in error_msg.lower():
+                logger.error(f"OpenAI API quota/rate limit exceeded. Please check your billing and usage: {e}")
+            else:
+                logger.error(f"Error generating embedding: {e}")
             return None
     
     def add_item(self, item_id: str, text: str, metadata: Dict[str, Any]) -> bool:

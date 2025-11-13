@@ -426,8 +426,16 @@
             
             const result = await response.json();
             if (result.error) {
-                responseBox.innerHTML = `Error: ${result.error}`;
+                let errorHtml = `<strong>Error (${result.error}):</strong><br>${result.response}`;
+                if (result.error === 'quota_exceeded') {
+                    errorHtml += '<br><br><a href="https://platform.openai.com/usage" target="_blank">Check your OpenAI usage and billing</a>';
+                }
+                responseBox.style.background = '#f8d7da';
+                responseBox.style.color = '#721c24';
+                responseBox.innerHTML = errorHtml;
             } else {
+                responseBox.style.background = '#f8f9fa';
+                responseBox.style.color = '#333';
                 responseBox.innerHTML = result.response;
             }
         }
