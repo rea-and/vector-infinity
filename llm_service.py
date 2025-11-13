@@ -164,15 +164,33 @@ Please provide a helpful response based on the context above."""
             
             # Call OpenAI API
             client = openai.OpenAI(api_key=config.OPENAI_API_KEY)
-            response = client.chat.completions.create(
-                model=config.OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": full_prompt}
-                ],
-                temperature=0.7,
-                max_tokens=2000
-            )
+            
+            # GPT-5 uses max_completion_tokens instead of max_tokens
+            # Try max_completion_tokens first, fallback to max_tokens for older models
+            try:
+                response = client.chat.completions.create(
+                    model=config.OPENAI_MODEL,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": full_prompt}
+                    ],
+                    temperature=0.7,
+                    max_completion_tokens=2000
+                )
+            except Exception as e:
+                # Fallback for older models that use max_tokens
+                if "max_completion_tokens" in str(e) or "unsupported_parameter" in str(e):
+                    response = client.chat.completions.create(
+                        model=config.OPENAI_MODEL,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": full_prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=2000
+                    )
+                else:
+                    raise
             
             return {
                 "response": response.choices[0].message.content,
@@ -199,6 +217,10 @@ Please provide a helpful response based on the context above."""
                 error_type = "auth_error"
                 user_message = "OpenAI API key is invalid. Please check your API key in the .env file."
                 logger.error(f"OpenAI API authentication error: {error_msg}")
+            elif "unsupported_parameter" in error_msg.lower() or "400" in error_msg:
+                error_type = "api_error"
+                user_message = f"API request error: {error_msg}. This may be due to an incompatible model parameter."
+                logger.error(f"OpenAI API parameter error: {error_msg}")
             else:
                 user_message = f"Error generating response: {error_msg}"
                 # Log unexpected errors with full traceback for debugging
