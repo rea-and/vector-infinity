@@ -1,0 +1,7 @@
+{
+  "enabled": false,
+  "days_back": 7,
+  "days_forward": 7,
+  "max_results": 250
+}
+

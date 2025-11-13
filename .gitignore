@@ -33,7 +33,8 @@ logs/
 # Plugin credentials and tokens
 plugins/*/credentials.json
 plugins/*/token.json
-plugins/*/config.json
+# Note: config.json files ARE tracked (with enabled: false by default)
+# Users can modify them locally without committing changes
 
 # OS
 .DS_Store
