@@ -19,8 +19,13 @@ A personal data aggregation system that imports data from multiple sources (Gmai
 
 - Ubuntu 25.10 (or compatible Linux distribution)
 - Python 3.8+
-- 1GB RAM minimum
+- 1GB RAM minimum (2GB recommended for installation)
 - Internet connection for API access
+
+**Note for 1GB RAM systems**: ChromaDB requires compilation during installation which can be memory-intensive. The setup script is optimized for low RAM, but if installation fails, consider:
+- Adding swap space temporarily: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`
+- Running installation during low system load
+- Installing on a system with more RAM, then copying the `venv` directory
 
 ## Quick Start
 
