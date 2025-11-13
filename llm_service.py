@@ -139,7 +139,7 @@ class LLMService:
             
             # If context is empty and vector search was used, try fallback
             if not context and use_vector_search:
-                logger.warning("Vector search returned no results, falling back to date-based search")
+                logger.info("Vector search returned no results (possibly due to quota), falling back to date-based search")
                 context = self.build_context(
                     query_text=prompt,
                     limit=context_limit,
@@ -189,16 +189,21 @@ Please provide a helpful response based on the context above."""
             if "429" in error_msg or "quota" in error_msg.lower() or "insufficient_quota" in error_msg.lower():
                 error_type = "quota_exceeded"
                 user_message = "OpenAI API quota exceeded. Please check your billing and usage at https://platform.openai.com/usage. You may need to add credits to your account or upgrade your plan."
+                # Log quota errors without full traceback (expected user error, not system error)
+                logger.warning(f"OpenAI API quota exceeded: {error_msg}")
             elif "rate_limit" in error_msg.lower():
                 error_type = "rate_limit"
                 user_message = "OpenAI API rate limit exceeded. Please try again in a few moments."
+                logger.warning(f"OpenAI API rate limit exceeded: {error_msg}")
             elif "invalid_api_key" in error_msg.lower() or "authentication" in error_msg.lower():
                 error_type = "auth_error"
                 user_message = "OpenAI API key is invalid. Please check your API key in the .env file."
+                logger.error(f"OpenAI API authentication error: {error_msg}")
             else:
                 user_message = f"Error generating response: {error_msg}"
+                # Log unexpected errors with full traceback for debugging
+                logger.error(f"Error generating LLM response ({error_type}): {e}", exc_info=True)
             
-            logger.error(f"Error generating LLM response ({error_type}): {e}", exc_info=True)
             return {
                 "response": user_message,
                 "context_used": "",
