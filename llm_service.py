@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class LLMService:
-    """Service for interacting with OpenAI GPT-4."""
+    """Service for interacting with OpenAI GPT-5."""
     
     def __init__(self):
         if not config.OPENAI_API_KEY:
@@ -109,7 +109,7 @@ class LLMService:
                          plugin_names: List[str] = None,
                          use_vector_search: bool = True) -> Dict[str, Any]:
         """
-        Generate a response using GPT-4 with context from imported data.
+        Generate a response using GPT-5 with context from imported data.
         Uses semantic search to find the most relevant items.
         
         Args:

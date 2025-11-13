@@ -20,7 +20,7 @@ LOGS_DIR = BASE_DIR / "logs"
 
 # OpenAI API
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENAI_MODEL = "gpt-4"  # or "gpt-4-turbo-preview" depending on your subscription
+OPENAI_MODEL = "gpt-5"  # GPT-5 model
 
 # Web server
 WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")

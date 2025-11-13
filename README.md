@@ -1,6 +1,6 @@
 # Vector Infinity
 
-A personal data aggregation system that imports data from multiple sources (Gmail, TODO apps, health trackers, calendars, etc.) and provides it as context for LLM prompts using GPT-4.
+A personal data aggregation system that imports data from multiple sources (Gmail, TODO apps, health trackers, calendars, etc.) and provides it as context for LLM prompts using GPT-5.
 
 ## Features
 
@@ -8,7 +8,7 @@ A personal data aggregation system that imports data from multiple sources (Gmai
 - **Automated Daily Imports**: Scheduled daily imports from all configured sources
 - **Local Database**: All data stored locally in SQLite (lightweight, low RAM usage)
 - **Vector Database**: ChromaDB for semantic search - finds relevant context based on meaning, not just dates
-- **LLM Integration**: Use imported data as context for GPT-4 prompts with semantic search
+- **LLM Integration**: Use imported data as context for GPT-5 prompts with semantic search
 - **Web UI**: Responsive web interface for:
   - Viewing import logs
   - Manually triggering imports
@@ -185,7 +185,7 @@ To create a new plugin:
 - **Embeddings**: OpenAI text-embedding-3-small model (efficient, cost-effective)
 - **Backend**: Flask (lightweight web framework)
 - **Scheduler**: APScheduler (background task scheduling)
-- **LLM**: OpenAI GPT-4 API
+- **LLM**: OpenAI GPT-5 API
 - **Frontend**: Vanilla HTML/CSS/JS (responsive, mobile-friendly)
 
 ### How Vector Search Works
