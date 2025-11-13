@@ -19,7 +19,7 @@ class ImportLog(Base):
     completed_at = Column(DateTime, nullable=True)
     records_imported = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
-    metadata = Column(JSON, nullable=True)
+    log_metadata = Column(JSON, nullable=True)  # Renamed from 'metadata' to avoid SQLAlchemy conflict
 
 
 class DataItem(Base):
@@ -32,7 +32,7 @@ class DataItem(Base):
     item_type = Column(String(50), nullable=False)  # email, todo, health_data, calendar_event, etc.
     title = Column(String(500), nullable=True)
     content = Column(Text, nullable=True)
-    metadata = Column(JSON, nullable=True)  # Additional structured data
+    item_metadata = Column(JSON, nullable=True)  # Additional structured data (renamed from 'metadata' to avoid SQLAlchemy conflict)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     source_timestamp = Column(DateTime, nullable=True)  # Original timestamp from source

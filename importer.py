@@ -72,7 +72,7 @@ class DataImporter:
                     # Update existing item
                     existing.title = item_data.get("title")
                     existing.content = item_data.get("content")
-                    existing.metadata = item_data.get("metadata", {})
+                    existing.item_metadata = item_data.get("metadata", {})
                     existing.updated_at = datetime.utcnow()
                     if item_data.get("source_timestamp"):
                         existing.source_timestamp = item_data.get("source_timestamp")
@@ -98,7 +98,7 @@ class DataImporter:
                         item_type=item_data.get("item_type", "unknown"),
                         title=item_data.get("title"),
                         content=item_data.get("content"),
-                        metadata=item_data.get("metadata", {}),
+                        item_metadata=item_data.get("metadata", {}),
                         source_timestamp=item_data.get("source_timestamp")
                     )
                     db.add(new_item)
