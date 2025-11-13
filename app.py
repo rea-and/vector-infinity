@@ -1,0 +1,156 @@
+"""Main Flask application."""
+from flask import Flask, jsonify, request, render_template_string
+from flask_cors import CORS
+from datetime import datetime
+from sqlalchemy.orm import Session
+from database import ImportLog, DataItem, SessionLocal, init_db
+from importer import DataImporter
+from llm_service import LLMService
+from scheduler import ImportScheduler
+from plugin_loader import PluginLoader
+import config
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+app = Flask(__name__)
+CORS(app)
+
+# Initialize services
+init_db()
+importer = DataImporter()
+llm_service = LLMService()
+plugin_loader = PluginLoader()
+scheduler = ImportScheduler()
+scheduler.start()
+
+
+@app.route("/")
+def index():
+    """Serve the main UI."""
+    return render_template_string(open("templates/index.html").read())
+
+
+@app.route("/api/plugins", methods=["GET"])
+def list_plugins():
+    """List all available plugins."""
+    plugins = plugin_loader.get_all_plugins()
+    result = []
+    for name, plugin in plugins.items():
+        result.append({
+            "name": name,
+            "enabled": plugin.config.get("enabled", False),
+            "config_schema": plugin.get_config_schema()
+        })
+    return jsonify(result)
+
+
+@app.route("/api/imports", methods=["GET"])
+def list_imports():
+    """List import logs."""
+    db = SessionLocal()
+    try:
+        limit = request.args.get("limit", 50, type=int)
+        plugin_name = request.args.get("plugin", None)
+        
+        query = db.query(ImportLog)
+        if plugin_name:
+            query = query.filter(ImportLog.plugin_name == plugin_name)
+        
+        logs = query.order_by(ImportLog.started_at.desc()).limit(limit).all()
+        
+        result = []
+        for log in logs:
+            result.append({
+                "id": log.id,
+                "plugin_name": log.plugin_name,
+                "status": log.status,
+                "started_at": log.started_at.isoformat() if log.started_at else None,
+                "completed_at": log.completed_at.isoformat() if log.completed_at else None,
+                "records_imported": log.records_imported,
+                "error_message": log.error_message
+            })
+        
+        return jsonify(result)
+    finally:
+        db.close()
+
+
+@app.route("/api/imports/run", methods=["POST"])
+def run_import():
+    """Run import for a specific plugin or all plugins."""
+    data = request.get_json() or {}
+    plugin_name = data.get("plugin_name")
+    
+    if plugin_name:
+        log_entry = importer.import_from_plugin(plugin_name)
+        return jsonify({
+            "success": log_entry.status == "success",
+            "plugin_name": log_entry.plugin_name,
+            "status": log_entry.status,
+            "records_imported": log_entry.records_imported,
+            "error_message": log_entry.error_message
+        })
+    else:
+        results = importer.import_all()
+        return jsonify({
+            "success": True,
+            "results": {
+                name: {
+                    "status": log.status,
+                    "records_imported": log.records_imported,
+                    "error_message": log.error_message
+                }
+                for name, log in results.items()
+            }
+        })
+
+
+@app.route("/api/llm/prompt", methods=["POST"])
+def llm_prompt():
+    """Run an LLM prompt with context using semantic search."""
+    data = request.get_json()
+    if not data or "prompt" not in data:
+        return jsonify({"error": "Missing 'prompt' field"}), 400
+    
+    prompt = data["prompt"]
+    context_limit = data.get("context_limit", 10)  # Lower default since we're using semantic search
+    plugin_names = data.get("plugin_names", None)
+    use_vector_search = data.get("use_vector_search", True)
+    
+    result = llm_service.generate_response(
+        prompt=prompt,
+        context_limit=context_limit,
+        plugin_names=plugin_names,
+        use_vector_search=use_vector_search
+    )
+    
+    return jsonify(result)
+
+
+@app.route("/api/stats", methods=["GET"])
+def get_stats():
+    """Get statistics about imported data."""
+    db = SessionLocal()
+    try:
+        total_items = db.query(DataItem).count()
+        items_by_plugin = {}
+        items_by_type = {}
+        
+        for item in db.query(DataItem).all():
+            items_by_plugin[item.plugin_name] = items_by_plugin.get(item.plugin_name, 0) + 1
+            items_by_type[item.item_type] = items_by_type.get(item.item_type, 0) + 1
+        
+        return jsonify({
+            "total_items": total_items,
+            "by_plugin": items_by_plugin,
+            "by_type": items_by_type
+        })
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":
+    app.run(host=config.WEB_HOST, port=config.WEB_PORT, debug=False)
+

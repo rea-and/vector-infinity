@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vector Infinity</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background: #34495e;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .tab.active {
+            background: #3498db;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            margin-bottom: 15px;
+            font-size: 20px;
+            color: #2c3e50;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn:hover {
+            background: #2980b9;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+        }
+        
+        .btn-success:hover {
+            background: #229954;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+        }
+        
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-running {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .response-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .plugin-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .plugin-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                width: 100%;
+            }
+            
+            table {
+                font-size: 12px;
+            }
+            
+            th, td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Vector Infinity</h1>
+            <p>Personal Data Aggregation & LLM Context System</p>
+        </header>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('imports')">Import Logs</button>
+            <button class="tab" onclick="showTab('run')">Run Imports</button>
+            <button class="tab" onclick="showTab('llm')">LLM Prompts</button>
+            <button class="tab" onclick="showTab('stats')">Statistics</button>
+        </div>
+        
+        <div id="imports" class="tab-content active">
+            <div class="card">
+                <h2>Import Logs</h2>
+                <button class="btn" onclick="loadImports()">Refresh</button>
+                <div id="imports-table"></div>
+            </div>
+        </div>
+        
+        <div id="run" class="tab-content">
+            <div class="card">
+                <h2>Run Imports</h2>
+                <button class="btn btn-success" onclick="runAllImports()">Run All Imports</button>
+                <div id="plugins-list"></div>
+            </div>
+        </div>
+        
+        <div id="llm" class="tab-content">
+            <div class="card">
+                <h2>LLM Prompt</h2>
+                <textarea id="prompt-input" placeholder="Enter your question or prompt here..."></textarea>
+                <div style="margin-top: 10px;">
+                    <label>Context Limit: <input type="number" id="context-limit" value="10" min="1" max="50" style="width: 100px; display: inline-block;"></label>
+                    <label style="margin-left: 20px;">
+                        <input type="checkbox" id="use-vector-search" checked style="width: auto; display: inline-block;">
+                        Use Semantic Search
+                    </label>
+                </div>
+                <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                    Semantic search finds the most relevant items based on your question, not just recent ones.
+                </p>
+                <button class="btn" onclick="runPrompt()" style="margin-top: 10px;">Run Prompt</button>
+                <div id="prompt-response" class="response-box" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <div id="stats" class="tab-content">
+            <div class="card">
+                <h2>Statistics</h2>
+                <button class="btn" onclick="loadStats()">Refresh</button>
+                <div id="stats-content"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = '/api';
+        
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            if (tabName === 'imports') loadImports();
+            if (tabName === 'run') loadPlugins();
+            if (tabName === 'stats') loadStats();
+        }
+        
+        async function loadImports() {
+            const response = await fetch(`${API_BASE}/imports?limit=50`);
+            const imports = await response.json();
+            
+            const table = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Plugin</th>
+                            <th>Status</th>
+                            <th>Started</th>
+                            <th>Completed</th>
+                            <th>Records</th>
+                            <th>Error</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${imports.map(imp => `
+                            <tr>
+                                <td>${imp.plugin_name}</td>
+                                <td><span class="status-badge status-${imp.status}">${imp.status}</span></td>
+                                <td>${new Date(imp.started_at).toLocaleString()}</td>
+                                <td>${imp.completed_at ? new Date(imp.completed_at).toLocaleString() : '-'}</td>
+                                <td>${imp.records_imported || 0}</td>
+                                <td>${imp.error_message || '-'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            document.getElementById('imports-table').innerHTML = table;
+        }
+        
+        async function loadPlugins() {
+            const response = await fetch(`${API_BASE}/plugins`);
+            const plugins = await response.json();
+            
+            const html = `
+                <div class="plugin-list" style="margin-top: 20px;">
+                    ${plugins.map(plugin => `
+                        <div class="plugin-card">
+                            <h3>${plugin.name}</h3>
+                            <p>Status: ${plugin.enabled ? 'Enabled' : 'Disabled'}</p>
+                            <button class="btn" onclick="runImport('${plugin.name}')" ${!plugin.enabled ? 'disabled' : ''}>
+                                Run Import
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            document.getElementById('plugins-list').innerHTML = html;
+        }
+        
+        async function runImport(pluginName) {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Running...';
+            
+            const response = await fetch(`${API_BASE}/imports/run`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({plugin_name: pluginName})
+            });
+            
+            const result = await response.json();
+            alert(`Import ${result.status}: ${result.records_imported || 0} records imported${result.error_message ? '\nError: ' + result.error_message : ''}`);
+            
+            btn.disabled = false;
+            btn.innerHTML = 'Run Import';
+            loadImports();
+        }
+        
+        async function runAllImports() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Running All...';
+            
+            const response = await fetch(`${API_BASE}/imports/run`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({})
+            });
+            
+            const result = await response.json();
+            alert('All imports completed. Check logs for details.');
+            
+            btn.disabled = false;
+            btn.innerHTML = 'Run All Imports';
+            loadImports();
+        }
+        
+        async function runPrompt() {
+            const prompt = document.getElementById('prompt-input').value;
+            if (!prompt.trim()) {
+                alert('Please enter a prompt');
+                return;
+            }
+            
+            const responseBox = document.getElementById('prompt-response');
+            responseBox.style.display = 'block';
+            responseBox.innerHTML = '<span class="loading"></span> Generating response...';
+            
+            const contextLimit = parseInt(document.getElementById('context-limit').value);
+            const useVectorSearch = document.getElementById('use-vector-search').checked;
+            
+            const response = await fetch(`${API_BASE}/llm/prompt`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    prompt: prompt,
+                    context_limit: contextLimit,
+                    use_vector_search: useVectorSearch
+                })
+            });
+            
+            const result = await response.json();
+            if (result.error) {
+                responseBox.innerHTML = `Error: ${result.error}`;
+            } else {
+                responseBox.innerHTML = result.response;
+            }
+        }
+        
+        async function loadStats() {
+            const response = await fetch(`${API_BASE}/stats`);
+            const stats = await response.json();
+            
+            const html = `
+                <div style="margin-top: 20px;">
+                    <h3>Total Items: ${stats.total_items}</h3>
+                    <h3 style="margin-top: 20px;">By Plugin:</h3>
+                    <ul>
+                        ${Object.entries(stats.by_plugin).map(([plugin, count]) => 
+                            `<li>${plugin}: ${count}</li>`
+                        ).join('')}
+                    </ul>
+                    <h3 style="margin-top: 20px;">By Type:</h3>
+                    <ul>
+                        ${Object.entries(stats.by_type).map(([type, count]) => 
+                            `<li>${type}: ${count}</li>`
+                        ).join('')}
+                    </ul>
+                </div>
+            `;
+            document.getElementById('stats-content').innerHTML = html;
+        }
+        
+        // Load initial data
+        loadImports();
+    </script>
+</body>
+</html>
+
