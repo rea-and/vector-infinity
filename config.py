@@ -1,9 +1,14 @@
 """Configuration settings for the application."""
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Base directory
 BASE_DIR = Path(__file__).parent
+
+# Load environment variables from .env file
+env_path = BASE_DIR / ".env"
+load_dotenv(dotenv_path=env_path)
 
 # Database
 DATABASE_PATH = BASE_DIR / "data" / "vector_infinity.db"
