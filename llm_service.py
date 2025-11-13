@@ -165,21 +165,47 @@ Please provide a helpful response based on the context above."""
             # Call OpenAI API
             client = openai.OpenAI(api_key=config.OPENAI_API_KEY)
             
-            # GPT-5 uses max_completion_tokens instead of max_tokens
-            # Try max_completion_tokens first, fallback to max_tokens for older models
+            # GPT-5 has specific requirements:
+            # - Uses max_completion_tokens instead of max_tokens
+            # - Only supports default temperature (1), not custom values
+            # Try GPT-5 parameters first, fallback to older model parameters
+            is_gpt5 = "gpt-5" in config.OPENAI_MODEL.lower()
+            
             try:
-                response = client.chat.completions.create(
-                    model=config.OPENAI_MODEL,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": full_prompt}
-                    ],
-                    temperature=0.7,
-                    max_completion_tokens=2000
-                )
+                if is_gpt5:
+                    # GPT-5: no temperature parameter, use max_completion_tokens
+                    response = client.chat.completions.create(
+                        model=config.OPENAI_MODEL,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": full_prompt}
+                        ],
+                        max_completion_tokens=2000
+                    )
+                else:
+                    # Older models: use temperature and max_tokens
+                    response = client.chat.completions.create(
+                        model=config.OPENAI_MODEL,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": full_prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=2000
+                    )
             except Exception as e:
-                # Fallback for older models that use max_tokens
-                if "max_completion_tokens" in str(e) or "unsupported_parameter" in str(e):
+                # If GPT-5 call failed, try without temperature
+                if is_gpt5 and "temperature" in str(e).lower():
+                    response = client.chat.completions.create(
+                        model=config.OPENAI_MODEL,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": full_prompt}
+                        ],
+                        max_completion_tokens=2000
+                    )
+                # If max_completion_tokens failed, try max_tokens
+                elif "max_completion_tokens" in str(e) or "unsupported_parameter" in str(e):
                     response = client.chat.completions.create(
                         model=config.OPENAI_MODEL,
                         messages=[
