@@ -27,7 +27,7 @@ sudo apt-get install -y python3 python3-pip python3-venv
 
 # Install system dependencies (including build tools for ChromaDB)
 echo "Step 3: Installing system dependencies..."
-sudo apt-get install -y build-essential libssl-dev libffi-dev python3-dev cmake ninja-build
+sudo apt-get install -y build-essential libssl-dev libffi-dev python3-dev cmake ninja-build ufw
 
 # Get the directory where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -75,8 +75,37 @@ mkdir -p plugins
 echo "Step 7: Initializing database..."
 python3 -c "from database import init_db; init_db(); print('Database initialized')"
 
+# Configure firewall
+echo "Step 8: Configuring firewall (UFW)..."
+# Check if UFW is active, if not enable it
+if ! sudo ufw status | grep -q "Status: active"; then
+    echo "Enabling UFW firewall..."
+    sudo ufw --force enable
+fi
+
+# Allow SSH (important to do this first to avoid locking yourself out)
+if ! sudo ufw status | grep -q "22/tcp"; then
+    echo "Allowing SSH (port 22)..."
+    sudo ufw allow 22/tcp
+fi
+
+# Allow web server port (default 5000)
+echo "Allowing web server port 5000..."
+sudo ufw allow 5000/tcp comment 'Vector Infinity web UI'
+
+# Optionally allow HTTP/HTTPS if using reverse proxy
+read -p "Do you want to allow HTTP (80) and HTTPS (443) ports for reverse proxy? (y/N): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    sudo ufw allow 80/tcp comment 'HTTP'
+    sudo ufw allow 443/tcp comment 'HTTPS'
+fi
+
+echo "Firewall configuration complete. Current status:"
+sudo ufw status numbered
+
 # Create .env file if it doesn't exist
-echo "Step 8: Setting up environment file..."
+echo "Step 9: Setting up environment file..."
 if [ ! -f ".env" ]; then
     cat > .env << EOF
 # OpenAI API Configuration
@@ -96,7 +125,7 @@ else
 fi
 
 # Create systemd service file
-echo "Step 9: Creating systemd service..."
+echo "Step 10: Creating systemd service..."
 SERVICE_FILE="/tmp/vector-infinity.service"
 cat > "$SERVICE_FILE" << EOF
 [Unit]
