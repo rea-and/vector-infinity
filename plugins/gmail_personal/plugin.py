@@ -284,10 +284,14 @@ class Plugin(DataSourcePlugin):
                     },
                     "source_timestamp": source_timestamp
                 })
+            
+            logger.info(f"Processed {len(results)} emails from Gmail")
         
         except Exception as e:
+            logger.error(f"Error fetching Gmail data: {e}", exc_info=True)
             raise Exception(f"Error fetching Gmail data: {str(e)}")
         
+        logger.info(f"Fetched {len(results)} emails from Gmail")
         return results
     
     def test_connection(self):
