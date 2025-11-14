@@ -182,6 +182,65 @@
             overflow-y: auto;
         }
         
+        .test-form {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+        }
+        
+        .test-form label {
+            display: block;
+            margin: 8px 0 4px 0;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        
+        .test-form input[type="text"],
+        .test-form input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        
+        .test-result {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .test-result pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .test-result.error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        
+        .test-result.success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
         .loading {
             display: inline-block;
             width: 20px;
@@ -423,6 +482,105 @@
             window.location.href = `${API_BASE}/plugins/${pluginName}/schema`;
         }
         
+        async function testContextEndpoint(pluginName) {
+            const resultDiv = document.getElementById(`context-result-${pluginName}`);
+            resultDiv.innerHTML = '<div class="test-result"><pre>Testing...</pre></div>';
+            
+            try {
+                const limit = document.getElementById(`context-limit-${pluginName}`).value || 50;
+                const days = document.getElementById(`context-days-${pluginName}`).value || 30;
+                const itemType = document.getElementById(`context-item-type-${pluginName}`).value;
+                const query = document.getElementById(`context-query-${pluginName}`).value;
+                
+                let url = `${API_BASE}/plugins/${pluginName}/context?limit=${limit}&days=${days}`;
+                if (itemType) {
+                    url += `&item_type=${encodeURIComponent(itemType)}`;
+                }
+                if (query) {
+                    url += `&query=${encodeURIComponent(query)}`;
+                }
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="test-result success">
+                            <p><strong>Status: ${response.status} OK</strong></p>
+                            <p><strong>Count: ${data.count || 0} items</strong></p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="test-result error">
+                            <p><strong>Status: ${response.status} Error</strong></p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="test-result error">
+                        <p><strong>Error:</strong></p>
+                        <pre>${error.message}</pre>
+                    </div>
+                `;
+            }
+        }
+        
+        async function testSearchEndpoint(pluginName) {
+            const resultDiv = document.getElementById(`search-result-${pluginName}`);
+            const queryInput = document.getElementById(`search-query-${pluginName}`);
+            
+            if (!queryInput.value.trim()) {
+                resultDiv.innerHTML = `
+                    <div class="test-result error">
+                        <p><strong>Error:</strong> Query parameter is required</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="test-result"><pre>Testing...</pre></div>';
+            
+            try {
+                const query = queryInput.value;
+                const limit = document.getElementById(`search-limit-${pluginName}`).value || 20;
+                const days = document.getElementById(`search-days-${pluginName}`).value || 30;
+                
+                const url = `${API_BASE}/plugins/${pluginName}/search?q=${encodeURIComponent(query)}&limit=${limit}&days=${days}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="test-result success">
+                            <p><strong>Status: ${response.status} OK</strong></p>
+                            <p><strong>Query: "${query}"</strong></p>
+                            <p><strong>Count: ${data.count || 0} items found</strong></p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="test-result error">
+                            <p><strong>Status: ${response.status} Error</strong></p>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="test-result error">
+                        <p><strong>Error:</strong></p>
+                        <pre>${error.message}</pre>
+                    </div>
+                `;
+            }
+        }
+        
         async function loadAPIInfo() {
             try {
                 const pluginsResponse = await fetch(`${API_BASE}/plugins`);
@@ -444,23 +602,46 @@
                 plugins.forEach(plugin => {
                     html += `<div class="plugin-card" style="margin-top: 15px;">
                         <h3>${plugin.name}</h3>
-                        <p><strong>Get Context:</strong></p>
-                        <code style="background: #f4f4f4; padding: 5px; display: block; margin: 5px 0;">
-                            GET ${baseUrl}/api/plugins/${plugin.name}/context?limit=50&days=30
-                        </code>
-                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                            Parameters: limit (default: 50), days (default: 30), item_type (optional), query (optional text search)
-                        </p>
-                        <p><strong>Search:</strong></p>
-                        <code style="background: #f4f4f4; padding: 5px; display: block; margin: 5px 0;">
-                            GET ${baseUrl}/api/plugins/${plugin.name}/search?q=search+term&limit=20
-                        </code>
-                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                            Parameters: q (required), limit (default: 20), days (default: 30)
-                        </p>
-                        <p style="margin-top: 10px;">
+                        
+                        <div style="margin-top: 15px;">
+                            <p><strong>Get Context Endpoint:</strong></p>
+                            <code style="background: #f4f4f4; padding: 5px; display: block; margin: 5px 0; font-size: 12px;">
+                                GET ${baseUrl}/api/plugins/${plugin.name}/context
+                            </code>
+                            <div class="test-form">
+                                <label>Limit:</label>
+                                <input type="number" id="context-limit-${plugin.name}" value="50" min="1" max="500">
+                                <label>Days:</label>
+                                <input type="number" id="context-days-${plugin.name}" value="30" min="1" max="365">
+                                <label>Item Type (optional):</label>
+                                <input type="text" id="context-item-type-${plugin.name}" placeholder="e.g., email">
+                                <label>Query (optional text search):</label>
+                                <input type="text" id="context-query-${plugin.name}" placeholder="Search term">
+                                <button class="btn btn-small" onclick="testContextEndpoint('${plugin.name}')">Test Context Endpoint</button>
+                            </div>
+                            <div id="context-result-${plugin.name}"></div>
+                        </div>
+                        
+                        <div style="margin-top: 20px;">
+                            <p><strong>Search Endpoint:</strong></p>
+                            <code style="background: #f4f4f4; padding: 5px; display: block; margin: 5px 0; font-size: 12px;">
+                                GET ${baseUrl}/api/plugins/${plugin.name}/search
+                            </code>
+                            <div class="test-form">
+                                <label>Query (required):</label>
+                                <input type="text" id="search-query-${plugin.name}" placeholder="Search term" required>
+                                <label>Limit:</label>
+                                <input type="number" id="search-limit-${plugin.name}" value="20" min="1" max="500">
+                                <label>Days:</label>
+                                <input type="number" id="search-days-${plugin.name}" value="30" min="1" max="365">
+                                <button class="btn btn-small" onclick="testSearchEndpoint('${plugin.name}')">Test Search Endpoint</button>
+                            </div>
+                            <div id="search-result-${plugin.name}"></div>
+                        </div>
+                        
+                        <p style="margin-top: 15px;">
                             <strong>Custom GPT Schema:</strong>
-                            <button class="btn btn-success" onclick="downloadSchema('${plugin.name}')" style="margin-left: 10px;">
+                            <button class="btn btn-success btn-small" onclick="downloadSchema('${plugin.name}')" style="margin-left: 10px;">
                                 Download Schema JSON
                             </button>
                         </p>
