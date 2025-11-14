@@ -109,14 +109,25 @@ class DataImporter:
                     source_id=item_data.get("source_id")
                 ).first()
                 
-                # Prepare text for embedding
+                # Prepare text for embedding (different formats for different item types)
                 text_parts = []
-                if item_data.get("title"):
-                    text_parts.append(f"Subject: {item_data['title']}")
-                if item_data.get("metadata", {}).get("from"):
-                    text_parts.append(f"From: {item_data['metadata']['from']}")
-                if item_data.get("content"):
-                    text_parts.append(item_data["content"])
+                item_type = item_data.get("item_type", "")
+                
+                if item_type == "whatsapp_message":
+                    # Format for WhatsApp messages
+                    if item_data.get("metadata", {}).get("sender"):
+                        text_parts.append(f"From: {item_data['metadata']['sender']}")
+                    if item_data.get("content"):
+                        text_parts.append(item_data["content"])
+                else:
+                    # Format for emails and other items
+                    if item_data.get("title"):
+                        text_parts.append(f"Subject: {item_data['title']}")
+                    if item_data.get("metadata", {}).get("from"):
+                        text_parts.append(f"From: {item_data['metadata']['from']}")
+                    if item_data.get("content"):
+                        text_parts.append(item_data["content"])
+                
                 text_for_embedding = "\n".join(text_parts)
                 
                 if existing:
