@@ -412,6 +412,9 @@
                 }
                 const plugins = await response.json();
                 
+                // Debug: log plugins data
+                console.log('Plugins data:', plugins);
+                
                 if (!plugins || plugins.length === 0) {
                     document.getElementById('plugins-list').innerHTML = '<p>No plugins found.</p>';
                     return;
