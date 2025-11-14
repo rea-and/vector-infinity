@@ -70,8 +70,9 @@ class Plugin(DataSourcePlugin):
                 logger.info(f"Using chat file: {chat_file.name} (size: {chat_file.stat().st_size} bytes)")
                 
                 # Parse WhatsApp chat format
-                # Format: [DD/MM/YYYY, HH:MM:SS] Sender: Message
-                # Example: [14/11/2024, 10:30:45] Andrea: Hello!
+                # Format: DD/MM/YYYY, HH:MM - Sender: Message
+                # Example: 4/03/2025, 20:21 - Andrea: Hey Angel
+                # Also supports: [DD/MM/YYYY, HH:MM:SS] Sender: Message (older format)
                 
                 logger.info("Reading chat file content...")
                 with open(chat_file, 'r', encoding='utf-8', errors='ignore') as f:
@@ -80,29 +81,30 @@ class Plugin(DataSourcePlugin):
                 logger.info(f"Chat file read successfully. Content length: {len(content)} characters")
                 logger.info(f"First 500 characters of file:\n{content[:500]}")
                 
-                # Split into messages
-                # Pattern: [date, time] sender: message
-                pattern = r'\[(\d{1,2}/\d{1,2}/\d{4}),\s*(\d{1,2}:\d{2}:\d{2})\]\s*([^:]+):\s*(.*?)(?=\[\d{1,2}/\d{1,2}/\d{4}|\Z)'
+                # Try patterns in order of likelihood
+                # Pattern 1: DD/MM/YYYY, HH:MM - Sender: Message (most common WhatsApp format)
+                pattern = r'(\d{1,2}/\d{1,2}/\d{4}),\s*(\d{1,2}:\d{2})\s*-\s*([^:]+):\s*(.*?)(?=\d{1,2}/\d{1,2}/\d{4},\s*\d{1,2}:\d{2}\s*-\s*|\Z)'
                 
                 logger.info(f"Searching for messages with pattern: {pattern}")
                 messages = re.finditer(pattern, content, re.DOTALL | re.MULTILINE)
                 
                 # Convert to list to count
                 message_list = list(messages)
-                logger.info(f"Regex found {len(message_list)} potential messages")
+                logger.info(f"Primary pattern found {len(message_list)} potential messages")
                 
                 if len(message_list) == 0:
-                    # Try to find any lines that look like messages
+                    # Try alternative patterns
                     lines = content.split('\n')
                     logger.info(f"File has {len(lines)} total lines")
-                    # Show first 20 lines for debugging
                     logger.info(f"First 20 lines of file:\n{chr(10).join(lines[:20])}")
                     
-                    # Try alternative patterns
                     alt_patterns = [
+                        # Pattern 2: [DD/MM/YYYY, HH:MM:SS] Sender: Message (brackets with seconds)
+                        r'\[(\d{1,2}/\d{1,2}/\d{4}),\s*(\d{1,2}:\d{2}:\d{2})\]\s*([^:]+):\s*(.*?)(?=\[\d{1,2}/\d{1,2}/\d{4}|\Z)',
+                        # Pattern 3: [DD/MM/YYYY, HH:MM:SS] Sender: Message (simpler)
                         r'\[(\d{1,2}/\d{1,2}/\d{4}),\s*(\d{1,2}:\d{2}:\d{2})\]\s*([^:]+):\s*(.*)',
-                        r'(\d{1,2}/\d{1,2}/\d{4}),\s*(\d{1,2}:\d{2}:\d{2})\s*-\s*([^:]+):\s*(.*)',
-                        r'\[(\d{1,2}\.\d{1,2}\.\d{4}),\s*(\d{1,2}:\d{2}:\d{2})\]\s*([^:]+):\s*(.*)',
+                        # Pattern 4: DD.MM.YYYY, HH:MM - Sender: Message (dots instead of slashes)
+                        r'(\d{1,2}\.\d{1,2}\.\d{4}),\s*(\d{1,2}:\d{2})\s*-\s*([^:]+):\s*(.*)',
                     ]
                     
                     for i, alt_pattern in enumerate(alt_patterns):
@@ -128,16 +130,27 @@ class Plugin(DataSourcePlugin):
                     
                     # Parse timestamp
                     try:
-                        # WhatsApp format: DD/MM/YYYY, HH:MM:SS
+                        # WhatsApp format: DD/MM/YYYY, HH:MM (no seconds)
                         datetime_str = f"{date_str} {time_str}"
-                        source_timestamp = datetime.strptime(datetime_str, "%d/%m/%Y %H:%M:%S")
-                    except ValueError:
-                        # Try alternative format if needed
+                        # Try DD/MM/YYYY first (most common)
                         try:
-                            source_timestamp = datetime.strptime(datetime_str, "%m/%d/%Y %H:%M:%S")
+                            source_timestamp = datetime.strptime(datetime_str, "%d/%m/%Y %H:%M")
                         except ValueError:
-                            logger.warning(f"Could not parse timestamp: {datetime_str}, using current time")
-                            source_timestamp = datetime.now()
+                            # Try MM/DD/YYYY (US format)
+                            try:
+                                source_timestamp = datetime.strptime(datetime_str, "%m/%d/%Y %H:%M")
+                            except ValueError:
+                                # Try with seconds if time has them
+                                if ':' in time_str and time_str.count(':') == 2:
+                                    try:
+                                        source_timestamp = datetime.strptime(datetime_str, "%d/%m/%Y %H:%M:%S")
+                                    except ValueError:
+                                        source_timestamp = datetime.strptime(datetime_str, "%m/%d/%Y %H:%M:%S")
+                                else:
+                                    raise ValueError("Unknown date format")
+                    except ValueError as e:
+                        logger.warning(f"Could not parse timestamp: {datetime_str}, error: {e}, using current time")
+                        source_timestamp = datetime.now()
                     
                     # Create unique source_id from timestamp and message hash
                     source_id = f"{source_timestamp.isoformat()}_{hash(message) % 1000000}"
