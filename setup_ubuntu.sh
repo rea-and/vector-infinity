@@ -79,9 +79,9 @@ if ! sudo ufw status | grep -q "22/tcp"; then
     sudo ufw allow 22/tcp
 fi
 
-# Allow web server port (default 5000)
-echo "Allowing web server port 5000..."
-sudo ufw allow 5000/tcp comment 'Vector Infinity web UI'
+# Allow web server port (default 80)
+echo "Allowing web server port 80 (HTTP)..."
+sudo ufw allow 80/tcp comment 'Vector Infinity web UI'
 
 # Optionally allow HTTP/HTTPS if using reverse proxy
 read -p "Do you want to allow HTTP (80) and HTTPS (443) ports for reverse proxy? (y/N): " -n 1 -r
@@ -100,7 +100,7 @@ if [ ! -f ".env" ]; then
     cat > .env << EOF
 # Web Server Configuration
 WEB_HOST=0.0.0.0
-WEB_PORT=5000
+WEB_PORT=80
 
 # Scheduler Configuration
 TZ=UTC
@@ -121,10 +121,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=$USER
+User=root
 WorkingDirectory=$SCRIPT_DIR
 Environment="PATH=$SCRIPT_DIR/venv/bin"
-ExecStart=$SCRIPT_DIR/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 2 --threads 2 --timeout 120 app:app
+ExecStart=$SCRIPT_DIR/venv/bin/gunicorn --bind 0.0.0.0:80 --workers 2 --threads 2 --timeout 120 app:app
 Restart=always
 RestartSec=10
 

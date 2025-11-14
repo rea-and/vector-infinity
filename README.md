@@ -98,7 +98,7 @@ source venv/bin/activate
 python3 app.py
 ```
 
-Access the web UI at `http://localhost:5000`
+Access the web UI at `http://localhost`
 
 #### As a System Service
 

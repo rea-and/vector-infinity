@@ -21,7 +21,7 @@ LOGS_DIR = BASE_DIR / "logs"
 
 # Web server
 WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")
-WEB_PORT = int(os.getenv("WEB_PORT", "5000"))
+WEB_PORT = int(os.getenv("WEB_PORT", "80"))
 
 # Scheduler
 SCHEDULER_TIMEZONE = os.getenv("TZ", "UTC")
