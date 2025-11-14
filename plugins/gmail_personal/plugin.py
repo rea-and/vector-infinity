@@ -52,9 +52,23 @@ class Plugin(DataSourcePlugin):
                 try:
                     flow = InstalledAppFlow.from_client_secrets_file(
                         str(credentials_path), SCOPES)
-                    creds = flow.run_local_server(port=0)
+                    # Try local server first (for desktop), fall back to console flow (for headless)
+                    try:
+                        creds = flow.run_local_server(port=0)
+                    except Exception as local_error:
+                        # If local server fails (e.g., no browser), use console flow
+                        logger.info("Local server authentication failed, using console flow for headless server")
+                        logger.info("Please visit the following URL to authorize the application:")
+                        logger.info("=" * 80)
+                        flow.run_console()
+                        creds = flow.credentials
                 except Exception as e:
                     logger.warning(f"Error during OAuth flow: {e}")
+                    logger.info("If you're on a headless server, you can manually authenticate by:")
+                    logger.info("1. Running the import from a terminal")
+                    logger.info("2. Copying the authorization URL that appears")
+                    logger.info("3. Opening it in a browser on your local machine")
+                    logger.info("4. Pasting the authorization code back into the terminal")
                     return
             
             if creds:
