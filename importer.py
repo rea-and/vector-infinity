@@ -76,6 +76,8 @@ class DataImporter:
             data_items = plugin.fetch_data()
             
             records_imported = 0
+            items_to_sync = []  # Collect items for vector store sync
+            
             for item_data in data_items:
                 # Check if item already exists
                 existing = db.query(DataItem).filter_by(
@@ -104,8 +106,25 @@ class DataImporter:
                     )
                     db.add(new_item)
                     records_imported += 1
+                
+                # Collect item for vector store sync
+                items_to_sync.append({
+                    "title": item_data.get("title"),
+                    "content": item_data.get("content"),
+                    "metadata": item_data.get("metadata", {}),
+                    "source_timestamp": item_data.get("source_timestamp").isoformat() if item_data.get("source_timestamp") else None
+                })
             
             db.commit()
+            
+            # Sync to OpenAI Vector Store if enabled
+            try:
+                from vector_store_service import VectorStoreService
+                vector_service = VectorStoreService()
+                sync_result = vector_service.sync_data_to_store(plugin_name, items_to_sync)
+                logger.info(f"Synced {len(items_to_sync)} items to vector store: {sync_result.get('status')}")
+            except Exception as e:
+                logger.warning(f"Failed to sync to vector store (this is optional): {e}")
             
             # Update log entry
             log_entry.status = "success"

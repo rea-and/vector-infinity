@@ -28,6 +28,9 @@ WEB_PORT = int(os.getenv("WEB_PORT", "5000"))  # Changed to 5000 for Nginx rever
 SCHEDULER_TIMEZONE = os.getenv("TZ", "UTC")
 DAILY_IMPORT_TIME = os.getenv("DAILY_IMPORT_TIME", "02:00")  # 2 AM
 
+# OpenAI Vector Store (optional)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+
 # Create necessary directories
 DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 LOGS_DIR.mkdir(parents=True, exist_ok=True)

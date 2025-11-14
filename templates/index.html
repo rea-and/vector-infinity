@@ -494,6 +494,12 @@
                                 <button class="btn btn-success" onclick="downloadSchema('${plugin.name}')" style="margin-top: 5px;">
                                     Download Schema
                                 </button>
+                                <button class="btn" onclick="syncToVectorStore('${plugin.name}')" style="margin-top: 5px; background: #6f42c1; color: white;">
+                                    Sync to Vector Store
+                                </button>
+                                <button class="btn" onclick="getVectorStoreInfo('${plugin.name}')" style="margin-top: 5px; background: #17a2b8; color: white;">
+                                    Vector Store Info
+                                </button>
                             </div>
                         `;
                         }).join('')}
@@ -546,6 +552,46 @@
         
         function downloadSchema(pluginName) {
             window.location.href = `${API_BASE}/plugins/${pluginName}/schema`;
+        }
+        
+        async function syncToVectorStore(pluginName) {
+            if (!confirm(`Sync all data from ${pluginName} to OpenAI Vector Store? This may take a while.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/plugins/${pluginName}/vector-store/sync`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert(`Success! Synced ${data.items_synced} items.\n\nVector Store ID: ${data.vector_store_id}\n\nCopy this ID and use it in ChatGPT Custom GPT configuration.`);
+                } else {
+                    alert(`Error: ${data.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Error syncing to vector store:', error);
+                alert(`Error: ${error.message}`);
+            }
+        }
+        
+        async function getVectorStoreInfo(pluginName) {
+            try {
+                const response = await fetch(`${API_BASE}/plugins/${pluginName}/vector-store/info`);
+                const data = await response.json();
+                
+                if (data.has_store) {
+                    alert(`Vector Store Info:\n\nStore ID: ${data.store_id}\nName: ${data.store_name}\nCreated: ${new Date(data.created_at * 1000).toLocaleString()}\n\nUse the Store ID in ChatGPT Custom GPT configuration.`);
+                } else {
+                    alert(data.message || 'No vector store found. Run a sync first.');
+                }
+            } catch (error) {
+                console.error('Error getting vector store info:', error);
+                alert(`Error: ${error.message}`);
+            }
         }
         
         async function authenticatePlugin(pluginName) {

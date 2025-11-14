@@ -11,4 +11,5 @@ pytz==2024.1
 sqlalchemy==2.0.25
 python-dotenv==1.0.0
 gunicorn==21.2.0
+openai>=1.12.0
 
