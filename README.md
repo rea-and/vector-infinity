@@ -57,6 +57,8 @@ nano .env
 
 **Note**: No OpenAI API key is needed for Custom GPT integration. The system uses simple SQLite text search for querying data.
 
+The default port is 80. If you have an existing `.env` file with `WEB_PORT=5000`, update it to `WEB_PORT=80` or delete the line to use the default.
+
 #### Plugin Configuration
 
 Each plugin has its own configuration file in `plugins/<plugin_name>/config.json`.
