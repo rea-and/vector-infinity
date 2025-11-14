@@ -22,7 +22,7 @@ A personal data aggregation system that imports data from multiple sources (Gmai
 - 1GB RAM minimum (2GB recommended for installation)
 - Internet connection for API access
 
-**Note for 1GB RAM systems**: ChromaDB requires compilation during installation which can be memory-intensive. The setup script is optimized for low RAM, but if installation fails, consider:
+**Note for 1GB RAM systems**: The setup script is optimized for low RAM, but if installation fails, consider:
 - Adding swap space temporarily: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`
 - Running installation during low system load
 - Installing on a system with more RAM, then copying the `venv` directory
@@ -193,14 +193,38 @@ To create a new plugin:
 
 4. Enable the plugin by setting `"enabled": true` in `config.json`
 
-## OpenAI Vector Store Integration (Recommended)
+## Vector Search Integration (Recommended)
 
-**For handling large amounts of context (1000+ emails), use OpenAI's Vector Store API instead of direct API calls.**
+**For handling large amounts of context (1000+ emails), use semantic search with vector embeddings.**
 
-Vector Infinity can automatically sync your imported data to OpenAI's Vector Store, which ChatGPT can then use directly. This approach:
-- Avoids token limits
-- Handles large datasets efficiently
-- Automatically retrieves relevant context
+Vector Infinity supports two approaches for vector search:
+
+### Option 1: Custom Vector Database via Actions (Recommended)
+
+This approach uses your own vector database (SQLite) with embeddings, exposed via Actions in Custom GPT:
+
+**Benefits:**
+- Full control over your data
+- No OpenAI Vector Store quotas
+- Semantic search (finds emails by meaning, not just keywords)
+- Works via Actions as per OpenAI's documentation
+
+**How it works:**
+1. During import, embeddings are automatically generated for all items
+2. Embeddings are stored in your local SQLite database
+3. A semantic search endpoint is exposed as an Action
+4. ChatGPT calls this endpoint when it needs to search your emails
+
+**Setup:**
+1. Set `OPENAI_API_KEY` in your `.env` file (for generating embeddings)
+2. Import your data - embeddings are generated automatically
+3. Download the plugin's `custom_gpt_schema.json` (includes semantic search endpoint)
+4. In ChatGPT Custom GPT → Configure → Actions, import the schema
+5. The `semanticSearchGmailPersonal` action will be available
+
+### Option 2: OpenAI Vector Store API
+
+Vector Infinity can also sync to OpenAI's managed Vector Store:
 
 **Setup:**
 1. Set `OPENAI_API_KEY` in your `.env` file
@@ -209,7 +233,7 @@ Vector Infinity can automatically sync your imported data to OpenAI's Vector Sto
 4. Copy the Vector Store ID from the popup
 5. In ChatGPT Custom GPT configuration (Configure tab → Knowledge section), add the Vector Store ID
 
-See [VECTOR_STORE_SETUP.md](VECTOR_STORE_SETUP.md) for detailed instructions.
+See [VECTOR_STORE_SETUP.md](VECTOR_STORE_SETUP.md) for detailed instructions on OpenAI Vector Store.
 
 ## Custom GPT Integration (Alternative: Direct API)
 
@@ -232,7 +256,8 @@ See [VECTOR_STORE_SETUP.md](VECTOR_STORE_SETUP.md) for detailed instructions.
 4. **Test it**: In a conversation with your Custom GPT, ask questions that would benefit from your data. ChatGPT will automatically call the API endpoints when needed.
 
 Example prompts:
-- "What emails did I receive about project X?"
+- "What emails did I receive about project X?" (uses semantic search)
+- "Find emails related to my vacation plans" (uses semantic search - finds by meaning)
 - "Show me my upcoming calendar events"
 - "What are my recent TODO items?"
 - "What's my sleep data from last week?"
@@ -248,8 +273,13 @@ Example prompts:
 ### Plugin Context Endpoints (for Custom GPT)
 - `GET /api/plugins/{plugin_name}/context` - Get context data from a plugin
   - Parameters: `limit` (default: 50), `days` (default: 30), `item_type` (optional), `query` (optional text search)
-- `GET /api/plugins/{plugin_name}/search` - Search plugin data
+- `GET /api/plugins/{plugin_name}/search` - Search plugin data (keyword search)
   - Parameters: `q` (required), `limit` (default: 20), `days` (default: 30)
+- `POST /api/plugins/{plugin_name}/semantic-search` - Semantic search using vector embeddings (Action)
+  - Body: `{"query": "search text", "top_k": 5}`
+  - Returns: Results sorted by similarity score
+- `GET /api/plugins/{plugin_name}/inbox` - Get all emails as flat text within a time range
+  - Parameters: `start` (days in past, default: 180), `end` (days in past, default: 0)
 
 Example: `GET /api/plugins/gmail_personal/context?limit=20&days=7&query=meeting`
 

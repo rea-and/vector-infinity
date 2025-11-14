@@ -2,6 +2,8 @@
 
 This guide explains how to use OpenAI's Vector Store API with Vector Infinity to handle large amounts of context data efficiently.
 
+**Note**: Vector Infinity also supports semantic search via Actions (see [SEMANTIC_SEARCH_SETUP.md](SEMANTIC_SEARCH_SETUP.md)). Choose the approach that best fits your needs.
+
 ## Overview
 
 Instead of returning large amounts of text directly (which hits token limits), we use OpenAI's Vector Store API. This allows ChatGPT to:
