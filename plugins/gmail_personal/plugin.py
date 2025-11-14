@@ -234,58 +234,101 @@ class Plugin(DataSourcePlugin):
                 logger.warning(f"No messages found with query: {query}")
                 return results
             
-            for msg in messages_list[:max_results]:
-                msg_detail = self.service.users().messages().get(
-                    userId='me',
-                    id=msg['id'],
-                    format='full'
-                ).execute()
-                
-                headers = {h['name']: h['value'] for h in msg_detail['payload'].get('headers', [])}
-                subject = headers.get('Subject', 'No Subject')
-                from_addr = headers.get('From', 'Unknown')
-                date_str = headers.get('Date', '')
-                
-                # Extract body
-                body = ""
-                payload = msg_detail['payload']
-                if 'parts' in payload:
-                    for part in payload['parts']:
-                        if part['mimeType'] == 'text/plain':
-                            import base64
-                            body = base64.urlsafe_b64decode(
-                                part['body']['data']
-                            ).decode('utf-8', errors='ignore')
-                            break
-                elif payload.get('body', {}).get('data'):
-                    import base64
-                    body = base64.urlsafe_b64decode(
-                        payload['body']['data']
-                    ).decode('utf-8', errors='ignore')
-                
-                # Parse date
-                source_timestamp = None
-                try:
-                    from email.utils import parsedate_to_datetime
-                    source_timestamp = parsedate_to_datetime(date_str)
-                except:
-                    pass
-                
-                results.append({
-                    "source_id": msg['id'],
-                    "item_type": "email",
-                    "title": subject,
-                    "content": f"From: {from_addr}\n\n{body[:2000]}",  # Limit content
-                    "metadata": {
-                        "from": from_addr,
-                        "to": headers.get('To', ''),
-                        "date": date_str,
-                        "thread_id": msg_detail.get('threadId', '')
-                    },
-                    "source_timestamp": source_timestamp
-                })
+            # Process messages with error handling for each message
+            processed_count = 0
+            error_count = 0
             
-            logger.info(f"Processed {len(results)} emails from Gmail")
+            for idx, msg in enumerate(messages_list[:max_results]):
+                try:
+                    # Retry logic for fetching message details
+                    max_retries = 3
+                    msg_detail = None
+                    
+                    for attempt in range(max_retries):
+                        try:
+                            msg_detail = self.service.users().messages().get(
+                                userId='me',
+                                id=msg['id'],
+                                format='full'
+                            ).execute()
+                            break  # Success, exit retry loop
+                        except Exception as fetch_error:
+                            if attempt < max_retries - 1:
+                                wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                                logger.warning(f"Error fetching message {msg['id']} (attempt {attempt + 1}/{max_retries}): {fetch_error}. Retrying in {wait_time}s...")
+                                import time
+                                time.sleep(wait_time)
+                            else:
+                                logger.error(f"Failed to fetch message {msg['id']} after {max_retries} attempts: {fetch_error}")
+                                raise
+                    
+                    if not msg_detail:
+                        error_count += 1
+                        continue
+                    
+                    headers = {h['name']: h['value'] for h in msg_detail['payload'].get('headers', [])}
+                    subject = headers.get('Subject', 'No Subject')
+                    from_addr = headers.get('From', 'Unknown')
+                    date_str = headers.get('Date', '')
+                    
+                    # Extract body
+                    body = ""
+                    payload = msg_detail['payload']
+                    if 'parts' in payload:
+                        for part in payload['parts']:
+                            if part['mimeType'] == 'text/plain':
+                                import base64
+                                try:
+                                    if part.get('body', {}).get('data'):
+                                        body = base64.urlsafe_b64decode(
+                                            part['body']['data']
+                                        ).decode('utf-8', errors='ignore')
+                                        break
+                                except Exception as decode_error:
+                                    logger.debug(f"Error decoding body part for message {msg['id']}: {decode_error}")
+                                    continue
+                    elif payload.get('body', {}).get('data'):
+                        import base64
+                        try:
+                            body = base64.urlsafe_b64decode(
+                                payload['body']['data']
+                            ).decode('utf-8', errors='ignore')
+                        except Exception as decode_error:
+                            logger.debug(f"Error decoding body for message {msg['id']}: {decode_error}")
+                    
+                    # Parse date
+                    source_timestamp = None
+                    try:
+                        from email.utils import parsedate_to_datetime
+                        source_timestamp = parsedate_to_datetime(date_str)
+                    except:
+                        pass
+                    
+                    results.append({
+                        "source_id": msg['id'],
+                        "item_type": "email",
+                        "title": subject,
+                        "content": f"From: {from_addr}\n\n{body[:2000]}",  # Limit content
+                        "metadata": {
+                            "from": from_addr,
+                            "to": headers.get('To', ''),
+                            "date": date_str,
+                            "thread_id": msg_detail.get('threadId', '')
+                        },
+                        "source_timestamp": source_timestamp
+                    })
+                    processed_count += 1
+                    
+                    # Log progress every 50 messages
+                    if (idx + 1) % 50 == 0:
+                        logger.info(f"Processed {idx + 1}/{len(messages_list[:max_results])} messages...")
+                        
+                except Exception as msg_error:
+                    error_count += 1
+                    logger.warning(f"Error processing message {msg.get('id', 'unknown')}: {msg_error}. Skipping...")
+                    continue
+            
+            logger.info(f"Processed {processed_count} emails from Gmail (errors: {error_count})")
         
         except Exception as e:
             logger.error(f"Error fetching Gmail data: {e}", exc_info=True)
