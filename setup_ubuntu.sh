@@ -282,56 +282,110 @@ echo
 if [[ ! $REPLY =~ ^[Nn]$ ]]; then
     # Check if domain resolves to this server
     echo "Checking if $DOMAIN_NAME points to this server..."
-    SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s icanhazip.com 2>/dev/null || echo "")
-    if [ -n "$SERVER_IP" ]; then
-        DOMAIN_IP=$(dig +short $DOMAIN_NAME 2>/dev/null | tail -n1 || echo "")
+    SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s icanhazip.com 2>/dev/null || curl -s ipinfo.io/ip 2>/dev/null || echo "")
+    
+    if [ -z "$SERVER_IP" ]; then
+        echo "⚠️  Could not determine server IP. Skipping automatic SSL setup."
+        echo "You can set up SSL later with: sudo ./setup_ssl.sh $DOMAIN_NAME"
+    else
+        echo "Server IP: $SERVER_IP"
+        
+        # Use multiple DNS servers to check domain resolution (avoid localhost issues)
+        DOMAIN_IP=$(dig @8.8.8.8 +short $DOMAIN_NAME 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || echo "")
+        
         if [ -z "$DOMAIN_IP" ]; then
-            echo "⚠️  Warning: Could not resolve $DOMAIN_NAME. Make sure DNS is configured."
-            read -p "Continue anyway? (y/N): " -n 1 -r
+            echo ""
+            echo "⚠️  Warning: Could not resolve $DOMAIN_NAME to a valid IP address."
+            echo ""
+            echo "DNS Configuration Required:"
+            echo "1. Go to your domain registrar's DNS management panel"
+            echo "2. Add an A record:"
+            echo "   Name: @ (or leave blank for root domain)"
+            echo "   Type: A"
+            echo "   Value: $SERVER_IP"
+            echo "   TTL: 3600 (or default)"
+            echo "3. Wait a few minutes for DNS propagation"
+            echo "4. Then run: sudo ./setup_ssl.sh $DOMAIN_NAME"
+            echo ""
+            read -p "Continue anyway? (This will likely fail) (y/N): " -n 1 -r
             echo
             if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                echo "Skipping SSL setup. You can run it later with: sudo ./setup_ssl.sh $DOMAIN_NAME"
+                echo "Skipping SSL setup. Configure DNS first, then run: sudo ./setup_ssl.sh $DOMAIN_NAME"
             else
-                echo "Getting SSL certificate from Let's Encrypt..."
+                echo "Attempting SSL certificate setup (may fail if DNS is not configured)..."
                 sudo certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --register-unsafely-without-email
                 if [ $? -eq 0 ]; then
                     echo "✓ SSL certificate installed successfully!"
                 else
-                    echo "⚠️  SSL certificate installation failed. You can try again later with:"
-                    echo "   sudo ./setup_ssl.sh $DOMAIN_NAME"
+                    echo "⚠️  SSL certificate installation failed. This is likely because DNS is not configured."
+                    echo "   Configure DNS as shown above, then run: sudo ./setup_ssl.sh $DOMAIN_NAME"
+                fi
+            fi
+        elif [ "$DOMAIN_IP" = "127.0.0.1" ] || [ "$DOMAIN_IP" = "127.0.1.1" ] || [ "$DOMAIN_IP" = "127.0.0.0" ]; then
+            echo ""
+            echo "⚠️  Warning: $DOMAIN_NAME resolves to $DOMAIN_IP (localhost)."
+            echo "   This usually means DNS is not configured or there's a local hosts file entry."
+            echo ""
+            echo "DNS Configuration Required:"
+            echo "1. Go to your domain registrar's DNS management panel"
+            echo "2. Add an A record:"
+            echo "   Name: @ (or leave blank for root domain)"
+            echo "   Type: A"
+            echo "   Value: $SERVER_IP"
+            echo "   TTL: 3600 (or default)"
+            echo "3. Wait a few minutes for DNS propagation"
+            echo "4. Then run: sudo ./setup_ssl.sh $DOMAIN_NAME"
+            echo ""
+            read -p "Continue anyway? (This will likely fail) (y/N): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                echo "Skipping SSL setup. Configure DNS first, then run: sudo ./setup_ssl.sh $DOMAIN_NAME"
+            else
+                echo "Attempting SSL certificate setup (may fail if DNS is not configured)..."
+                sudo certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --register-unsafely-without-email
+                if [ $? -eq 0 ]; then
+                    echo "✓ SSL certificate installed successfully!"
+                else
+                    echo "⚠️  SSL certificate installation failed. This is likely because DNS is not configured."
+                    echo "   Configure DNS as shown above, then run: sudo ./setup_ssl.sh $DOMAIN_NAME"
                 fi
             fi
         elif [ "$DOMAIN_IP" != "$SERVER_IP" ]; then
+            echo ""
             echo "⚠️  Warning: $DOMAIN_NAME resolves to $DOMAIN_IP, but this server's IP is $SERVER_IP"
-            echo "Make sure $DOMAIN_NAME points to this server before setting up SSL."
-            read -p "Continue anyway? (y/N): " -n 1 -r
+            echo ""
+            echo "DNS Configuration:"
+            echo "1. Update your domain's A record to point to: $SERVER_IP"
+            echo "2. Wait a few minutes for DNS propagation"
+            echo "3. Then run: sudo ./setup_ssl.sh $DOMAIN_NAME"
+            echo ""
+            read -p "Continue anyway? (This will likely fail) (y/N): " -n 1 -r
             echo
             if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                echo "Skipping SSL setup. You can run it later with: sudo ./setup_ssl.sh $DOMAIN_NAME"
+                echo "Skipping SSL setup. Update DNS first, then run: sudo ./setup_ssl.sh $DOMAIN_NAME"
             else
-                echo "Getting SSL certificate from Let's Encrypt..."
+                echo "Attempting SSL certificate setup (may fail if DNS is not configured)..."
                 sudo certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --register-unsafely-without-email
                 if [ $? -eq 0 ]; then
                     echo "✓ SSL certificate installed successfully!"
                 else
-                    echo "⚠️  SSL certificate installation failed. You can try again later with:"
-                    echo "   sudo ./setup_ssl.sh $DOMAIN_NAME"
+                    echo "⚠️  SSL certificate installation failed. This is likely because DNS is not configured correctly."
+                    echo "   Update DNS as shown above, then run: sudo ./setup_ssl.sh $DOMAIN_NAME"
                 fi
             fi
         else
-            echo "✓ Domain DNS looks correct"
+            echo "✓ Domain DNS looks correct ($DOMAIN_NAME -> $DOMAIN_IP)"
             echo "Getting SSL certificate from Let's Encrypt..."
             sudo certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --register-unsafely-without-email
             if [ $? -eq 0 ]; then
                 echo "✓ SSL certificate installed successfully!"
+                echo ""
+                echo "Your site is now available at: https://$DOMAIN_NAME"
             else
                 echo "⚠️  SSL certificate installation failed. You can try again later with:"
                 echo "   sudo ./setup_ssl.sh $DOMAIN_NAME"
             fi
         fi
-    else
-        echo "⚠️  Could not determine server IP. Skipping automatic SSL setup."
-        echo "You can set up SSL later with: sudo ./setup_ssl.sh $DOMAIN_NAME"
     fi
 else
     echo "Skipping SSL setup. You can set it up later with:"
