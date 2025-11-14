@@ -1,6 +1,6 @@
 """Database models and connection."""
 from datetime import datetime, timezone
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, JSON
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, JSON, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import config
@@ -39,6 +39,7 @@ class DataItem(Base):
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     source_timestamp = Column(DateTime, nullable=True)  # Original timestamp from source
+    embedding = Column(LargeBinary, nullable=True)  # Vector embedding for semantic search
     
     # Unique constraint on plugin_name + source_id
     __table_args__ = (

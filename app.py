@@ -347,6 +347,95 @@ def get_plugin_context(plugin_name):
         db.close()
 
 
+@app.route("/api/plugins/<plugin_name>/semantic-search", methods=["POST"])
+def semantic_search(plugin_name):
+    """Semantic search endpoint for vector database (Action for Custom GPT)."""
+    db = SessionLocal()
+    try:
+        data = request.get_json() or {}
+        query = data.get("query", "")
+        top_k = data.get("top_k", 5)
+        
+        if not query:
+            return jsonify({"error": "query parameter is required"}), 400
+        
+        # Generate embedding for the query
+        try:
+            from embedding_service import EmbeddingService
+            embedding_service = EmbeddingService()
+            query_embedding = embedding_service.generate_embedding(query)
+            
+            if not query_embedding:
+                return jsonify({"error": "Failed to generate query embedding"}), 500
+        except Exception as e:
+            logger.error(f"Error initializing embedding service: {e}")
+            return jsonify({"error": "Embedding service not available. Set OPENAI_API_KEY in .env"}), 503
+        
+        # Get all items for this plugin with embeddings
+        items = db.query(DataItem).filter(
+            DataItem.plugin_name == plugin_name,
+            DataItem.embedding.isnot(None)
+        ).all()
+        
+        if not items:
+            return jsonify({
+                "results": [],
+                "message": "No items with embeddings found. Run an import to generate embeddings."
+            })
+        
+        # Calculate similarity scores
+        scored_items = []
+        for item in items:
+            try:
+                item_embedding = embedding_service.bytes_to_embedding(item.embedding)
+                similarity = embedding_service.cosine_similarity(query_embedding, item_embedding)
+                
+                # Format the text for return
+                text_parts = []
+                if item.title:
+                    text_parts.append(f"Subject: {item.title}")
+                if item.item_metadata and item.item_metadata.get("from"):
+                    text_parts.append(f"From: {item.item_metadata['from']}")
+                if item.source_timestamp:
+                    text_parts.append(f"Date: {item.source_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+                if item.content:
+                    text_parts.append(item.content)
+                
+                text = "\n".join(text_parts)
+                
+                scored_items.append({
+                    "text": text,
+                    "score": float(similarity),
+                    "metadata": {
+                        "id": item.id,
+                        "title": item.title,
+                        "source_id": item.source_id,
+                        "item_type": item.item_type,
+                        "source_timestamp": item.source_timestamp.isoformat() if item.source_timestamp else None,
+                        **(item.item_metadata or {})
+                    }
+                })
+            except Exception as e:
+                logger.warning(f"Error processing item {item.id}: {e}")
+                continue
+        
+        # Sort by similarity (descending) and take top_k
+        scored_items.sort(key=lambda x: x["score"], reverse=True)
+        results = scored_items[:top_k]
+        
+        return jsonify({
+            "results": results,
+            "query": query,
+            "total_found": len(scored_items),
+            "returned": len(results)
+        })
+    except Exception as e:
+        logger.error(f"Error in semantic search: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
+
 @app.route("/api/plugins/<plugin_name>/inbox", methods=["GET"])
 def get_plugin_inbox(plugin_name):
     """Get all emails as flat text within a time range."""
