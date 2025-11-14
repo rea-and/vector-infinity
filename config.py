@@ -20,8 +20,9 @@ PLUGINS_DIR = BASE_DIR / "plugins"
 LOGS_DIR = BASE_DIR / "logs"
 
 # Web server
+# Default to port 5000 if behind Nginx reverse proxy, or 80 if running directly
 WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")
-WEB_PORT = int(os.getenv("WEB_PORT", "80"))
+WEB_PORT = int(os.getenv("WEB_PORT", "5000"))  # Changed to 5000 for Nginx reverse proxy
 
 # Scheduler
 SCHEDULER_TIMEZONE = os.getenv("TZ", "UTC")

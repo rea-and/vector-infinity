@@ -25,9 +25,9 @@ sudo apt-get upgrade -y
 echo "Step 2: Installing Python 3 and pip..."
 sudo apt-get install -y python3 python3-pip python3-venv
 
-# Install system dependencies (including build tools and libcap for port 80 binding)
+# Install system dependencies (including build tools, Nginx, and Certbot for HTTPS)
 echo "Step 3: Installing system dependencies..."
-sudo apt-get install -y build-essential libssl-dev libffi-dev python3-dev cmake ninja-build ufw libcap2-bin snapd
+sudo apt-get install -y build-essential libssl-dev libffi-dev python3-dev cmake ninja-build ufw libcap2-bin nginx certbot python3-certbot-nginx
 
 # Get the directory where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -195,8 +195,13 @@ echo "   - For Whoop, add API key"
 echo ""
 echo "3. To run manually (for testing):"
 echo "   source venv/bin/activate"
-echo "   python3 app.py"
-echo "   (Port 80 binding is configured via setcap, no sudo needed)"
+if [ -n "$DOMAIN_NAME" ]; then
+    echo "   python3 app.py"
+    echo "   (App runs on port 5000, Nginx proxies from port 80/443)"
+else
+    echo "   python3 app.py"
+    echo "   (Port 80 binding is configured via setcap, no sudo needed)"
+fi
 echo ""
 echo "4. To install as a systemd service (optional):"
 echo "   sudo cp $SERVICE_FILE /etc/systemd/system/vector-infinity.service"
@@ -207,49 +212,109 @@ echo ""
 echo "5. To check service status:"
 echo "   sudo systemctl status vector-infinity"
 echo ""
-echo "The web UI will be available at: http://your-server-ip"
-echo ""
-echo "Note: Port 80 binding is configured using setcap, so you can run"
-echo "      the app without root privileges. The systemd service runs as"
-echo "      your user account (not root) for better security."
-echo ""
-echo "Step 12: Installing ngrok (for HTTPS OAuth testing)..."
-if ! command -v ngrok &> /dev/null; then
-    sudo snap install ngrok
-    echo "✓ ngrok installed"
+if [ -n "$DOMAIN_NAME" ]; then
+    echo "6. Set up SSL (HTTPS) with Let's Encrypt:"
+    echo "   sudo ./setup_ssl.sh $DOMAIN_NAME"
+    echo ""
+    echo "The web UI will be available at:"
+    echo "  - HTTP: http://$DOMAIN_NAME (until SSL is set up)"
+    echo "  - HTTPS: https://$DOMAIN_NAME (after running setup_ssl.sh)"
 else
-    echo "✓ ngrok already installed"
+    echo "The web UI will be available at: http://your-server-ip"
+    echo ""
+    echo "Note: Port 80 binding is configured using setcap, so you can run"
+    echo "      the app without root privileges. The systemd service runs as"
+    echo "      your user account (not root) for better security."
+    echo ""
+    echo "⚠️  For OAuth (Gmail), you need HTTPS. Set up Nginx with:"
+    echo "   sudo ./setup_nginx.sh your-domain.com"
+    echo "   sudo ./setup_ssl.sh your-domain.com"
 fi
+echo ""
+# Setup Nginx reverse proxy
+echo "Step 12: Setting up Nginx reverse proxy..."
+NGINX_CONFIG="/etc/nginx/sites-available/vector-infinity"
+NGINX_ENABLED="/etc/nginx/sites-enabled/vector-infinity"
 
-# Configure ngrok authtoken if not already configured
-if ! ngrok config check &> /dev/null 2>&1; then
+# Ask for domain name
+echo ""
+read -p "Enter your domain name (e.g., vectorinfinity.com) or press Enter to skip: " DOMAIN_NAME
+echo ""
+
+if [ -z "$DOMAIN_NAME" ]; then
+    echo "⚠️  Skipping Nginx setup. You can set it up later with:"
+    echo "   sudo ./setup_nginx.sh your-domain.com"
     echo ""
-    echo "ngrok needs to be configured with an authtoken for OAuth (HTTPS)."
-    echo "You can get a free authtoken at: https://dashboard.ngrok.com/get-started/your-authtoken"
-    echo ""
-    read -p "Do you want to configure ngrok now? (y/N): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        read -p "Enter your ngrok authtoken: " authtoken
-        if [ -n "$authtoken" ]; then
-            ngrok config add-authtoken "$authtoken"
-            if [ $? -eq 0 ]; then
-                echo "✓ ngrok configured successfully"
-            else
-                echo "⚠️  Failed to configure ngrok. You can configure it later with:"
-                echo "   ngrok config add-authtoken YOUR_AUTHTOKEN"
-            fi
-        else
-            echo "⚠️  No authtoken provided. You can configure ngrok later with:"
-            echo "   ngrok config add-authtoken YOUR_AUTHTOKEN"
-        fi
-    else
-        echo "⚠️  Skipping ngrok configuration. You can configure it later with:"
-        echo "   ngrok config add-authtoken YOUR_AUTHTOKEN"
-        echo "   Or use the launcher script: ./start_with_ngrok.sh (it will prompt you)"
-    fi
+    echo "For now, the app will run directly on port 80 (HTTP only)."
+    echo "Note: OAuth (Gmail) requires HTTPS, so you'll need to set up Nginx for that."
 else
-    echo "✓ ngrok already configured"
+    # Create Nginx configuration
+    echo "Creating Nginx configuration for $DOMAIN_NAME..."
+    sudo tee "$NGINX_CONFIG" > /dev/null << EOF
+server {
+    listen 80;
+    server_name $DOMAIN_NAME;
+    
+    # Logging
+    access_log /var/log/nginx/vector-infinity-access.log;
+    error_log /var/log/nginx/vector-infinity-error.log;
+    
+    # Proxy to Flask app (running on port 5000)
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header X-Forwarded-Host \$host;
+        
+        # WebSocket support (if needed in future)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # Timeouts
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
+EOF
+
+    # Enable the site
+    if [ -L "$NGINX_ENABLED" ]; then
+        sudo rm "$NGINX_ENABLED"
+    fi
+    sudo ln -s "$NGINX_CONFIG" "$NGINX_ENABLED"
+    
+    # Remove default Nginx site if it exists
+    if [ -L /etc/nginx/sites-enabled/default ]; then
+        sudo rm /etc/nginx/sites-enabled/default
+    fi
+    
+    # Test Nginx configuration
+    sudo nginx -t
+    if [ $? -eq 0 ]; then
+        sudo systemctl restart nginx
+        echo "✓ Nginx configured and started"
+        
+        # Update .env to use port 5000 (Flask app) since Nginx handles 80/443
+        if [ -f ".env" ]; then
+            # Update WEB_PORT to 5000 if it's 80
+            sed -i 's/^WEB_PORT=80$/WEB_PORT=5000/' .env || echo "WEB_PORT=5000" >> .env
+        fi
+        
+        # Update systemd service to use port 5000
+        sed -i 's/--bind 0.0.0.0:80/--bind 0.0.0.0:5000/' "$SERVICE_FILE"
+        
+        echo ""
+        echo "Nginx is configured. Next steps:"
+        echo "1. Make sure your domain $DOMAIN_NAME points to this server's IP"
+        echo "2. Run SSL setup: sudo ./setup_ssl.sh $DOMAIN_NAME"
+        echo "   This will get a Let's Encrypt certificate and configure HTTPS"
+    else
+        echo "⚠️  Nginx configuration test failed. Please check the configuration manually."
+    fi
 fi
 echo ""
 

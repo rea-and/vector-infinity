@@ -320,100 +320,59 @@ python3 app.py
 
 The redirect URI you need to add to Google Cloud Console will be:
 ```
-https://your-domain-or-ip/api/plugins/gmail_personal/auth/callback
+https://your-domain.com/api/plugins/gmail_personal/auth/callback
 ```
 
-**Which URL to use:**
-- If you have a domain: `https://yourdomain.com/api/plugins/gmail_personal/auth/callback`
-- If using ngrok: `https://your-ngrok-url.ngrok.io/api/plugins/gmail_personal/auth/callback`
-- If using IP with HTTPS: `https://your-ip-address/api/plugins/gmail_personal/auth/callback`
+**Recommended: Nginx with Let's Encrypt (Production Setup)**
 
-**Quick Test Setup (ngrok - Easiest for Testing):**
+The setup script will prompt you for your domain name and configure Nginx automatically. If you skipped it or want to set it up later:
 
-**Option 1: Use Nginx Reverse Proxy with Let's Encrypt (Recommended)**
-
-1. Install Nginx and Certbot:
+1. **Set up Nginx reverse proxy:**
    ```bash
-   sudo apt-get update
-   sudo apt-get install -y nginx certbot python3-certbot-nginx
+   sudo ./setup_nginx.sh your-domain.com
    ```
+   This creates the Nginx configuration and enables the site.
 
-2. Configure Nginx to proxy to your Flask app:
+2. **Make sure your domain points to your server:**
+   - Set an A record in your DNS: `your-domain.com` → `your-server-ip`
+   - Wait for DNS propagation (can take a few minutes)
+
+3. **Get SSL certificate with Let's Encrypt:**
    ```bash
-   sudo nano /etc/nginx/sites-available/vector-infinity
+   sudo ./setup_ssl.sh your-domain.com
    ```
-   
-   Add this configuration:
-   ```nginx
-   server {
-       listen 80;
-       server_name your-domain.com;  # Replace with your domain or IP
-       
-       location / {
-           proxy_pass http://127.0.0.1:5000;  # Or whatever port your app runs on
-           proxy_set_header Host $host;
-           proxy_set_header X-Real-IP $remote_addr;
-           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-           proxy_set_header X-Forwarded-Proto $scheme;
-       }
-   }
-   ```
+   This will:
+   - Get a free SSL certificate from Let's Encrypt
+   - Configure Nginx to use HTTPS
+   - Set up automatic certificate renewal
 
-3. Enable the site:
+4. **Update your `.env` file:**
+   The setup script should have already set `WEB_PORT=5000`. Verify:
    ```bash
-   sudo ln -s /etc/nginx/sites-available/vector-infinity /etc/nginx/sites-enabled/
-   sudo nginx -t
-   sudo systemctl restart nginx
+   cat .env | grep WEB_PORT
+   ```
+   If it shows `WEB_PORT=80`, change it to `WEB_PORT=5000` (Nginx handles 80/443)
+
+5. **Add redirect URI to Google Cloud Console:**
+   ```
+   https://your-domain.com/api/plugins/gmail_personal/auth/callback
    ```
 
-4. Get SSL certificate:
+6. **Restart the Flask app** (if running as a service):
    ```bash
-   sudo certbot --nginx -d your-domain.com
+   sudo systemctl restart vector-infinity
    ```
 
-5. Update your `.env` file to set `WEB_PORT=5000` (or another port) since Nginx will handle port 80/443
+Your site will now be available at `https://your-domain.com` with a valid SSL certificate!
 
-6. Update the redirect URI in Google Cloud Console to use `https://your-domain.com/api/plugins/gmail_personal/auth/callback`
-
-**Option 2: Use Cloudflare or Similar Service**
+**Alternative: Use Cloudflare or Similar Service**
 
 If you're using Cloudflare or a similar CDN/proxy service:
 1. Enable SSL/TLS in Cloudflare
 2. Set up a proxy rule to forward to your server
 3. Make sure `X-Forwarded-Proto` header is set correctly
 4. Use your Cloudflare domain in the redirect URI
-
-**Option 3: For Testing Only - Use ngrok (Easiest for Quick Testing)**
-
-1. Install ngrok:
-   ```bash
-   # Download from https://ngrok.com/download or:
-   curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-   echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-   sudo apt update && sudo apt install ngrok
-   ```
-
-2. Sign up at https://ngrok.com (free) and get your authtoken
-
-3. Configure ngrok:
-   ```bash
-   ngrok config add-authtoken YOUR_AUTHTOKEN
-   ```
-
-4. Start ngrok:
-   ```bash
-   ngrok http 80
-   ```
-
-5. Copy the HTTPS URL shown (e.g., `https://abc123.ngrok-free.app`)
-
-6. **Add this redirect URI to Google Cloud Console:**
-   ```
-   https://abc123.ngrok-free.app/api/plugins/gmail_personal/auth/callback
-   ```
-   (Replace `abc123.ngrok-free.app` with your actual ngrok URL)
-
-7. Try authenticating again from the web UI
+5. The Flask app should still run on port 5000, Cloudflare will handle SSL termination
 
 ## License
 
