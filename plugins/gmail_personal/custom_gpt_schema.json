@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "YOUR_SERVER_URL",
+      "url": "https://vectorinfinity.com/",
       "description": "Your Vector Infinity server URL"
     }
   ],
