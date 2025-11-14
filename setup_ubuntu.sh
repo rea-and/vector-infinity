@@ -79,16 +79,19 @@ if ! sudo ufw status | grep -q "22/tcp"; then
     sudo ufw allow 22/tcp
 fi
 
-# Allow web server port (default 80)
-echo "Allowing web server port 80 (HTTP)..."
-sudo ufw allow 80/tcp comment 'Vector Infinity web UI'
+# Remove old port 5000 rule if it exists
+echo "Removing old port 5000 rule if present..."
+sudo ufw delete allow 5000/tcp 2>/dev/null || true
 
-# Optionally allow HTTP/HTTPS if using reverse proxy
-read -p "Do you want to allow HTTP (80) and HTTPS (443) ports for reverse proxy? (y/N): " -n 1 -r
+# Allow web server port 80 (HTTP)
+echo "Allowing web server port 80 (HTTP)..."
+sudo ufw allow 80/tcp comment 'Vector Infinity web UI' 2>/dev/null || echo "Port 80 already allowed"
+
+# Optionally allow HTTPS if using reverse proxy
+read -p "Do you want to allow HTTPS (443) port for reverse proxy? (y/N): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    sudo ufw allow 80/tcp comment 'HTTP'
-    sudo ufw allow 443/tcp comment 'HTTPS'
+    sudo ufw allow 443/tcp comment 'HTTPS' 2>/dev/null || echo "Port 443 already allowed"
 fi
 
 echo "Firewall configuration complete. Current status:"
@@ -114,8 +117,19 @@ fi
 # Allow Python to bind to port 80 without root (using setcap)
 echo "Step 10: Configuring port 80 binding permissions..."
 if [ -f "$SCRIPT_DIR/venv/bin/python3" ]; then
-    sudo setcap 'cap_net_bind_service=+ep' "$SCRIPT_DIR/venv/bin/python3"
-    echo "✓ Python binary can now bind to port 80 without root privileges"
+    if command -v setcap >/dev/null 2>&1; then
+        sudo setcap 'cap_net_bind_service=+ep' "$SCRIPT_DIR/venv/bin/python3"
+        if [ $? -eq 0 ]; then
+            echo "✓ Python binary can now bind to port 80 without root privileges"
+        else
+            echo "⚠ Warning: Failed to set capabilities. You may need to run manually:"
+            echo "   sudo setcap 'cap_net_bind_service=+ep' $SCRIPT_DIR/venv/bin/python3"
+        fi
+    else
+        echo "⚠ Warning: setcap command not found. Install libcap2-bin:"
+        echo "   sudo apt-get install -y libcap2-bin"
+        echo "   Then run: sudo setcap 'cap_net_bind_service=+ep' $SCRIPT_DIR/venv/bin/python3"
+    fi
 else
     echo "⚠ Warning: Could not find Python binary to set capabilities"
 fi
