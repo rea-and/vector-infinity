@@ -44,6 +44,12 @@ class Plugin(DataSourcePlugin):
                 # Check if we're behind a proxy that handles HTTPS
                 if request.headers.get('X-Forwarded-Proto') == 'https':
                     scheme = 'https'
+                # If we have a domain (not localhost/IP), we likely need HTTPS
+                elif host and not host.startswith('localhost') and not host.startswith('127.0.0.1') and ':' not in host.split('.')[0]:
+                    # It's a domain name, likely needs HTTPS
+                    logger.warning(f"Gmail API requires HTTPS. Detected domain '{host}' but scheme is HTTP. "
+                                 "Forcing HTTPS. Make sure your domain has HTTPS set up or you're using ngrok.")
+                    scheme = 'https'
                 else:
                     # For Gmail API, we need HTTPS - warn the user
                     logger.warning("Gmail API requires HTTPS. Current scheme is HTTP. "
