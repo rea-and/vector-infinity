@@ -24,6 +24,55 @@ class VectorStoreService:
         # Detect the correct API path for vector stores
         self._detect_vector_store_api()
     
+    def _detect_vector_store_api(self):
+        """Detect the correct API path for vector stores in this SDK version."""
+        # Try different possible paths
+        if hasattr(self.client, 'beta') and hasattr(self.client.beta, 'vector_stores'):
+            self.vector_stores_api = self.client.beta.vector_stores
+        elif hasattr(self.client, 'beta') and hasattr(self.client.beta, 'assistants') and hasattr(self.client.beta.assistants, 'vector_stores'):
+            self.vector_stores_api = self.client.beta.assistants.vector_stores
+        elif hasattr(self.client, 'vector_stores'):
+            self.vector_stores_api = self.client.vector_stores
+        else:
+            # Try to find it dynamically
+            try:
+                # In newer SDK versions, vector stores might be at client.beta.vector_stores
+                self.vector_stores_api = getattr(self.client.beta, 'vector_stores', None)
+                if not self.vector_stores_api:
+                    # Try through assistants
+                    assistants = getattr(self.client.beta, 'assistants', None)
+                    if assistants:
+                        self.vector_stores_api = getattr(assistants, 'vector_stores', None)
+            except:
+                pass
+            
+            if not hasattr(self, 'vector_stores_api') or not self.vector_stores_api:
+                logger.warning("Could not detect vector stores API. Will try direct access.")
+                self.vector_stores_api = None
+    
+    def _get_vector_stores_api(self):
+        """Get the vector stores API object, trying different paths."""
+        if hasattr(self, 'vector_stores_api') and self.vector_stores_api:
+            return self.vector_stores_api
+        
+        # Try different paths
+        try:
+            return self.client.beta.vector_stores
+        except AttributeError:
+            pass
+        
+        try:
+            return self.client.beta.assistants.vector_stores
+        except AttributeError:
+            pass
+        
+        try:
+            return self.client.vector_stores
+        except AttributeError:
+            pass
+        
+        raise AttributeError("Vector stores API not found. Please upgrade OpenAI SDK: pip install --upgrade openai>=1.12.0")
+    
     def get_or_create_store(self, plugin_name: str) -> str:
         """Get existing vector store ID or create a new one for a plugin."""
         store_info_path = self.stores_dir / f"{plugin_name}_store.json"
