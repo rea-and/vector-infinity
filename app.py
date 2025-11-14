@@ -772,7 +772,8 @@ def get_vector_store_info(plugin_name):
             })
         
         # Get store details from OpenAI
-        store = vector_store_service.client.beta.assistants.vector_stores.retrieve(store_id)
+        vector_stores = vector_store_service._get_vector_stores_api()
+        store = vector_stores.retrieve(store_id)
         
         return jsonify({
             "has_store": True,

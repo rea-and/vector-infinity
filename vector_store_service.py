@@ -20,6 +20,9 @@ class VectorStoreService:
         self.client = OpenAI(api_key=api_key)
         self.stores_dir = config.BASE_DIR / "data" / "vector_stores"
         self.stores_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Detect the correct API path for vector stores
+        self._detect_vector_store_api()
     
     def get_or_create_store(self, plugin_name: str) -> str:
         """Get existing vector store ID or create a new one for a plugin."""
@@ -34,7 +37,8 @@ class VectorStoreService:
                     if store_id:
                         # Verify store still exists
                         try:
-                            store = self.client.beta.assistants.vector_stores.retrieve(store_id)
+                            vector_stores = self._get_vector_stores_api()
+                            store = vector_stores.retrieve(store_id)
                             logger.info(f"Using existing vector store {store_id} for {plugin_name}")
                             return store_id
                         except Exception as e:
@@ -44,8 +48,8 @@ class VectorStoreService:
         
         # Create new vector store
         logger.info(f"Creating new vector store for {plugin_name}")
-        # Vector stores are accessed through beta.assistants in OpenAI SDK
-        vector_store = self.client.beta.assistants.vector_stores.create(
+        vector_stores = self._get_vector_stores_api()
+        vector_store = vector_stores.create(
             name=f"{plugin_name}_vector_store",
             description=f"Vector store for {plugin_name} plugin data"
         )
@@ -112,7 +116,8 @@ class VectorStoreService:
                 )
             
             # Create file batch and attach to vector store
-            file_batch = self.client.beta.assistants.vector_stores.file_batches.create(
+            vector_stores = self._get_vector_stores_api()
+            file_batch = vector_stores.file_batches.create(
                 vector_store_id=store_id,
                 file_ids=[file.id]
             )
@@ -152,7 +157,8 @@ class VectorStoreService:
             return False
         
         try:
-            self.client.beta.assistants.vector_stores.delete(store_id)
+            vector_stores = self._get_vector_stores_api()
+            vector_stores.delete(store_id)
             store_info_path = self.stores_dir / f"{plugin_name}_store.json"
             if store_info_path.exists():
                 store_info_path.unlink()
