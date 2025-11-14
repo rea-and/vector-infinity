@@ -44,10 +44,24 @@ class VectorStoreService:
         
         # Create new vector store
         logger.info(f"Creating new vector store for {plugin_name}")
-        vector_store = self.client.beta.vector_stores.create(
-            name=f"{plugin_name}_vector_store",
-            description=f"Vector store for {plugin_name} plugin data"
-        )
+        try:
+            # Try the beta.vector_stores API
+            vector_store = self.client.beta.vector_stores.create(
+                name=f"{plugin_name}_vector_store",
+                description=f"Vector store for {plugin_name} plugin data"
+            )
+        except AttributeError:
+            # Fallback: try accessing through assistants API
+            try:
+                # Vector stores might be accessed differently in some SDK versions
+                vector_store = self.client.beta.assistants.vector_stores.create(
+                    name=f"{plugin_name}_vector_store",
+                    description=f"Vector store for {plugin_name} plugin data"
+                )
+            except AttributeError:
+                # Last resort: try direct access
+                logger.error("Vector stores API not available in this OpenAI SDK version. Please upgrade: pip install --upgrade openai>=1.12.0")
+                raise ValueError("Vector stores API not available. Please upgrade OpenAI SDK: pip install --upgrade openai>=1.12.0")
         
         # Save store info
         store_info = {
@@ -111,7 +125,7 @@ class VectorStoreService:
                 )
             
             # Create file batch and attach to vector store
-            file_batch = self.client.beta.vector_stores.file_batches.create(
+            file_batch = self.client.beta.assistants.vector_stores.file_batches.create(
                 vector_store_id=store_id,
                 file_ids=[file.id]
             )
@@ -151,7 +165,7 @@ class VectorStoreService:
             return False
         
         try:
-            self.client.beta.vector_stores.delete(store_id)
+            self.client.beta.assistants.vector_stores.delete(store_id)
             store_info_path = self.stores_dir / f"{plugin_name}_store.json"
             if store_info_path.exists():
                 store_info_path.unlink()
