@@ -431,8 +431,18 @@ def get_unified_schema():
                 logger.warning(f"Error loading schema from {plugin_dir.name}: {e}")
                 continue
     
-    # Return as JSON (not as download)
-    return jsonify(unified_schema)
+    # Return as downloadable JSON file
+    from flask import Response
+    import json as json_module
+    
+    response = Response(
+        json_module.dumps(unified_schema, indent=2),
+        mimetype='application/json',
+        headers={
+            'Content-Disposition': 'attachment; filename=vector_infinity_unified_schema.json'
+        }
+    )
+    return response
 
 
 @app.route("/api/plugins/<plugin_name>/schema", methods=["GET"])
