@@ -10,6 +10,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+class ImportLogResult:
+    """Simple result object to avoid SQLAlchemy DetachedInstanceError."""
+    def __init__(self, data):
+        self.id = data["id"]
+        self.plugin_name = data["plugin_name"]
+        self.status = data["status"]
+        self.started_at = data["started_at"]
+        self.completed_at = data["completed_at"]
+        self.records_imported = data["records_imported"]
+        self.error_message = data["error_message"]
+
+
 class DataImporter:
     """Handles importing data from plugins."""
     
@@ -101,9 +113,19 @@ class DataImporter:
             db.commit()
         
         finally:
+            # Extract values before closing session to avoid DetachedInstanceError
+            result = {
+                "id": log_entry.id,
+                "plugin_name": log_entry.plugin_name,
+                "status": log_entry.status,
+                "started_at": log_entry.started_at,
+                "completed_at": log_entry.completed_at,
+                "records_imported": log_entry.records_imported,
+                "error_message": log_entry.error_message
+            }
             db.close()
         
-        return log_entry
+        return ImportLogResult(result)
     
     def import_all(self) -> dict:
         """Import data from all enabled plugins."""
