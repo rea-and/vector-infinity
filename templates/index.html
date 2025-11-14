@@ -419,10 +419,68 @@
                 
                 const html = `
                     <div class="plugin-list" style="margin-top: 20px;">
-                        ${plugins.map(plugin => `
+                        ${plugins.map(plugin => {
+                            // Format authentication status
+                            let authInfo = '';
+                            if (plugin.auth_status) {
+                                let authStatusText = '';
+                                let authStatusColor = '#666';
+                                let authTimeText = '';
+                                
+                                if (plugin.auth_status === 'authenticated') {
+                                    authStatusText = '✓ Authenticated';
+                                    authStatusColor = '#28a745';
+                                } else if (plugin.auth_status === 'expired') {
+                                    authStatusText = '⚠ Token Expired (can refresh)';
+                                    authStatusColor = '#ffc107';
+                                } else if (plugin.auth_status === 'invalid') {
+                                    authStatusText = '✗ Invalid Token';
+                                    authStatusColor = '#dc3545';
+                                } else if (plugin.auth_status === 'not_authenticated') {
+                                    authStatusText = 'Not Authenticated';
+                                    authStatusColor = '#6c757d';
+                                } else {
+                                    authStatusText = 'Unknown';
+                                }
+                                
+                                if (plugin.last_auth_time) {
+                                    const authDate = new Date(plugin.last_auth_time);
+                                    const now = new Date();
+                                    const diffMs = now - authDate;
+                                    const diffMins = Math.floor(diffMs / 60000);
+                                    const diffHours = Math.floor(diffMs / 3600000);
+                                    const diffDays = Math.floor(diffMs / 86400000);
+                                    
+                                    let timeAgo = '';
+                                    if (diffMins < 1) {
+                                        timeAgo = 'just now';
+                                    } else if (diffMins < 60) {
+                                        timeAgo = `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+                                    } else if (diffHours < 24) {
+                                        timeAgo = `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+                                    } else {
+                                        timeAgo = `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+                                    }
+                                    
+                                    const formattedDate = authDate.toLocaleString();
+                                    authTimeText = `<p style="font-size: 12px; color: #666; margin: 5px 0 0 0;">Last authenticated: ${formattedDate} (${timeAgo})</p>`;
+                                }
+                                
+                                authInfo = `
+                                    <div style="margin: 10px 0; padding: 8px; background: #f8f9fa; border-radius: 4px; border-left: 3px solid ${authStatusColor};">
+                                        <p style="margin: 0; font-size: 13px; font-weight: 600; color: ${authStatusColor};">
+                                            ${authStatusText}
+                                        </p>
+                                        ${authTimeText}
+                                    </div>
+                                `;
+                            }
+                            
+                            return `
                             <div class="plugin-card">
                                 <h3>${plugin.name}</h3>
                                 <p>Status: ${plugin.enabled ? 'Enabled' : 'Disabled'}</p>
+                                ${authInfo}
                                 <button class="btn" onclick="authenticatePlugin('${plugin.name}')" style="margin-top: 5px;">
                                     Authenticate
                                 </button>
@@ -433,7 +491,8 @@
                                     Download Schema
                                 </button>
                             </div>
-                        `).join('')}
+                        `;
+                        }).join('')}
                     </div>
                 `;
                 document.getElementById('plugins-list').innerHTML = html;
