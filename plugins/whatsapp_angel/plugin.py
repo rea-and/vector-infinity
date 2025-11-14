@@ -21,7 +21,7 @@ class Plugin(DataSourcePlugin):
     def set_uploaded_file(self, file_path: str):
         """Set the path to the uploaded zip file."""
         self._uploaded_file_path = file_path
-        logger.info(f"Plugin {self.name}: Set uploaded file path to {file_path}")
+        logger.info(f"Plugin {self.plugin_name}: Set uploaded file path to {file_path}")
     
     @property
     def uploaded_file_path(self):
