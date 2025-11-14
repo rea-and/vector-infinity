@@ -117,13 +117,22 @@ fi
 # Allow Python to bind to port 80 without root (using setcap)
 echo "Step 10: Configuring port 80 binding permissions..."
 if [ -f "$SCRIPT_DIR/venv/bin/python3" ]; then
-    if command -v setcap >/dev/null 2>&1; then
-        sudo setcap 'cap_net_bind_service=+ep' "$SCRIPT_DIR/venv/bin/python3"
+    # Find setcap command (usually in /usr/sbin or /sbin)
+    SETCAP_CMD=""
+    for path in /usr/sbin/setcap /sbin/setcap; do
+        if [ -f "$path" ]; then
+            SETCAP_CMD="$path"
+            break
+        fi
+    done
+    
+    if [ -n "$SETCAP_CMD" ]; then
+        sudo "$SETCAP_CMD" 'cap_net_bind_service=+ep' "$SCRIPT_DIR/venv/bin/python3"
         if [ $? -eq 0 ]; then
             echo "✓ Python binary can now bind to port 80 without root privileges"
         else
             echo "⚠ Warning: Failed to set capabilities. You may need to run manually:"
-            echo "   sudo setcap 'cap_net_bind_service=+ep' $SCRIPT_DIR/venv/bin/python3"
+            echo "   sudo $SETCAP_CMD 'cap_net_bind_service=+ep' $SCRIPT_DIR/venv/bin/python3"
         fi
     else
         echo "⚠ Warning: setcap command not found. Install libcap2-bin:"
