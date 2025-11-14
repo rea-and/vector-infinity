@@ -359,6 +359,11 @@ def plugin_auth_callback(plugin_name):
         """)
     
     try:
+        # Store flow in oauth_flows if plugin stored it there
+        if state in oauth_flows and 'flow' in oauth_flows[state]:
+            # Flow is already stored, plugin can access it
+            pass
+        
         # Complete OAuth flow
         if hasattr(plugin, 'complete_authorization'):
             success = plugin.complete_authorization(code, state)
