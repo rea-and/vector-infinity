@@ -309,11 +309,13 @@ def plugin_auth_callback(plugin_name):
             redirect_uri = oauth_flows[state]['redirect_uri']
             redirect_uri_info = f"""
                 <h2>Redirect URI Configuration</h2>
-                <p><strong>Expected redirect URI:</strong></p>
-                <code style="background: #f4f4f4; padding: 10px; display: block; margin: 10px 0;">
+                <p><strong>Copy this EXACT URL and add it to Google Cloud Console:</strong></p>
+                <code style="background: #f4f4f4; padding: 10px; display: block; margin: 10px 0; font-size: 14px; word-break: break-all;">
                     {redirect_uri}
                 </code>
-                <p>Make sure this exact URI is added to your Google Cloud Console:</p>
+                <p style="color: red; font-weight: bold;">⚠️ IMPORTANT: This URL must start with https:// (not http://)</p>
+                <p>If it starts with http://, you need to set up HTTPS first (see instructions below).</p>
+                <p>Add this URL to Google Cloud Console:</p>
                 <ol>
                     <li>Go to <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
                     <li>Navigate to: APIs & Services > Credentials</li>
@@ -326,9 +328,16 @@ def plugin_auth_callback(plugin_name):
                 </ol>
                 <p><strong>Note:</strong> If you don't see "Authorized redirect URIs", your OAuth client is likely set as "Desktop app". 
                 You need to create a new OAuth client with type "Web application" to use web-based authentication.</p>
-                <p><strong>HTTPS Required:</strong> Google requires HTTPS for sensitive scopes like Gmail API. 
-                If your redirect URI starts with <code>http://</code>, you need to set up HTTPS. 
-                See instructions below for setting up SSL/TLS.</p>
+                <h2>HTTPS Setup Required</h2>
+                <p><strong>Google requires HTTPS for Gmail API.</strong> If the redirect URI above starts with <code>http://</code>, you need HTTPS.</p>
+                <p><strong>Quick Test Option (ngrok):</strong></p>
+                <ol>
+                    <li>Install ngrok: <code>sudo apt install ngrok</code> or download from <a href="https://ngrok.com" target="_blank">ngrok.com</a></li>
+                    <li>Run: <code>ngrok http 80</code></li>
+                    <li>Copy the HTTPS URL (e.g., <code>https://abc123.ngrok.io</code>)</li>
+                    <li>Use: <code>https://abc123.ngrok.io/api/plugins/gmail_personal/auth/callback</code> in Google Cloud Console</li>
+                </ol>
+                <p><strong>Production Option:</strong> Set up Nginx with Let's Encrypt (see README.md for full instructions)</p>
             """
         
         return render_template_string("""

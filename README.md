@@ -284,7 +284,19 @@ python3 app.py
 
 ### HTTPS Setup for OAuth (Required for Gmail API)
 
-Google requires HTTPS for OAuth redirects when using sensitive scopes like Gmail API. If you're getting "URI must use https://" errors, you need to set up HTTPS.
+**Google requires HTTPS for OAuth redirects when using sensitive scopes like Gmail API.**
+
+The redirect URI you need to add to Google Cloud Console will be:
+```
+https://your-domain-or-ip/api/plugins/gmail_personal/auth/callback
+```
+
+**Which URL to use:**
+- If you have a domain: `https://yourdomain.com/api/plugins/gmail_personal/auth/callback`
+- If using ngrok: `https://your-ngrok-url.ngrok.io/api/plugins/gmail_personal/auth/callback`
+- If using IP with HTTPS: `https://your-ip-address/api/plugins/gmail_personal/auth/callback`
+
+**Quick Test Setup (ngrok - Easiest for Testing):**
 
 **Option 1: Use Nginx Reverse Proxy with Let's Encrypt (Recommended)**
 
@@ -339,13 +351,37 @@ If you're using Cloudflare or a similar CDN/proxy service:
 3. Make sure `X-Forwarded-Proto` header is set correctly
 4. Use your Cloudflare domain in the redirect URI
 
-**Option 3: For Testing Only - Use ngrok**
+**Option 3: For Testing Only - Use ngrok (Easiest for Quick Testing)**
 
-For temporary testing, you can use ngrok:
-```bash
-ngrok http 80
-```
-Then use the HTTPS URL provided by ngrok in your redirect URI.
+1. Install ngrok:
+   ```bash
+   # Download from https://ngrok.com/download or:
+   curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+   echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+   sudo apt update && sudo apt install ngrok
+   ```
+
+2. Sign up at https://ngrok.com (free) and get your authtoken
+
+3. Configure ngrok:
+   ```bash
+   ngrok config add-authtoken YOUR_AUTHTOKEN
+   ```
+
+4. Start ngrok:
+   ```bash
+   ngrok http 80
+   ```
+
+5. Copy the HTTPS URL shown (e.g., `https://abc123.ngrok-free.app`)
+
+6. **Add this redirect URI to Google Cloud Console:**
+   ```
+   https://abc123.ngrok-free.app/api/plugins/gmail_personal/auth/callback
+   ```
+   (Replace `abc123.ngrok-free.app` with your actual ngrok URL)
+
+7. Try authenticating again from the web UI
 
 ## License
 
