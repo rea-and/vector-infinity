@@ -121,7 +121,62 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "plugin_name": {
+                      "type": "string",
+                      "description": "Name of the plugin"
+                    },
+                    "query": {
+                      "type": "string",
+                      "description": "The search query that was used"
+                    },
+                    "count": {
+                      "type": "integer",
+                      "description": "Number of items found"
+                    },
+                    "items": {
+                      "type": "array",
+                      "description": "Array of matching email items",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "description": "Item ID"
+                          },
+                          "type": {
+                            "type": "string",
+                            "description": "Item type (e.g., 'email')"
+                          },
+                          "title": {
+                            "type": "string",
+                            "description": "Email subject"
+                          },
+                          "content": {
+                            "type": "string",
+                            "description": "Email content"
+                          },
+                          "metadata": {
+                            "type": "object",
+                            "description": "Additional metadata about the email"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "When the item was created in the database"
+                          },
+                          "source_timestamp": {
+                            "type": "string",
+                            "format": "date-time",
+                            "description": "Original timestamp from Gmail"
+                          }
+                        },
+                        "required": ["id", "type", "title"]
+                      }
+                    }
+                  },
+                  "required": ["plugin_name", "query", "count", "items"]
                 }
               }
             }
