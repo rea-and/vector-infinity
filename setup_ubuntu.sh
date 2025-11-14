@@ -217,14 +217,39 @@ echo "Step 12: Installing ngrok (for HTTPS OAuth testing)..."
 if ! command -v ngrok &> /dev/null; then
     sudo snap install ngrok
     echo "✓ ngrok installed"
-    echo ""
-    echo "⚠️  IMPORTANT: To use ngrok for OAuth:"
-    echo "   1. Sign up at https://ngrok.com (free)"
-    echo "   2. Get your authtoken from https://dashboard.ngrok.com/get-started/your-authtoken"
-    echo "   3. Run: ngrok config add-authtoken YOUR_AUTHTOKEN"
-    echo "   4. Use the launcher script: ./start_with_ngrok.sh"
 else
     echo "✓ ngrok already installed"
+fi
+
+# Configure ngrok authtoken if not already configured
+if ! ngrok config check &> /dev/null 2>&1; then
+    echo ""
+    echo "ngrok needs to be configured with an authtoken for OAuth (HTTPS)."
+    echo "You can get a free authtoken at: https://dashboard.ngrok.com/get-started/your-authtoken"
+    echo ""
+    read -p "Do you want to configure ngrok now? (y/N): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        read -p "Enter your ngrok authtoken: " authtoken
+        if [ -n "$authtoken" ]; then
+            ngrok config add-authtoken "$authtoken"
+            if [ $? -eq 0 ]; then
+                echo "✓ ngrok configured successfully"
+            else
+                echo "⚠️  Failed to configure ngrok. You can configure it later with:"
+                echo "   ngrok config add-authtoken YOUR_AUTHTOKEN"
+            fi
+        else
+            echo "⚠️  No authtoken provided. You can configure ngrok later with:"
+            echo "   ngrok config add-authtoken YOUR_AUTHTOKEN"
+        fi
+    else
+        echo "⚠️  Skipping ngrok configuration. You can configure it later with:"
+        echo "   ngrok config add-authtoken YOUR_AUTHTOKEN"
+        echo "   Or use the launcher script: ./start_with_ngrok.sh (it will prompt you)"
+    fi
+else
+    echo "✓ ngrok already configured"
 fi
 echo ""
 
