@@ -1,5 +1,5 @@
 """Main Flask application."""
-from flask import Flask, jsonify, request, render_template_string, send_file
+from flask import Flask, jsonify, request, render_template_string, send_file, redirect, url_for
 from flask_cors import CORS
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
@@ -10,12 +10,17 @@ from plugin_loader import PluginLoader
 import config
 import logging
 from pathlib import Path
+import secrets
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
+
+# Store OAuth flows temporarily (in production, use Redis or similar)
+oauth_flows = {}
+app.oauth_flows = oauth_flows  # Make accessible to plugins
 
 # Initialize services
 init_db()
@@ -240,6 +245,179 @@ def get_plugin_schema(plugin_name):
     except Exception as e:
         logger.error(f"Error serving schema file: {e}")
         return jsonify({"error": "Failed to serve schema file"}), 500
+
+
+@app.route("/api/plugins/<plugin_name>/auth/start", methods=["POST"])
+def start_plugin_auth(plugin_name):
+    """Start OAuth flow for a plugin and return authorization URL."""
+    plugin = plugin_loader.get_plugin(plugin_name)
+    if not plugin:
+        return jsonify({"error": f"Plugin {plugin_name} not found"}), 404
+    
+    # Check if plugin supports OAuth
+    if not hasattr(plugin, 'get_authorization_url'):
+        return jsonify({"error": f"Plugin {plugin_name} does not support OAuth authentication"}), 400
+    
+    try:
+        # Generate a state token for security
+        state = secrets.token_urlsafe(32)
+        
+        # Get authorization URL from plugin
+        auth_url = plugin.get_authorization_url(state)
+        
+        if not auth_url:
+            return jsonify({"error": "Failed to generate authorization URL"}), 500
+        
+        # Store state for verification
+        oauth_flows[state] = {
+            "plugin_name": plugin_name,
+            "timestamp": datetime.now(timezone.utc)
+        }
+        
+        return jsonify({
+            "authorization_url": auth_url,
+            "state": state
+        })
+    except Exception as e:
+        logger.error(f"Error starting OAuth flow: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/plugins/<plugin_name>/auth/callback", methods=["GET"])
+def plugin_auth_callback(plugin_name):
+    """Handle OAuth callback."""
+    code = request.args.get('code')
+    state = request.args.get('state')
+    error = request.args.get('error')
+    
+    if error:
+        return render_template_string("""
+            <html>
+                <head><title>Authentication Error</title></head>
+                <body>
+                    <h1>Authentication Failed</h1>
+                    <p>Error: {{ error }}</p>
+                    <p>You can close this window.</p>
+                    <script>
+                        setTimeout(function() {
+                            window.close();
+                        }, 3000);
+                    </script>
+                </body>
+            </html>
+        """, error=error)
+    
+    if not code or not state:
+        return render_template_string("""
+            <html>
+                <head><title>Authentication Error</title></head>
+                <body>
+                    <h1>Authentication Failed</h1>
+                    <p>Missing authorization code or state.</p>
+                    <p>You can close this window.</p>
+                </body>
+            </html>
+        """)
+    
+    # Verify state
+    if state not in oauth_flows:
+        return render_template_string("""
+            <html>
+                <head><title>Authentication Error</title></head>
+                <body>
+                    <h1>Authentication Failed</h1>
+                    <p>Invalid state token. Please try again.</p>
+                    <p>You can close this window.</p>
+                </body>
+            </html>
+        """)
+    
+    flow_info = oauth_flows[state]
+    if flow_info["plugin_name"] != plugin_name:
+        return render_template_string("""
+            <html>
+                <head><title>Authentication Error</title></head>
+                <body>
+                    <h1>Authentication Failed</h1>
+                    <p>Plugin mismatch.</p>
+                    <p>You can close this window.</p>
+                </body>
+            </html>
+        """)
+    
+    plugin = plugin_loader.get_plugin(plugin_name)
+    if not plugin:
+        return render_template_string("""
+            <html>
+                <head><title>Authentication Error</title></head>
+                <body>
+                    <h1>Authentication Failed</h1>
+                    <p>Plugin not found.</p>
+                    <p>You can close this window.</p>
+                </body>
+            </html>
+        """)
+    
+    try:
+        # Complete OAuth flow
+        if hasattr(plugin, 'complete_authorization'):
+            success = plugin.complete_authorization(code, state)
+            if success:
+                # Clean up state
+                del oauth_flows[state]
+                return render_template_string("""
+                    <html>
+                        <head><title>Authentication Success</title></head>
+                        <body>
+                            <h1>Authentication Successful!</h1>
+                            <p>You have successfully authenticated {{ plugin_name }}.</p>
+                            <p>You can close this window and return to the application.</p>
+                            <script>
+                                // Notify parent window if opened from popup
+                                if (window.opener) {
+                                    window.opener.postMessage({type: 'oauth_success', plugin: '{{ plugin_name }}'}, '*');
+                                }
+                                setTimeout(function() {
+                                    window.close();
+                                }, 2000);
+                            </script>
+                        </body>
+                    </html>
+                """, plugin_name=plugin_name)
+            else:
+                return render_template_string("""
+                    <html>
+                        <head><title>Authentication Error</title></head>
+                        <body>
+                            <h1>Authentication Failed</h1>
+                            <p>Failed to complete authentication.</p>
+                            <p>You can close this window.</p>
+                        </body>
+                    </html>
+                """)
+        else:
+            return render_template_string("""
+                <html>
+                    <head><title>Authentication Error</title></head>
+                    <body>
+                        <h1>Authentication Failed</h1>
+                        <p>Plugin does not support OAuth completion.</p>
+                        <p>You can close this window.</p>
+                    </body>
+                </html>
+            """)
+    except Exception as e:
+        logger.error(f"Error completing OAuth flow: {e}", exc_info=True)
+        return render_template_string("""
+            <html>
+                <head><title>Authentication Error</title></head>
+                <body>
+                    <h1>Authentication Failed</h1>
+                    <p>Error: {{ error }}</p>
+                    <p>You can close this window.</p>
+                </body>
+            </html>
+        """, error=str(e))
 
 
 @app.route("/api/stats", methods=["GET"])

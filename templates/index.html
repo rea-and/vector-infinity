@@ -423,7 +423,10 @@
                             <div class="plugin-card">
                                 <h3>${plugin.name}</h3>
                                 <p>Status: ${plugin.enabled ? 'Enabled' : 'Disabled'}</p>
-                                <button class="btn" onclick="runImport('${plugin.name}')" ${!plugin.enabled ? 'disabled' : ''}>
+                                <button class="btn" onclick="authenticatePlugin('${plugin.name}')" style="margin-top: 5px;">
+                                    Authenticate
+                                </button>
+                                <button class="btn" onclick="runImport('${plugin.name}')" ${!plugin.enabled ? 'disabled' : ''} style="margin-top: 5px;">
                                     Run Import
                                 </button>
                                 <button class="btn btn-success" onclick="downloadSchema('${plugin.name}')" style="margin-top: 5px;">
@@ -480,6 +483,57 @@
         
         function downloadSchema(pluginName) {
             window.location.href = `${API_BASE}/plugins/${pluginName}/schema`;
+        }
+        
+        async function authenticatePlugin(pluginName) {
+            try {
+                const response = await fetch(`${API_BASE}/plugins/${pluginName}/auth/start`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert(`Authentication failed: ${error.error || 'Unknown error'}`);
+                    return;
+                }
+                
+                const data = await response.json();
+                const authUrl = data.authorization_url;
+                
+                // Open authorization URL in a popup window
+                const width = 600;
+                const height = 700;
+                const left = (screen.width - width) / 2;
+                const top = (screen.height - height) / 2;
+                
+                const popup = window.open(
+                    authUrl,
+                    'OAuth Authentication',
+                    `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+                );
+                
+                // Listen for OAuth success message from popup
+                const messageListener = function(event) {
+                    if (event.data && event.data.type === 'oauth_success' && event.data.plugin === pluginName) {
+                        window.removeEventListener('message', messageListener);
+                        popup.close();
+                        alert('Authentication successful! You can now run imports.');
+                        // Optionally refresh the page or update UI
+                        loadPlugins();
+                    }
+                };
+                
+                window.addEventListener('message', messageListener);
+                
+                // Check if popup was blocked
+                if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+                    alert('Popup was blocked. Please allow popups for this site and try again.');
+                }
+            } catch (error) {
+                console.error('Error starting authentication:', error);
+                alert(`Error: ${error.message}`);
+            }
         }
         
         async function testContextEndpoint(pluginName) {

@@ -20,8 +20,95 @@ class Plugin(DataSourcePlugin):
     def __init__(self):
         super().__init__("gmail_personal")
         self.service = None
+        self._oauth_flow = None  # Store OAuth flow for web-based auth
         # Don't authenticate on init - do it lazily when needed
         # self._authenticate()
+    
+    def get_authorization_url(self, state):
+        """Get OAuth authorization URL for web-based authentication."""
+        credentials_path = Path(__file__).parent / "credentials.json"
+        if not credentials_path.exists():
+            logger.warning("Gmail credentials.json not found")
+            return None
+        
+        try:
+            from flask import request
+            # Get the base URL from the request
+            base_url = request.host_url.rstrip('/')
+            redirect_uri = f"{base_url}/api/plugins/gmail_personal/auth/callback"
+            
+            flow = InstalledAppFlow.from_client_secrets_file(
+                str(credentials_path), SCOPES)
+            flow.redirect_uri = redirect_uri
+            
+            # Store flow in app's oauth_flows dict (accessed via app context)
+            from flask import current_app
+            if hasattr(current_app, 'oauth_flows'):
+                current_app.oauth_flows[state] = {
+                    'flow': flow,
+                    'plugin_name': 'gmail_personal'
+                }
+            else:
+                # Fallback: store in instance (less ideal but works)
+                self._oauth_flow = flow
+                self._oauth_state = state
+            
+            auth_url, _ = flow.authorization_url(
+                access_type='offline',
+                include_granted_scopes='true',
+                state=state,
+                prompt='consent'
+            )
+            return auth_url
+        except Exception as e:
+            logger.error(f"Error generating authorization URL: {e}", exc_info=True)
+            return None
+    
+    def complete_authorization(self, code, state):
+        """Complete OAuth flow with authorization code."""
+        flow = None
+        
+        # Try to get flow from app's oauth_flows dict
+        try:
+            from flask import current_app
+            if hasattr(current_app, 'oauth_flows') and state in current_app.oauth_flows:
+                flow = current_app.oauth_flows[state]['flow']
+        except:
+            pass
+        
+        # Fallback to instance flow
+        if not flow and self._oauth_flow and self._oauth_state == state:
+            flow = self._oauth_flow
+        
+        if not flow:
+            logger.error("OAuth flow not found for state")
+            return False
+        
+        try:
+            token_path = Path(__file__).parent / "token.json"
+            
+            # Exchange code for token
+            flow.fetch_token(code=code)
+            creds = flow.credentials
+            
+            # Save token
+            with open(token_path, 'w') as token:
+                token.write(creds.to_json())
+            
+            # Build service
+            self.service = build('gmail', 'v1', credentials=creds)
+            
+            # Clear flow
+            self._oauth_flow = None
+            self._oauth_state = None
+            
+            logger.info("Gmail authentication completed successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Error completing authorization: {e}", exc_info=True)
+            self._oauth_flow = None
+            self._oauth_state = None
+            return False
     
     def _authenticate(self):
         """Authenticate with Gmail API."""
