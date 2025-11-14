@@ -25,9 +25,9 @@ sudo apt-get upgrade -y
 echo "Step 2: Installing Python 3 and pip..."
 sudo apt-get install -y python3 python3-pip python3-venv
 
-# Install system dependencies (including build tools for ChromaDB)
+# Install system dependencies (including build tools and libcap for port 80 binding)
 echo "Step 3: Installing system dependencies..."
-sudo apt-get install -y build-essential libssl-dev libffi-dev python3-dev cmake ninja-build ufw
+sudo apt-get install -y build-essential libssl-dev libffi-dev python3-dev cmake ninja-build ufw libcap2-bin
 
 # Get the directory where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -111,8 +111,17 @@ else
     echo ".env file already exists, skipping..."
 fi
 
+# Allow Python to bind to port 80 without root (using setcap)
+echo "Step 10: Configuring port 80 binding permissions..."
+if [ -f "$SCRIPT_DIR/venv/bin/python3" ]; then
+    sudo setcap 'cap_net_bind_service=+ep' "$SCRIPT_DIR/venv/bin/python3"
+    echo "✓ Python binary can now bind to port 80 without root privileges"
+else
+    echo "⚠ Warning: Could not find Python binary to set capabilities"
+fi
+
 # Create systemd service file
-echo "Step 10: Creating systemd service..."
+echo "Step 11: Creating systemd service..."
 SERVICE_FILE="/tmp/vector-infinity.service"
 cat > "$SERVICE_FILE" << EOF
 [Unit]
@@ -121,7 +130,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
+User=$USER
 WorkingDirectory=$SCRIPT_DIR
 Environment="PATH=$SCRIPT_DIR/venv/bin"
 ExecStart=$SCRIPT_DIR/venv/bin/gunicorn --bind 0.0.0.0:80 --workers 2 --threads 2 --timeout 120 app:app
@@ -147,6 +156,7 @@ echo ""
 echo "3. To run manually (for testing):"
 echo "   source venv/bin/activate"
 echo "   python3 app.py"
+echo "   (Port 80 binding is configured via setcap, no sudo needed)"
 echo ""
 echo "4. To install as a systemd service (optional):"
 echo "   sudo cp $SERVICE_FILE /etc/systemd/system/vector-infinity.service"
@@ -159,7 +169,8 @@ echo "   sudo systemctl status vector-infinity"
 echo ""
 echo "The web UI will be available at: http://your-server-ip"
 echo ""
-echo "Note: Port 80 requires root privileges. The systemd service runs as root"
-echo "      for port binding. For manual testing, use: sudo python3 app.py"
+echo "Note: Port 80 binding is configured using setcap, so you can run"
+echo "      the app without root privileges. The systemd service runs as"
+echo "      your user account (not root) for better security."
 echo ""
 

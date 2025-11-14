@@ -266,6 +266,22 @@ The system is optimized for low RAM usage:
 - Reduce `max_results` in plugin configs
 - Reduce `days_back` in plugin configs
 
+### Port 80 Permission Denied
+If you get "Permission denied" when trying to run on port 80, the setup script should have configured this automatically. If not, run:
+
+```bash
+sudo setcap 'cap_net_bind_service=+ep' venv/bin/python3
+```
+
+This allows the Python binary to bind to port 80 without root privileges. After running this command, you can start the app normally:
+
+```bash
+source venv/bin/activate
+python3 app.py
+```
+
+**Note**: If you reinstall the virtual environment or update Python, you'll need to run the `setcap` command again.
+
 ## License
 
 MIT License
