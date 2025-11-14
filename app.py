@@ -1,7 +1,7 @@
 """Main Flask application."""
 from flask import Flask, jsonify, request, render_template_string, send_file
 from flask_cors import CORS
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from database import ImportLog, DataItem, SessionLocal, init_db
 from importer import DataImporter
@@ -117,7 +117,7 @@ def get_plugin_context(plugin_name):
         item_type = request.args.get("item_type", None)
         query = request.args.get("query", None)  # Optional text search
         
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
         
         # Query data items
         db_query = db.query(DataItem).filter(
@@ -141,7 +141,8 @@ def get_plugin_context(plugin_name):
         result = {
             "plugin_name": plugin_name,
             "count": len(items),
-            "items": []
+            "items": [],
+            "message": "No data found. Run an import first from the 'Run Imports' tab." if len(items) == 0 else None
         }
         
         for item in items:
@@ -172,7 +173,7 @@ def search_plugin_context(plugin_name):
         limit = request.args.get("limit", 20, type=int)
         days = request.args.get("days", 30, type=int)
         
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
         
         items = db.query(DataItem).filter(
             DataItem.plugin_name == plugin_name,
@@ -185,7 +186,8 @@ def search_plugin_context(plugin_name):
             "plugin_name": plugin_name,
             "query": query,
             "count": len(items),
-            "items": []
+            "items": [],
+            "message": "No data found. Run an import first from the 'Run Imports' tab." if len(items) == 0 else None
         }
         
         for item in items:

@@ -1,5 +1,5 @@
 """Database models and connection."""
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -15,7 +15,7 @@ class ImportLog(Base):
     id = Column(Integer, primary_key=True)
     plugin_name = Column(String(100), nullable=False, index=True)
     status = Column(String(20), nullable=False)  # success, error, running
-    started_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    started_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime, nullable=True)
     records_imported = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
@@ -33,8 +33,8 @@ class DataItem(Base):
     title = Column(String(500), nullable=True)
     content = Column(Text, nullable=True)
     item_metadata = Column(JSON, nullable=True)  # Additional structured data (renamed from 'metadata' to avoid SQLAlchemy conflict)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     source_timestamp = Column(DateTime, nullable=True)  # Original timestamp from source
     
     # Unique constraint on plugin_name + source_id
