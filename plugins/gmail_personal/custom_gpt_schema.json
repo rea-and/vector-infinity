@@ -226,6 +226,52 @@
           }
         }
       }
+    },
+    "/api/plugins/gmail_personal/inbox": {
+      "get": {
+        "operationId": "getGmailPersonalInbox",
+        "summary": "Get Gmail inbox as flat text",
+        "description": "Retrieve all emails within a time range as a single flat text document. Useful for getting large amounts of context in one call.",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "description": "Days in the past to start the range (default: 180, meaning 180 days ago)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 180,
+              "minimum": 0,
+              "maximum": 3650
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "description": "Days in the past to end the range (default: 0, meaning today)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0,
+              "maximum": 3650
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Flat text representation of all emails in the time range",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "description": "Plain text format with all emails, each email separated by a divider. Format: Date, From, Subject, Content."
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
