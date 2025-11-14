@@ -1,19 +1,19 @@
 # Vector Infinity
 
-A personal data aggregation system that imports data from multiple sources (Gmail, TODO apps, health trackers, calendars, etc.) and provides it as context for LLM prompts using GPT-5.
+A personal data aggregation system that imports data from multiple sources (Gmail, TODO apps, health trackers, calendars, etc.) and provides it as context for ChatGPT Custom GPTs via REST API endpoints.
 
 ## Features
 
 - **Plugin Architecture**: Easily extensible plugin system for adding new data sources
 - **Automated Daily Imports**: Scheduled daily imports from all configured sources
 - **Local Database**: All data stored locally in SQLite (lightweight, low RAM usage)
-- **Vector Database**: ChromaDB for semantic search - finds relevant context based on meaning, not just dates
-- **LLM Integration**: Use imported data as context for GPT-5 prompts with semantic search
-- **Web UI**: Responsive web interface for:
+- **Custom GPT Integration**: Each plugin exposes REST API endpoints for ChatGPT Custom GPTs
+- **Web UI Control Plane**: Responsive web interface for:
   - Viewing import logs
   - Manually triggering imports
-  - Running LLM prompts with semantic search context
   - Viewing statistics
+  - API endpoint documentation
+- **OpenAPI Schemas**: Each plugin includes a JSON schema ready to upload to ChatGPT Custom GPT configuration
 
 ## Requirements
 
@@ -176,34 +176,39 @@ To create a new plugin:
 
 ## API Endpoints
 
+### Control Plane
 - `GET /api/plugins` - List all plugins
 - `GET /api/imports` - List import logs
 - `POST /api/imports/run` - Run imports (optionally for specific plugin)
-- `POST /api/llm/prompt` - Run LLM prompt with semantic search context
-  - Body: `{"prompt": "your question", "context_limit": 10, "use_vector_search": true, "plugin_names": ["gmail_personal"]}`
 - `GET /api/stats` - Get statistics
+
+### Plugin Context Endpoints (for Custom GPT)
+- `GET /api/plugins/{plugin_name}/context` - Get context data from a plugin
+  - Parameters: `limit` (default: 50), `days` (default: 30), `item_type` (optional), `query` (optional text search)
+- `GET /api/plugins/{plugin_name}/search` - Search plugin data
+  - Parameters: `q` (required), `limit` (default: 20), `days` (default: 30)
+
+Example: `GET /api/plugins/gmail_personal/context?limit=20&days=7&query=meeting`
 
 ## Architecture
 
 - **Database**: SQLite (lightweight, no separate server) for structured data
-- **Vector Database**: ChromaDB (embedded, persistent) for semantic search
-- **Embeddings**: OpenAI text-embedding-3-small model (efficient, cost-effective)
-- **Backend**: Flask (lightweight web framework)
+- **Backend**: Flask (lightweight web framework) with REST API endpoints
 - **Scheduler**: APScheduler (background task scheduling)
-- **LLM**: OpenAI GPT-5 API
-- **Frontend**: Vanilla HTML/CSS/JS (responsive, mobile-friendly)
+- **Frontend**: Vanilla HTML/CSS/JS (responsive, mobile-friendly) - Control plane only
+- **Custom GPT Integration**: Each plugin exposes endpoints that ChatGPT can call
 
-### How Vector Search Works
+### How It Works
 
-1. **Import**: When data is imported, embeddings are generated using OpenAI's embedding model
-2. **Storage**: Embeddings are stored in ChromaDB alongside metadata
-3. **Search**: When you ask a question, the system:
-   - Generates an embedding for your question
-   - Finds the most semantically similar items in the vector database
-   - Retrieves those items as context for the LLM
-4. **Result**: The LLM receives only the most relevant context, not just recent items
+1. **Import**: Plugins fetch data from various sources (Gmail, TODO apps, etc.) on a schedule
+2. **Storage**: Data is stored in SQLite with metadata (title, content, timestamps, etc.)
+3. **API Access**: Each plugin exposes REST endpoints:
+   - `/api/plugins/{plugin_name}/context` - Get recent data as context
+   - `/api/plugins/{plugin_name}/search` - Search data by text
+4. **Custom GPT**: Upload the plugin's `custom_gpt_schema.json` to ChatGPT to enable the plugin
+5. **ChatGPT Integration**: ChatGPT can call these endpoints to retrieve relevant context when answering questions
 
-This means you can ask questions like "What did I discuss about project X?" and it will find relevant emails, todos, and calendar events even if they're from weeks ago.
+This allows ChatGPT to access your personal data (emails, todos, health data, calendar) as context when you're having conversations.
 
 ## Low RAM Optimization
 

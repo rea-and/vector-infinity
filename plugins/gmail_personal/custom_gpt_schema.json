@@ -1,0 +1,134 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Gmail Personal Context API",
+    "description": "Access personal Gmail data for context in ChatGPT conversations",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "YOUR_SERVER_URL",
+      "description": "Your Vector Infinity server URL"
+    }
+  ],
+  "paths": {
+    "/api/plugins/gmail_personal/context": {
+      "get": {
+        "operationId": "getGmailPersonalContext",
+        "summary": "Get personal Gmail context",
+        "description": "Retrieve personal Gmail emails as context for the conversation",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of emails to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "description": "Number of days to look back",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 30,
+              "minimum": 1,
+              "maximum": 365
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Optional text search in email content",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Gmail context data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "plugin_name": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {"type": "integer"},
+                          "type": {"type": "string"},
+                          "title": {"type": "string"},
+                          "content": {"type": "string"},
+                          "metadata": {"type": "object"},
+                          "created_at": {"type": "string"},
+                          "source_timestamp": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/plugins/gmail_personal/search": {
+      "get": {
+        "operationId": "searchGmailPersonal",
+        "summary": "Search personal Gmail",
+        "description": "Search personal Gmail emails by text",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of results",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

@@ -1,11 +1,10 @@
 """Main Flask application."""
 from flask import Flask, jsonify, request, render_template_string
 from flask_cors import CORS
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from database import ImportLog, DataItem, SessionLocal, init_db
 from importer import DataImporter
-from llm_service import LLMService
 from scheduler import ImportScheduler
 from plugin_loader import PluginLoader
 import config
@@ -20,7 +19,6 @@ CORS(app)
 # Initialize services
 init_db()
 importer = DataImporter()
-llm_service = LLMService()
 plugin_loader = PluginLoader()
 scheduler = ImportScheduler()
 scheduler.start()
@@ -107,26 +105,100 @@ def run_import():
         })
 
 
-@app.route("/api/llm/prompt", methods=["POST"])
-def llm_prompt():
-    """Run an LLM prompt with context using semantic search."""
-    data = request.get_json()
-    if not data or "prompt" not in data:
-        return jsonify({"error": "Missing 'prompt' field"}), 400
+@app.route("/api/plugins/<plugin_name>/context", methods=["GET"])
+def get_plugin_context(plugin_name):
+    """Get context data from a specific plugin for Custom GPT."""
+    db = SessionLocal()
+    try:
+        # Get query parameters
+        limit = request.args.get("limit", 50, type=int)
+        days = request.args.get("days", 30, type=int)
+        item_type = request.args.get("item_type", None)
+        query = request.args.get("query", None)  # Optional text search
+        
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        
+        # Query data items
+        db_query = db.query(DataItem).filter(
+            DataItem.plugin_name == plugin_name,
+            DataItem.created_at >= cutoff_date
+        )
+        
+        if item_type:
+            db_query = db_query.filter(DataItem.item_type == item_type)
+        
+        # Simple text search in title and content
+        if query:
+            db_query = db_query.filter(
+                (DataItem.title.contains(query)) | 
+                (DataItem.content.contains(query))
+            )
+        
+        items = db_query.order_by(DataItem.created_at.desc()).limit(limit).all()
+        
+        # Format response
+        result = {
+            "plugin_name": plugin_name,
+            "count": len(items),
+            "items": []
+        }
+        
+        for item in items:
+            result["items"].append({
+                "id": item.id,
+                "type": item.item_type,
+                "title": item.title,
+                "content": item.content,
+                "metadata": item.item_metadata,
+                "created_at": item.created_at.isoformat() if item.created_at else None,
+                "source_timestamp": item.source_timestamp.isoformat() if item.source_timestamp else None
+            })
+        
+        return jsonify(result)
+    finally:
+        db.close()
+
+
+@app.route("/api/plugins/<plugin_name>/search", methods=["GET"])
+def search_plugin_context(plugin_name):
+    """Search context data from a specific plugin."""
+    query = request.args.get("q", "")
+    if not query:
+        return jsonify({"error": "Missing 'q' parameter"}), 400
     
-    prompt = data["prompt"]
-    context_limit = data.get("context_limit", 10)  # Lower default since we're using semantic search
-    plugin_names = data.get("plugin_names", None)
-    use_vector_search = data.get("use_vector_search", True)
-    
-    result = llm_service.generate_response(
-        prompt=prompt,
-        context_limit=context_limit,
-        plugin_names=plugin_names,
-        use_vector_search=use_vector_search
-    )
-    
-    return jsonify(result)
+    db = SessionLocal()
+    try:
+        limit = request.args.get("limit", 20, type=int)
+        days = request.args.get("days", 30, type=int)
+        
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        
+        items = db.query(DataItem).filter(
+            DataItem.plugin_name == plugin_name,
+            DataItem.created_at >= cutoff_date,
+            (DataItem.title.contains(query)) | 
+            (DataItem.content.contains(query))
+        ).order_by(DataItem.created_at.desc()).limit(limit).all()
+        
+        result = {
+            "plugin_name": plugin_name,
+            "query": query,
+            "count": len(items),
+            "items": []
+        }
+        
+        for item in items:
+            result["items"].append({
+                "id": item.id,
+                "type": item.item_type,
+                "title": item.title,
+                "content": item.content[:500],  # Truncate for search results
+                "created_at": item.created_at.isoformat() if item.created_at else None
+            })
+        
+        return jsonify(result)
+    finally:
+        db.close()
 
 
 @app.route("/api/stats", methods=["GET"])

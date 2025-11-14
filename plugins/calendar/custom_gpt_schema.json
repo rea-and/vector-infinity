@@ -1,0 +1,101 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Calendar Context API",
+    "description": "Access calendar events for context in ChatGPT conversations",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "YOUR_SERVER_URL",
+      "description": "Your Vector Infinity server URL"
+    }
+  ],
+  "paths": {
+    "/api/plugins/calendar/context": {
+      "get": {
+        "operationId": "getCalendarContext",
+        "summary": "Get calendar events context",
+        "description": "Retrieve calendar events as context for the conversation",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of events to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "description": "Number of days to look back",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 30,
+              "minimum": 1,
+              "maximum": 365
+            }
+          },
+          {
+            "name": "item_type",
+            "in": "query",
+            "description": "Filter by type: calendar_event",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Calendar context data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/plugins/calendar/search": {
+      "get": {
+        "operationId": "searchCalendar",
+        "summary": "Search calendar events",
+        "description": "Search calendar events by text",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

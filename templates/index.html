@@ -243,8 +243,8 @@
         <div class="tabs">
             <button class="tab active" onclick="showTab('imports')">Import Logs</button>
             <button class="tab" onclick="showTab('run')">Run Imports</button>
-            <button class="tab" onclick="showTab('llm')">LLM Prompts</button>
             <button class="tab" onclick="showTab('stats')">Statistics</button>
+            <button class="tab" onclick="showTab('api')">API Endpoints</button>
         </div>
         
         <div id="imports" class="tab-content active">
@@ -263,30 +263,19 @@
             </div>
         </div>
         
-        <div id="llm" class="tab-content">
-            <div class="card">
-                <h2>LLM Prompt</h2>
-                <textarea id="prompt-input" placeholder="Enter your question or prompt here..."></textarea>
-                <div style="margin-top: 10px;">
-                    <label>Context Limit: <input type="number" id="context-limit" value="10" min="1" max="50" style="width: 100px; display: inline-block;"></label>
-                    <label style="margin-left: 20px;">
-                        <input type="checkbox" id="use-vector-search" checked style="width: auto; display: inline-block;">
-                        Use Semantic Search
-                    </label>
-                </div>
-                <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                    Semantic search finds the most relevant items based on your question, not just recent ones.
-                </p>
-                <button class="btn" onclick="runPrompt()" style="margin-top: 10px;">Run Prompt</button>
-                <div id="prompt-response" class="response-box" style="display: none;"></div>
-            </div>
-        </div>
-        
         <div id="stats" class="tab-content">
             <div class="card">
                 <h2>Statistics</h2>
                 <button class="btn" onclick="loadStats()">Refresh</button>
                 <div id="stats-content"></div>
+            </div>
+        </div>
+        
+        <div id="api" class="tab-content">
+            <div class="card">
+                <h2>API Endpoints for Custom GPT</h2>
+                <p>Use these endpoints to integrate with ChatGPT Custom GPTs. Each plugin exposes its own context endpoint.</p>
+                <div id="api-endpoints"></div>
             </div>
         </div>
     </div>
@@ -307,6 +296,7 @@
             if (tabName === 'imports') loadImports();
             if (tabName === 'run') loadPlugins();
             if (tabName === 'stats') loadStats();
+            if (tabName === 'api') loadAPIInfo();
         }
         
         async function loadImports() {
@@ -400,44 +390,40 @@
             loadImports();
         }
         
-        async function runPrompt() {
-            const prompt = document.getElementById('prompt-input').value;
-            if (!prompt.trim()) {
-                alert('Please enter a prompt');
-                return;
-            }
+        async function loadAPIInfo() {
+            const pluginsResponse = await fetch(`${API_BASE}/plugins`);
+            const plugins = await pluginsResponse.json();
             
-            const responseBox = document.getElementById('prompt-response');
-            responseBox.style.display = 'block';
-            responseBox.innerHTML = '<span class="loading"></span> Generating response...';
+            const baseUrl = window.location.origin;
             
-            const contextLimit = parseInt(document.getElementById('context-limit').value);
-            const useVectorSearch = document.getElementById('use-vector-search').checked;
+            let html = '<div style="margin-top: 20px;">';
+            html += '<h3>Available Plugin Endpoints:</h3>';
             
-            const response = await fetch(`${API_BASE}/llm/prompt`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    prompt: prompt,
-                    context_limit: contextLimit,
-                    use_vector_search: useVectorSearch
-                })
+            plugins.forEach(plugin => {
+                html += `<div class="plugin-card" style="margin-top: 15px;">
+                    <h3>${plugin.name}</h3>
+                    <p><strong>Get Context:</strong></p>
+                    <code style="background: #f4f4f4; padding: 5px; display: block; margin: 5px 0;">
+                        GET ${baseUrl}/api/plugins/${plugin.name}/context?limit=50&days=30
+                    </code>
+                    <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                        Parameters: limit (default: 50), days (default: 30), item_type (optional), query (optional text search)
+                    </p>
+                    <p><strong>Search:</strong></p>
+                    <code style="background: #f4f4f4; padding: 5px; display: block; margin: 5px 0;">
+                        GET ${baseUrl}/api/plugins/${plugin.name}/search?q=search+term&limit=20
+                    </code>
+                    <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                        Parameters: q (required), limit (default: 20), days (default: 30)
+                    </p>
+                    <p style="margin-top: 10px;">
+                        <strong>Custom GPT Schema:</strong> See <code>plugins/${plugin.name}/custom_gpt_schema.json</code>
+                    </p>
+                </div>`;
             });
             
-            const result = await response.json();
-            if (result.error) {
-                let errorHtml = `<strong>Error (${result.error}):</strong><br>${result.response}`;
-                if (result.error === 'quota_exceeded') {
-                    errorHtml += '<br><br><a href="https://platform.openai.com/usage" target="_blank">Check your OpenAI usage and billing</a>';
-                }
-                responseBox.style.background = '#f8d7da';
-                responseBox.style.color = '#721c24';
-                responseBox.innerHTML = errorHtml;
-            } else {
-                responseBox.style.background = '#f8f9fa';
-                responseBox.style.color = '#333';
-                responseBox.innerHTML = result.response;
-            }
+            html += '</div>';
+            document.getElementById('api-endpoints').innerHTML = html;
         }
         
         async function loadStats() {
