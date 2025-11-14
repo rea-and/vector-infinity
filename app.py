@@ -334,16 +334,27 @@ def semantic_search(plugin_name):
                 item_embedding = embedding_service.bytes_to_embedding(item.embedding)
                 similarity = embedding_service.cosine_similarity(query_embedding, item_embedding)
                 
-                # Format the text for return
+                # Format the text for return (different formats for different item types)
                 text_parts = []
-                if item.title:
-                    text_parts.append(f"Subject: {item.title}")
-                if item.item_metadata and item.item_metadata.get("from"):
-                    text_parts.append(f"From: {item.item_metadata['from']}")
-                if item.source_timestamp:
-                    text_parts.append(f"Date: {item.source_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
-                if item.content:
-                    text_parts.append(item.content)
+                
+                if item.item_type == "whatsapp_message":
+                    # Format for WhatsApp messages
+                    if item.item_metadata and item.item_metadata.get("sender"):
+                        text_parts.append(f"From: {item.item_metadata['sender']}")
+                    if item.source_timestamp:
+                        text_parts.append(f"Date: {item.source_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+                    if item.content:
+                        text_parts.append(item.content)
+                else:
+                    # Format for emails and other items
+                    if item.title:
+                        text_parts.append(f"Subject: {item.title}")
+                    if item.item_metadata and item.item_metadata.get("from"):
+                        text_parts.append(f"From: {item.item_metadata['from']}")
+                    if item.source_timestamp:
+                        text_parts.append(f"Date: {item.source_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+                    if item.content:
+                        text_parts.append(item.content)
                 
                 text = "\n".join(text_parts)
                 
