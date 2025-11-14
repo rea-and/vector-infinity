@@ -530,40 +530,127 @@
         
         async function runImport(pluginName) {
             const btn = event.target;
+            const originalText = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = '<span class="loading"></span> Running...';
+            btn.innerHTML = '<span class="loading"></span> Starting...';
             
-            const response = await fetch(`${API_BASE}/imports/run`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({plugin_name: pluginName})
-            });
-            
-            const result = await response.json();
-            alert(`Import ${result.status}: ${result.records_imported || 0} records imported${result.error_message ? '\nError: ' + result.error_message : ''}`);
-            
-            btn.disabled = false;
-            btn.innerHTML = 'Run Import';
-            loadImports();
+            try {
+                // Start the import
+                const response = await fetch(`${API_BASE}/imports/run`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({plugin_name: pluginName})
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success || !result.log_id) {
+                    alert(`Error starting import: ${result.error || 'Unknown error'}`);
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    return;
+                }
+                
+                const logId = result.log_id;
+                
+                // Poll for progress
+                const pollInterval = setInterval(async () => {
+                    try {
+                        const statusResponse = await fetch(`${API_BASE}/imports/${logId}/status`);
+                        const status = await statusResponse.json();
+                        
+                        // Update button text with progress
+                        if (status.progress_total > 0) {
+                            const percent = status.progress_percent || 0;
+                            btn.innerHTML = `<span class="loading"></span> ${status.progress_message || 'Processing...'} (${percent}%)`;
+                        } else {
+                            btn.innerHTML = `<span class="loading"></span> ${status.progress_message || 'Processing...'}`;
+                        }
+                        
+                        // Check if import is complete
+                        if (status.status === 'success' || status.status === 'error') {
+                            clearInterval(pollInterval);
+                            
+                            if (status.status === 'success') {
+                                btn.innerHTML = '✓ Complete';
+                                btn.style.background = '#27ae60';
+                                setTimeout(() => {
+                                    btn.disabled = false;
+                                    btn.innerHTML = originalText;
+                                    btn.style.background = '';
+                                }, 2000);
+                            } else {
+                                btn.innerHTML = '✗ Error';
+                                btn.style.background = '#dc3545';
+                                setTimeout(() => {
+                                    btn.disabled = false;
+                                    btn.innerHTML = originalText;
+                                    btn.style.background = '';
+                                }, 2000);
+                                alert(`Import failed: ${status.error_message || 'Unknown error'}`);
+                            }
+                            
+                            // Refresh imports list
+                            loadImports();
+                        }
+                    } catch (error) {
+                        console.error('Error polling import status:', error);
+                    }
+                }, 1000); // Poll every second
+                
+                // Set a timeout to stop polling after 30 minutes (safety)
+                setTimeout(() => {
+                    clearInterval(pollInterval);
+                    if (btn.disabled) {
+                        btn.disabled = false;
+                        btn.innerHTML = originalText;
+                        alert('Import is taking longer than expected. Check the imports tab for status.');
+                    }
+                }, 30 * 60 * 1000);
+                
+            } catch (error) {
+                console.error('Error starting import:', error);
+                alert(`Error: ${error.message}`);
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
         }
         
         async function runAllImports() {
             const btn = event.target;
+            const originalText = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = '<span class="loading"></span> Running All...';
+            btn.innerHTML = '<span class="loading"></span> Starting all imports...';
             
-            const response = await fetch(`${API_BASE}/imports/run`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({})
-            });
-            
-            const result = await response.json();
-            alert('All imports completed. Check logs for details.');
-            
-            btn.disabled = false;
-            btn.innerHTML = 'Run All Imports';
-            loadImports();
+            try {
+                const response = await fetch(`${API_BASE}/imports/run`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({})
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    alert(`Error starting imports: ${result.error || 'Unknown error'}`);
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    return;
+                }
+                
+                // For "run all", we just show a message and refresh
+                btn.innerHTML = '<span class="loading"></span> All imports started...';
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    loadImports();
+                }, 2000);
+            } catch (error) {
+                console.error('Error starting all imports:', error);
+                alert(`Error: ${error.message}`);
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
         }
         
         function downloadSchema(pluginName) {
