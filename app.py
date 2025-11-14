@@ -274,9 +274,16 @@ def start_plugin_auth(plugin_name):
             "timestamp": datetime.now(timezone.utc)
         }
         
+        # Get redirect URI for user reference
+        redirect_uri = None
+        if state in oauth_flows and 'redirect_uri' in oauth_flows[state]:
+            redirect_uri = oauth_flows[state]['redirect_uri']
+        
         return jsonify({
             "authorization_url": auth_url,
-            "state": state
+            "state": state,
+            "redirect_uri": redirect_uri,
+            "instructions": f"Make sure this redirect URI is added to your Google Cloud Console OAuth credentials: {redirect_uri}" if redirect_uri else None
         })
     except Exception as e:
         logger.error(f"Error starting OAuth flow: {e}", exc_info=True)
@@ -291,21 +298,46 @@ def plugin_auth_callback(plugin_name):
     error = request.args.get('error')
     
     if error:
+        error_description = request.args.get('error_description', '')
+        redirect_uri_info = ""
+        if state in oauth_flows and 'redirect_uri' in oauth_flows[state]:
+            redirect_uri = oauth_flows[state]['redirect_uri']
+            redirect_uri_info = f"""
+                <h2>Redirect URI Configuration</h2>
+                <p><strong>Expected redirect URI:</strong></p>
+                <code style="background: #f4f4f4; padding: 10px; display: block; margin: 10px 0;">
+                    {redirect_uri}
+                </code>
+                <p>Make sure this exact URI is added to your Google Cloud Console:</p>
+                <ol>
+                    <li>Go to <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
+                    <li>Navigate to: APIs & Services > Credentials</li>
+                    <li>Click on your OAuth 2.0 Client ID</li>
+                    <li>Under "Authorized redirect URIs", click "ADD URI"</li>
+                    <li>Paste the redirect URI above</li>
+                    <li>Click "SAVE"</li>
+                </ol>
+            """
+        
         return render_template_string("""
             <html>
                 <head><title>Authentication Error</title></head>
-                <body>
+                <body style="font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto;">
                     <h1>Authentication Failed</h1>
-                    <p>Error: {{ error }}</p>
-                    <p>You can close this window.</p>
+                    <p><strong>Error:</strong> {{ error }}</p>
+                    {% if error_description %}
+                    <p><strong>Details:</strong> {{ error_description }}</p>
+                    {% endif %}
+                    {{ redirect_uri_info|safe }}
+                    <p style="margin-top: 20px;">You can close this window.</p>
                     <script>
                         setTimeout(function() {
                             window.close();
-                        }, 3000);
+                        }, 30000);
                     </script>
                 </body>
             </html>
-        """, error=error)
+        """, error=error, error_description=error_description, redirect_uri_info=redirect_uri_info)
     
     if not code or not state:
         return render_template_string("""

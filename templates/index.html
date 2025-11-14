@@ -501,6 +501,14 @@
                 const data = await response.json();
                 const authUrl = data.authorization_url;
                 
+                // Show redirect URI info if provided
+                if (data.redirect_uri) {
+                    console.log('Redirect URI:', data.redirect_uri);
+                    if (data.instructions) {
+                        console.log(data.instructions);
+                    }
+                }
+                
                 // Open authorization URL in a popup window
                 const width = 600;
                 const height = 700;

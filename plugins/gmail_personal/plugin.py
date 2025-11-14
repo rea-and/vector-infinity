@@ -34,8 +34,13 @@ class Plugin(DataSourcePlugin):
         try:
             from flask import request
             # Get the base URL from the request
-            base_url = request.host_url.rstrip('/')
+            # Use scheme and host from request, but prefer X-Forwarded-Proto if behind proxy
+            scheme = request.headers.get('X-Forwarded-Proto', request.scheme)
+            host = request.headers.get('X-Forwarded-Host', request.host)
+            base_url = f"{scheme}://{host}"
             redirect_uri = f"{base_url}/api/plugins/gmail_personal/auth/callback"
+            
+            logger.info(f"Using redirect URI: {redirect_uri}")
             
             flow = InstalledAppFlow.from_client_secrets_file(
                 str(credentials_path), SCOPES)
@@ -46,7 +51,8 @@ class Plugin(DataSourcePlugin):
             if hasattr(current_app, 'oauth_flows'):
                 current_app.oauth_flows[state] = {
                     'flow': flow,
-                    'plugin_name': 'gmail_personal'
+                    'plugin_name': 'gmail_personal',
+                    'redirect_uri': redirect_uri  # Store for debugging
                 }
             else:
                 # Fallback: store in instance (less ideal but works)
