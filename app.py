@@ -382,26 +382,6 @@ def plugin_auth_callback(plugin_name):
                 </body>
             </html>
         """, error=error, error_description=error_description, redirect_uri_info=redirect_uri_info, test_user_info=test_user_info)
-        
-        return render_template_string("""
-            <html>
-                <head><title>Authentication Error</title></head>
-                <body style="font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto;">
-                    <h1>Authentication Failed</h1>
-                    <p><strong>Error:</strong> {{ error }}</p>
-                    {% if error_description %}
-                    <p><strong>Details:</strong> {{ error_description }}</p>
-                    {% endif %}
-                    {{ redirect_uri_info|safe }}
-                    <p style="margin-top: 20px;">You can close this window.</p>
-                    <script>
-                        setTimeout(function() {
-                            window.close();
-                        }, 30000);
-                    </script>
-                </body>
-            </html>
-        """, error=error, error_description=error_description, redirect_uri_info=redirect_uri_info)
     
     if not code or not state:
         return render_template_string("""
