@@ -44,24 +44,11 @@ class VectorStoreService:
         
         # Create new vector store
         logger.info(f"Creating new vector store for {plugin_name}")
-        try:
-            # Try the beta.vector_stores API
-            vector_store = self.client.beta.vector_stores.create(
-                name=f"{plugin_name}_vector_store",
-                description=f"Vector store for {plugin_name} plugin data"
-            )
-        except AttributeError:
-            # Fallback: try accessing through assistants API
-            try:
-                # Vector stores might be accessed differently in some SDK versions
-                vector_store = self.client.beta.assistants.vector_stores.create(
-                    name=f"{plugin_name}_vector_store",
-                    description=f"Vector store for {plugin_name} plugin data"
-                )
-            except AttributeError:
-                # Last resort: try direct access
-                logger.error("Vector stores API not available in this OpenAI SDK version. Please upgrade: pip install --upgrade openai>=1.12.0")
-                raise ValueError("Vector stores API not available. Please upgrade OpenAI SDK: pip install --upgrade openai>=1.12.0")
+        # Vector stores are accessed through beta.assistants in OpenAI SDK
+        vector_store = self.client.beta.assistants.vector_stores.create(
+            name=f"{plugin_name}_vector_store",
+            description=f"Vector store for {plugin_name} plugin data"
+        )
         
         # Save store info
         store_info = {
