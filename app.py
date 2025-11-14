@@ -41,9 +41,37 @@ def list_plugins():
     """List all available plugins."""
     db = SessionLocal()
     try:
-        plugins = plugin_loader.get_all_plugins()
+        # Get all loaded plugins
+        loaded_plugins = plugin_loader.get_all_plugins()
+        
+        # Also check all plugin directories (even if not loaded/enabled)
+        all_plugin_dirs = [d for d in config.PLUGINS_DIR.iterdir() if d.is_dir() and (d / "plugin.py").exists()]
+        all_plugin_names = set([d.name for d in all_plugin_dirs])
+        all_plugin_names.update(loaded_plugins.keys())
+        
         result = []
-        for name, plugin in plugins.items():
+        for name in all_plugin_names:
+            plugin = loaded_plugins.get(name)
+            
+            # Get plugin config (even if not loaded)
+            plugin_dir = config.PLUGINS_DIR / name
+            config_path = plugin_dir / "config.json"
+            enabled = False
+            config_schema = {}
+            
+            if config_path.exists():
+                import json
+                try:
+                    with open(config_path, 'r') as f:
+                        plugin_config = json.load(f)
+                        enabled = plugin_config.get("enabled", False)
+                except:
+                    pass
+            
+            # Get config schema from plugin if available, otherwise empty
+            if plugin:
+                config_schema = plugin.get_config_schema()
+            
             # Get last import time for this plugin
             last_import = db.query(ImportLog).filter(
                 ImportLog.plugin_name == name,
@@ -59,7 +87,6 @@ def list_plugins():
             # Check authentication status and last auth time
             auth_status = None
             last_auth_time = None
-            plugin_dir = config.PLUGINS_DIR / name
             token_path = plugin_dir / "token.json"
             
             if token_path.exists():
@@ -70,28 +97,45 @@ def list_plugins():
                     mtime = os.path.getmtime(token_path)
                     last_auth_time = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
                     
-                    # Try to check if token is valid by checking if plugin can authenticate
-                    if hasattr(plugin, '_authenticate'):
+                    # Try to check if token is valid
+                    # First, try to get SCOPES from the plugin module
+                    scopes = None
+                    if plugin and hasattr(plugin, 'SCOPES'):
+                        scopes = plugin.SCOPES
+                    else:
+                        # Try to import the plugin module to get SCOPES
                         try:
-                            # Just check if service exists or token is readable
+                            plugin_file = plugin_dir / "plugin.py"
+                            if plugin_file.exists():
+                                import importlib.util
+                                spec = importlib.util.spec_from_file_location(
+                                    f"plugins.{name}.plugin",
+                                    plugin_file
+                                )
+                                if spec and spec.loader:
+                                    module = importlib.util.module_from_spec(spec)
+                                    spec.loader.exec_module(module)
+                                    if hasattr(module, 'SCOPES'):
+                                        scopes = module.SCOPES
+                        except:
+                            pass
+                    
+                    if scopes:
+                        try:
                             from google.oauth2.credentials import Credentials
-                            # Check if plugin has SCOPES attribute (Google OAuth plugins)
-                            scopes = getattr(plugin, 'SCOPES', None)
-                            if scopes:
-                                creds = Credentials.from_authorized_user_file(str(token_path), scopes)
-                                if creds and creds.valid:
-                                    auth_status = "authenticated"
-                                elif creds and creds.expired and creds.refresh_token:
-                                    auth_status = "expired"  # Can be refreshed
-                                else:
-                                    auth_status = "invalid"
+                            creds = Credentials.from_authorized_user_file(str(token_path), scopes)
+                            if creds and creds.valid:
+                                auth_status = "authenticated"
+                            elif creds and creds.expired and creds.refresh_token:
+                                auth_status = "expired"  # Can be refreshed
                             else:
-                                auth_status = "authenticated"  # Token file exists, assume valid
+                                auth_status = "invalid"
                         except Exception as e:
                             logger.debug(f"Error validating token for {name}: {e}")
                             auth_status = "invalid"
                     else:
-                        auth_status = "authenticated"  # Token file exists
+                        # Token file exists but we can't validate it - assume authenticated
+                        auth_status = "authenticated"
                 except Exception as e:
                     logger.warning(f"Error checking auth status for {name}: {e}")
                     auth_status = "unknown"
@@ -100,8 +144,8 @@ def list_plugins():
             
             result.append({
                 "name": name,
-                "enabled": plugin.config.get("enabled", False),
-                "config_schema": plugin.get_config_schema(),
+                "enabled": enabled,
+                "config_schema": config_schema,
                 "last_import_time": last_import_time,
                 "last_import_records": last_import_records,
                 "auth_status": auth_status,
