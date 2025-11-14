@@ -268,16 +268,21 @@ def start_plugin_auth(plugin_name):
         if not auth_url:
             return jsonify({"error": "Failed to generate authorization URL"}), 500
         
-        # Store state for verification
-        oauth_flows[state] = {
-            "plugin_name": plugin_name,
-            "timestamp": datetime.now(timezone.utc)
-        }
-        
-        # Get redirect URI for user reference
+        # Get redirect URI from stored flow (plugin stores it there)
         redirect_uri = None
         if state in oauth_flows and 'redirect_uri' in oauth_flows[state]:
             redirect_uri = oauth_flows[state]['redirect_uri']
+        
+        # Ensure state is stored for verification (plugin may have already stored it)
+        if state not in oauth_flows:
+            oauth_flows[state] = {
+                "plugin_name": plugin_name,
+                "timestamp": datetime.now(timezone.utc)
+            }
+        else:
+            # Update with plugin name if not set
+            oauth_flows[state]["plugin_name"] = plugin_name
+            oauth_flows[state]["timestamp"] = datetime.now(timezone.utc)
         
         return jsonify({
             "authorization_url": auth_url,
