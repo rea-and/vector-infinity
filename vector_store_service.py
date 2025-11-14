@@ -34,7 +34,7 @@ class VectorStoreService:
                     if store_id:
                         # Verify store still exists
                         try:
-                            store = self.client.beta.vector_stores.retrieve(store_id)
+                            store = self.client.beta.assistants.vector_stores.retrieve(store_id)
                             logger.info(f"Using existing vector store {store_id} for {plugin_name}")
                             return store_id
                         except Exception as e:
