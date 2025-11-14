@@ -193,7 +193,25 @@ To create a new plugin:
 
 4. Enable the plugin by setting `"enabled": true` in `config.json`
 
-## Custom GPT Integration
+## OpenAI Vector Store Integration (Recommended)
+
+**For handling large amounts of context (1000+ emails), use OpenAI's Vector Store API instead of direct API calls.**
+
+Vector Infinity can automatically sync your imported data to OpenAI's Vector Store, which ChatGPT can then use directly. This approach:
+- Avoids token limits
+- Handles large datasets efficiently
+- Automatically retrieves relevant context
+
+**Setup:**
+1. Set `OPENAI_API_KEY` in your `.env` file
+2. Import your data (Run Imports tab)
+3. Click "Sync to Vector Store" button in the web UI
+4. Copy the Vector Store ID
+5. In ChatGPT Custom GPT configuration, add the Vector Store ID in the "Knowledge" section
+
+See [VECTOR_STORE_SETUP.md](VECTOR_STORE_SETUP.md) for detailed instructions.
+
+## Custom GPT Integration (Alternative: Direct API)
 
 ### Setting Up a Plugin in ChatGPT
 

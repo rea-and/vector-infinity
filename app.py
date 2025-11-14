@@ -29,6 +29,15 @@ plugin_loader = PluginLoader()
 scheduler = ImportScheduler()
 scheduler.start()
 
+# Initialize vector store service (optional, only if OPENAI_API_KEY is set)
+vector_store_service = None
+try:
+    from vector_store_service import VectorStoreService
+    vector_store_service = VectorStoreService()
+    logger.info("Vector Store service initialized")
+except Exception as e:
+    logger.warning(f"Vector Store service not available (OPENAI_API_KEY may be missing): {e}")
+
 
 @app.route("/")
 def index():
