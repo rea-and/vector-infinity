@@ -151,6 +151,14 @@ def list_plugins():
             else:
                 auth_status = "not_authenticated"
             
+            # Get vector store ID if available
+            vector_store_id = None
+            if vector_store_service:
+                try:
+                    vector_store_id = vector_store_service.get_store_id(name)
+                except:
+                    pass
+            
             result.append({
                 "name": name,
                 "enabled": enabled,
@@ -158,7 +166,8 @@ def list_plugins():
                 "last_import_time": last_import_time,
                 "last_import_records": last_import_records,
                 "auth_status": auth_status,
-                "last_auth_time": last_auth_time
+                "last_auth_time": last_auth_time,
+                "vector_store_id": vector_store_id
             })
         return jsonify(result)
     finally:

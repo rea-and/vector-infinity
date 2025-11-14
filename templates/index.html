@@ -494,8 +494,21 @@
                                 <button class="btn btn-success" onclick="downloadSchema('${plugin.name}')" style="margin-top: 5px;">
                                     Download Schema
                                 </button>
+                                ${plugin.vector_store_id ? `
+                                    <div style="margin-top: 10px; padding: 8px; background: #e7f3ff; border-radius: 4px; border-left: 3px solid #007bff;">
+                                        <p style="margin: 0; font-size: 12px; color: #004085; font-weight: 600;">
+                                            Vector Store ID:
+                                        </p>
+                                        <p style="margin: 5px 0 0 0; font-size: 11px; color: #004085; font-family: monospace; word-break: break-all;">
+                                            ${plugin.vector_store_id}
+                                        </p>
+                                        <button onclick="copyToClipboard('${plugin.vector_store_id}')" style="margin-top: 5px; padding: 2px 8px; font-size: 11px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                                            Copy ID
+                                        </button>
+                                    </div>
+                                ` : ''}
                                 <button class="btn" onclick="syncToVectorStore('${plugin.name}')" style="margin-top: 5px; background: #6f42c1; color: white;">
-                                    Sync to Vector Store
+                                    ${plugin.vector_store_id ? 'Re-sync to Vector Store' : 'Sync to Vector Store'}
                                 </button>
                                 <button class="btn" onclick="getVectorStoreInfo('${plugin.name}')" style="margin-top: 5px; background: #17a2b8; color: white;">
                                     Vector Store Info
@@ -569,6 +582,8 @@
                 
                 if (response.ok) {
                     alert(`Success! Synced ${data.items_synced} items.\n\nVector Store ID: ${data.vector_store_id}\n\nCopy this ID and use it in ChatGPT Custom GPT configuration.`);
+                    // Reload plugins to show the new vector store ID
+                    loadPlugins();
                 } else {
                     alert(`Error: ${data.error || 'Unknown error'}`);
                 }
