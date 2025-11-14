@@ -198,20 +198,38 @@ def list_imports():
 
 @app.route("/api/imports/run", methods=["POST"])
 def run_import():
-    """Run import for a specific plugin or all plugins."""
+    """Run import for a specific plugin or all plugins (async)."""
     data = request.get_json() or {}
     plugin_name = data.get("plugin_name")
     
     if plugin_name:
-        log_entry = importer.import_from_plugin(plugin_name)
+        # Create log entry first
+        db = SessionLocal()
+        try:
+            log_entry = ImportLog(
+                plugin_name=plugin_name,
+                status="running",
+                started_at=datetime.now(timezone.utc),
+                progress_message="Starting import..."
+            )
+            db.add(log_entry)
+            db.commit()
+            log_id = log_entry.id
+        finally:
+            db.close()
+        
+        # Start import in background thread
+        importer.import_from_plugin_async(plugin_name, log_id)
+        
         return jsonify({
-            "success": log_entry.status == "success",
-            "plugin_name": log_entry.plugin_name,
-            "status": log_entry.status,
-            "records_imported": log_entry.records_imported,
-            "error_message": log_entry.error_message
+            "success": True,
+            "log_id": log_id,
+            "plugin_name": plugin_name,
+            "status": "running",
+            "message": "Import started in background"
         })
     else:
+        # For "import all", run synchronously (could be improved later)
         results = importer.import_all()
         return jsonify({
             "success": True,
@@ -224,6 +242,36 @@ def run_import():
                 for name, log in results.items()
             }
         })
+
+
+@app.route("/api/imports/<int:log_id>/status", methods=["GET"])
+def get_import_status(log_id):
+    """Get the current status of an import."""
+    db = SessionLocal()
+    try:
+        log_entry = db.query(ImportLog).filter_by(id=log_id).first()
+        if not log_entry:
+            return jsonify({"error": "Import log not found"}), 404
+        
+        progress_percent = 0
+        if log_entry.progress_total > 0:
+            progress_percent = int((log_entry.progress_current / log_entry.progress_total) * 100)
+        
+        return jsonify({
+            "id": log_entry.id,
+            "plugin_name": log_entry.plugin_name,
+            "status": log_entry.status,
+            "records_imported": log_entry.records_imported or 0,
+            "progress_current": log_entry.progress_current or 0,
+            "progress_total": log_entry.progress_total or 0,
+            "progress_percent": progress_percent,
+            "progress_message": log_entry.progress_message or "",
+            "error_message": log_entry.error_message,
+            "started_at": log_entry.started_at.isoformat() if log_entry.started_at else None,
+            "completed_at": log_entry.completed_at.isoformat() if log_entry.completed_at else None
+        })
+    finally:
+        db.close()
 
 
 @app.route("/api/plugins/<plugin_name>/context", methods=["GET"])

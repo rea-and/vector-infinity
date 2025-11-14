@@ -20,6 +20,9 @@ class ImportLog(Base):
     records_imported = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
     log_metadata = Column(JSON, nullable=True)  # Renamed from 'metadata' to avoid SQLAlchemy conflict
+    progress_current = Column(Integer, default=0)  # Current progress (e.g., emails processed)
+    progress_total = Column(Integer, default=0)  # Total items to process
+    progress_message = Column(String(500), nullable=True)  # Current status message
 
 
 class DataItem(Base):
