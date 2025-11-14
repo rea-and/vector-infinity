@@ -52,35 +52,23 @@ class Plugin(DataSourcePlugin):
                 try:
                     flow = InstalledAppFlow.from_client_secrets_file(
                         str(credentials_path), SCOPES)
-                    # Try local server first (for desktop), fall back to manual flow (for headless)
+                    # Use local server - it will provide a URL you can open in browser
+                    # Try to open browser automatically, but if it fails, just provide the URL
                     try:
-                        # Try with browser first
                         creds = flow.run_local_server(port=0, open_browser=True)
-                    except Exception as local_error:
-                        # If browser fails, try without opening browser (headless)
-                        logger.info("Browser authentication failed, trying headless mode...")
-                        try:
-                            creds = flow.run_local_server(port=0, open_browser=False)
-                        except Exception as headless_error:
-                            # Last resort: manual authorization URL
-                            logger.info("=" * 80)
-                            logger.info("HEADLESS SERVER AUTHENTICATION REQUIRED")
-                            logger.info("=" * 80)
-                            logger.info("Please visit the following URL to authorize:")
-                            auth_url, _ = flow.authorization_url(prompt='consent')
-                            logger.info(auth_url)
-                            logger.info("=" * 80)
-                            logger.info("After authorization, enter the authorization code:")
-                            code = input("Enter authorization code: ").strip()
-                            flow.fetch_token(code=code)
-                            creds = flow.credentials
+                    except Exception as browser_error:
+                        # Browser couldn't be opened automatically, but local server still works
+                        logger.info("Could not open browser automatically, but local server is running.")
+                        logger.info("The authorization URL will be displayed - you can open it manually in your browser.")
+                        # Try again without auto-opening browser
+                        creds = flow.run_local_server(port=0, open_browser=False)
                 except Exception as e:
                     logger.warning(f"Error during OAuth flow: {e}")
-                    logger.info("If you're on a headless server, you can manually authenticate by:")
-                    logger.info("1. Running the import from a terminal (not via web UI)")
-                    logger.info("2. Copying the authorization URL that appears")
-                    logger.info("3. Opening it in a browser on your local machine")
-                    logger.info("4. Pasting the authorization code back into the terminal")
+                    logger.info("If automatic browser opening failed, you can manually authenticate:")
+                    logger.info("1. Look for the authorization URL in the logs above")
+                    logger.info("2. Open that URL in your browser")
+                    logger.info("3. Complete the authorization")
+                    logger.info("4. The local server will automatically receive the authorization code")
                     return
             
             if creds:
