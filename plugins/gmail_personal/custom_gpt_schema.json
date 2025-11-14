@@ -16,7 +16,7 @@
       "get": {
         "operationId": "getGmailPersonalContext",
         "summary": "Get personal Gmail context",
-        "description": "Retrieve personal Gmail emails as context for the conversation",
+        "description": "Retrieve personal Gmail emails as context for the conversation. Use pagination (offset parameter) to get more results. For 1000 emails, make multiple calls: offset=0, offset=100, offset=200, etc.",
         "parameters": [
           {
             "name": "limit",
@@ -50,6 +50,17 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Pagination offset (use with limit to get more results, e.g., offset=0 for first 100, offset=100 for next 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
           }
         ],
         "responses": {
@@ -61,10 +72,28 @@
                   "type": "object",
                   "properties": {
                     "plugin_name": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "Name of the plugin"
                     },
                     "count": {
-                      "type": "integer"
+                      "type": "integer",
+                      "description": "Number of items in this response"
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of items available (for pagination)"
+                    },
+                    "offset": {
+                      "type": "integer",
+                      "description": "Current pagination offset"
+                    },
+                    "limit": {
+                      "type": "integer",
+                      "description": "Current limit"
+                    },
+                    "has_more": {
+                      "type": "boolean",
+                      "description": "Whether there are more items available (use offset to get next page)"
                     },
                     "items": {
                       "type": "array",

@@ -227,6 +227,7 @@ def get_plugin_context(plugin_name):
         days = request.args.get("days", 30, type=int)
         item_type = request.args.get("item_type", None)
         query = request.args.get("query", None)  # Optional text search
+        offset = request.args.get("offset", 0, type=int)  # Pagination offset
         
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
         
@@ -246,12 +247,20 @@ def get_plugin_context(plugin_name):
                 (DataItem.content.contains(query))
             )
         
-        items = db_query.order_by(DataItem.created_at.desc()).limit(limit).all()
+        # Get total count for pagination info
+        total_count = db_query.count()
+        
+        # Apply pagination
+        items = db_query.order_by(DataItem.created_at.desc()).offset(offset).limit(limit).all()
         
         # Format response
         result = {
             "plugin_name": plugin_name,
             "count": len(items),
+            "total": total_count,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + len(items)) < total_count,
             "items": [],
             "message": "No data found. Run an import first from the 'Run Imports' tab." if len(items) == 0 else None
         }
