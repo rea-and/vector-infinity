@@ -336,7 +336,17 @@
         <div id="api" class="tab-content">
             <div class="card">
                 <h2>API Endpoints for Custom GPT</h2>
-                <p>Use these endpoints to integrate with ChatGPT Custom GPTs. Each plugin exposes its own context endpoint.</p>
+                <p>Use these endpoints to integrate with ChatGPT Custom GPTs.</p>
+                <div style="margin: 20px 0; padding: 15px; background: #e7f3ff; border-radius: 4px; border-left: 3px solid #007bff;">
+                    <h3 style="margin-top: 0; color: #004085;">📥 Download Unified Schema (Recommended)</h3>
+                    <p style="color: #004085; margin: 10px 0;">
+                        <strong>Important:</strong> ChatGPT only allows one action per domain. Download the unified schema that includes all plugin endpoints in a single action.
+                    </p>
+                    <button class="btn btn-success" onclick="downloadUnifiedSchema()" style="margin-top: 10px;">
+                        Download Unified Schema (All Plugins)
+                    </button>
+                </div>
+                <p style="margin-top: 20px;">Or download individual plugin schemas:</p>
                 <div id="api-endpoints"></div>
             </div>
         </div>
@@ -759,6 +769,10 @@
         
         function downloadSchema(pluginName) {
             window.location.href = `${API_BASE}/plugins/${pluginName}/schema`;
+        }
+        
+        function downloadUnifiedSchema() {
+            window.location.href = `${API_BASE}/schema`;
         }
         
         function copyToClipboard(text) {

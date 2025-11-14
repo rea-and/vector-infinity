@@ -391,6 +391,50 @@ def semantic_search(plugin_name):
         db.close()
 
 
+@app.route("/api/schema", methods=["GET"])
+def get_unified_schema():
+    """Get unified schema combining all plugin endpoints for Custom GPT."""
+    import json
+    
+    # Start with base schema structure
+    unified_schema = {
+        "openapi": "3.1.0",
+        "info": {
+            "title": "Vector Infinity API",
+            "description": "Access all your personal data (Gmail, WhatsApp, Calendar, TODO, Health) for context in ChatGPT conversations",
+            "version": "1.0.0"
+        },
+        "servers": [
+            {
+                "url": "https://vectorinfinity.com/",
+                "description": "Your Vector Infinity server URL"
+            }
+        ],
+        "paths": {}
+    }
+    
+    # Load all plugin schemas and merge their paths
+    plugins_dir = config.PLUGINS_DIR
+    for plugin_dir in plugins_dir.iterdir():
+        if not plugin_dir.is_dir():
+            continue
+        
+        schema_path = plugin_dir / "custom_gpt_schema.json"
+        if schema_path.exists():
+            try:
+                with open(schema_path, 'r') as f:
+                    plugin_schema = json.load(f)
+                    if "paths" in plugin_schema:
+                        # Merge paths from this plugin into unified schema
+                        unified_schema["paths"].update(plugin_schema["paths"])
+            except Exception as e:
+                logger.warning(f"Error loading schema from {plugin_dir.name}: {e}")
+                continue
+    
+    # Return as JSON (not as download)
+    return jsonify(unified_schema)
+
+
 @app.route("/api/plugins/<plugin_name>/schema", methods=["GET"])
 def get_plugin_schema(plugin_name):
     """Download the Custom GPT schema JSON file for a plugin."""
