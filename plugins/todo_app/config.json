@@ -1,8 +1,0 @@
-{
-  "enabled": false,
-  "api_url": "",
-  "api_key": "",
-  "auth_type": "bearer",
-  "api_key_header": "X-API-Key"
-}
-

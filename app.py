@@ -401,7 +401,7 @@ def get_unified_schema():
         "openapi": "3.1.0",
         "info": {
             "title": "Vector Infinity API",
-            "description": "Access all your personal data (Gmail, WhatsApp, Calendar, TODO, Health) for context in ChatGPT conversations",
+            "description": "Access all your personal data (Gmail, WhatsApp) for context in ChatGPT conversations",
             "version": "1.0.0"
         },
         "servers": [

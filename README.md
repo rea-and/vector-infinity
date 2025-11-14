@@ -1,6 +1,6 @@
 # Vector Infinity
 
-A personal data aggregation system that imports data from multiple sources (Gmail, TODO apps, health trackers, calendars, etc.) and provides it as context for ChatGPT Custom GPTs via REST API endpoints.
+A personal data aggregation system that imports data from multiple sources (Gmail, WhatsApp, etc.) and provides it as context for ChatGPT Custom GPTs via REST API endpoints.
 
 ## Features
 
@@ -83,33 +83,22 @@ The default port is 80. If you have an existing `.env` file with `WEB_PORT=5000`
 
 Each plugin has its own configuration file in `plugins/<plugin_name>/config.json`.
 
-**Gmail Plugins** (gmail_personal, gmail_work):
+**Gmail Plugin** (gmail_personal):
 1. Enable the plugin: Set `"enabled": true` in `config.json`
 2. Get Google OAuth credentials:
    - Go to [Google Cloud Console](https://console.cloud.google.com/)
    - Create a new project or select existing
    - Enable Gmail API
-   - Create OAuth 2.0 credentials (Desktop app)
+   - Create OAuth 2.0 credentials (Web application)
    - Download credentials as `credentials.json`
    - Place `credentials.json` in the plugin directory
-3. On first run, the plugin will open a browser for authentication
+3. Authenticate via the web UI using the "Authenticate" button
 
-**TODO App Plugin**:
-1. Set `"enabled": true`
-2. Configure:
-   - `api_url`: Your TODO app's API endpoint
-   - `api_key`: API key or token
-   - `auth_type`: "bearer", "header", or "basic"
-
-**Whoop Plugin**:
-1. Set `"enabled": true`
-2. Get your Whoop API key from [Whoop Developer Portal](https://developer.whoop.com/)
-3. Set `api_key` in `config.json`
-
-**Calendar Plugin**:
-1. Set `"enabled": true`
-2. Follow same OAuth setup as Gmail plugins
-3. Enable Google Calendar API in Google Cloud Console
+**WhatsApp Angel Plugin** (whatsapp_angel):
+1. Enable the plugin: Set `"enabled": true` in `config.json`
+2. Export your WhatsApp chat with Angel as a `.txt` file
+3. Zip the `.txt` file
+4. Use the "Upload & Import" button in the web UI to upload the ZIP file
 
 ### 3. Running
 
@@ -336,7 +325,7 @@ Example: `POST /api/plugins/gmail_personal/semantic-search` with body `{"query":
 5. **Custom GPT**: Upload the plugin's `custom_gpt_schema.json` to ChatGPT Actions to enable the plugin
 6. **ChatGPT Integration**: ChatGPT automatically calls the semantic search endpoint when you ask questions about your data
 
-This allows ChatGPT to access your personal data (emails, todos, health data, calendar) as context when you're having conversations, using semantic search to find relevant information by meaning.
+This allows ChatGPT to access your personal data (emails, WhatsApp messages) as context when you're having conversations, using semantic search to find relevant information by meaning.
 
 ## Low RAM Optimization
 
