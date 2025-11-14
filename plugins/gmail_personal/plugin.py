@@ -219,18 +219,51 @@ class Plugin(DataSourcePlugin):
         logger.info(f"Gmail query: {query}, max_results: {max_results}, days_back: {days_back}")
         
         try:
-            messages_response = self.service.users().messages().list(
-                userId='me',
-                q=query,
-                maxResults=max_results
-            ).execute()
+            # Fetch all messages using pagination
+            all_message_ids = []
+            page_token = None
+            page_count = 0
+            max_pages = 1000  # Safety limit to prevent infinite loops
             
-            messages_list = messages_response.get('messages', [])
-            result_size_estimate = messages_response.get('resultSizeEstimate', 0)
+            logger.info("Fetching message list from Gmail API (with pagination)...")
             
-            logger.info(f"Gmail API returned {len(messages_list)} messages (resultSizeEstimate: {result_size_estimate})")
+            while page_count < max_pages:
+                # Request up to 500 messages per page (Gmail API max)
+                page_max = min(500, max_results - len(all_message_ids)) if max_results > 0 else 500
+                
+                request_params = {
+                    'userId': 'me',
+                    'q': query,
+                    'maxResults': page_max
+                }
+                
+                if page_token:
+                    request_params['pageToken'] = page_token
+                
+                messages_response = self.service.users().messages().list(**request_params).execute()
+                
+                messages_list = messages_response.get('messages', [])
+                all_message_ids.extend(messages_list)
+                
+                result_size_estimate = messages_response.get('resultSizeEstimate', 0)
+                page_token = messages_response.get('nextPageToken')
+                page_count += 1
+                
+                logger.info(f"Page {page_count}: Fetched {len(messages_list)} messages (total so far: {len(all_message_ids)}, estimate: {result_size_estimate})")
+                
+                # Stop if no more pages or we've reached max_results
+                if not page_token:
+                    logger.info("No more pages to fetch")
+                    break
+                
+                if max_results > 0 and len(all_message_ids) >= max_results:
+                    logger.info(f"Reached max_results limit ({max_results})")
+                    all_message_ids = all_message_ids[:max_results]
+                    break
             
-            if not messages_list:
+            logger.info(f"Total messages to process: {len(all_message_ids)}")
+            
+            if not all_message_ids:
                 logger.warning(f"No messages found with query: {query}")
                 return results
             
@@ -238,7 +271,7 @@ class Plugin(DataSourcePlugin):
             processed_count = 0
             error_count = 0
             
-            for idx, msg in enumerate(messages_list[:max_results]):
+            for idx, msg in enumerate(all_message_ids):
                 try:
                     # Retry logic for fetching message details
                     max_retries = 3
@@ -321,7 +354,7 @@ class Plugin(DataSourcePlugin):
                     
                     # Log progress every 50 messages
                     if (idx + 1) % 50 == 0:
-                        logger.info(f"Processed {idx + 1}/{len(messages_list[:max_results])} messages...")
+                        logger.info(f"Processed {idx + 1}/{len(all_message_ids)} messages...")
                         
                 except Exception as msg_error:
                     error_count += 1
