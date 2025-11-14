@@ -55,12 +55,7 @@ Edit the `.env` file:
 nano .env
 ```
 
-**Note**: OpenAI API key is optional and only needed if you plan to use the vector database feature (which is also optional). For Custom GPT integration, you don't need it.
-
-If you want to use vector DB (optional):
-```
-OPENAI_API_KEY=sk-your-key-here
-```
+**Note**: No OpenAI API key is needed for Custom GPT integration. The system uses simple SQLite text search for querying data.
 
 #### Plugin Configuration
 
@@ -245,7 +240,7 @@ The system is optimized for low RAM usage:
 - Lightweight Flask framework
 - Minimal dependencies
 - Efficient data storage
-- Vector DB is optional (not required for Custom GPT integration)
+- Simple text search (no vector embeddings needed)
 
 ## Troubleshooting
 
@@ -268,13 +263,6 @@ The system is optimized for low RAM usage:
 ### High memory usage
 - Reduce `max_results` in plugin configs
 - Reduce `days_back` in plugin configs
-- Vector database is optional - you can disable it if not needed
-
-### Vector database (optional)
-- Vector DB is not required for Custom GPT integration
-- If you want to use it, ensure OpenAI API key is set correctly
-- ChromaDB data is stored in `data/chroma_db/` directory
-- If you need to rebuild the vector database, delete the `data/chroma_db/` directory and re-run imports
 
 ## License
 

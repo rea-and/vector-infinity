@@ -9,26 +9,12 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Vector DB is optional - only import if needed
-try:
-    from vector_db import get_vector_db
-    VECTOR_DB_AVAILABLE = True
-except ImportError:
-    VECTOR_DB_AVAILABLE = False
-    logger.info("Vector DB not available - embeddings will be skipped")
-
 
 class DataImporter:
     """Handles importing data from plugins."""
     
     def __init__(self):
         self.plugin_loader = PluginLoader()
-        self.vector_db = None
-        if VECTOR_DB_AVAILABLE:
-            try:
-                self.vector_db = get_vector_db()
-            except Exception as e:
-                logger.warning(f"Vector DB initialization failed: {e}. Continuing without vector DB.")
     
     def import_from_plugin(self, plugin_name: str) -> ImportLog:
         """
@@ -75,11 +61,6 @@ class DataImporter:
                     source_id=item_data.get("source_id")
                 ).first()
                 
-                # Prepare text for embedding (combine title and content)
-                title = item_data.get("title", "")
-                content = item_data.get("content", "")
-                text_for_embedding = f"{title}\n\n{content}".strip()
-                
                 if existing:
                     # Update existing item
                     existing.title = item_data.get("title")
@@ -88,23 +69,6 @@ class DataImporter:
                     existing.updated_at = datetime.utcnow()
                     if item_data.get("source_timestamp"):
                         existing.source_timestamp = item_data.get("source_timestamp")
-                    
-                    # Update in vector DB (if available)
-                    if self.vector_db and text_for_embedding:
-                        try:
-                            vector_metadata = {
-                                "plugin_name": plugin_name,
-                                "item_type": existing.item_type,
-                                "source_id": existing.source_id,
-                                "title": title[:200] if title else "",  # Limit for metadata
-                            }
-                            self.vector_db.update_item(
-                                str(existing.id),
-                                text_for_embedding,
-                                vector_metadata
-                            )
-                        except Exception as e:
-                            logger.warning(f"Failed to update vector DB: {e}")
                 else:
                     # Create new item
                     new_item = DataItem(
@@ -117,25 +81,6 @@ class DataImporter:
                         source_timestamp=item_data.get("source_timestamp")
                     )
                     db.add(new_item)
-                    db.flush()  # Flush to get the ID
-                    
-                    # Add to vector DB (if available)
-                    if self.vector_db and text_for_embedding:
-                        try:
-                            vector_metadata = {
-                                "plugin_name": plugin_name,
-                                "item_type": new_item.item_type,
-                                "source_id": new_item.source_id,
-                                "title": title[:200] if title else "",
-                            }
-                            self.vector_db.add_item(
-                                str(new_item.id),
-                                text_for_embedding,
-                                vector_metadata
-                            )
-                        except Exception as e:
-                            logger.warning(f"Failed to add to vector DB: {e}")
-                    
                     records_imported += 1
             
             db.commit()

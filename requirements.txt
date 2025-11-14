@@ -1,7 +1,6 @@
 flask==3.0.0
 flask-cors==4.0.0
 apscheduler==3.10.4
-openai==1.12.0
 google-auth==2.27.0
 google-auth-oauthlib==1.2.0
 google-auth-httplib2==0.2.0
@@ -12,5 +11,4 @@ pytz==2024.1
 sqlalchemy==2.0.25
 python-dotenv==1.0.0
 gunicorn==21.2.0
-chromadb==0.4.22
 

@@ -53,16 +53,6 @@ pip install --only-binary :all: flask flask-cors apscheduler python-dotenv gunic
 echo "Installing Google API dependencies..."
 pip install --only-binary :all: google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
 
-echo "Installing OpenAI dependency..."
-pip install --only-binary :all: openai
-
-echo "Installing ChromaDB (this may take a while on low RAM systems)..."
-# For ChromaDB, we need to allow source builds but with optimizations
-# Set environment variables to reduce memory usage during compilation
-export MAKEFLAGS="-j1"  # Use single job to reduce memory
-export CFLAGS="-O1"     # Lower optimization to reduce memory during compile
-pip install chromadb --no-cache-dir
-
 echo "All dependencies installed successfully!"
 
 # Create necessary directories
@@ -108,9 +98,6 @@ sudo ufw status numbered
 echo "Step 9: Setting up environment file..."
 if [ ! -f ".env" ]; then
     cat > .env << EOF
-# OpenAI API Configuration (optional - only needed if using vector DB)
-# OPENAI_API_KEY=your_openai_api_key_here
-
 # Web Server Configuration
 WEB_HOST=0.0.0.0
 WEB_PORT=5000
@@ -119,7 +106,7 @@ WEB_PORT=5000
 TZ=UTC
 DAILY_IMPORT_TIME=02:00
 EOF
-    echo "Created .env file. OpenAI API key is optional (only needed for vector DB)."
+    echo "Created .env file."
 else
     echo ".env file already exists, skipping..."
 fi
@@ -151,10 +138,7 @@ echo "Setup completed successfully!"
 echo "========================================="
 echo ""
 echo "Next steps:"
-echo "1. (Optional) Edit .env file and add your OpenAI API key if using vector DB:"
-echo "   nano .env"
-echo ""
-echo "2. Configure your plugins in the plugins/ directory:"
+echo "1. Configure your plugins in the plugins/ directory:"
 echo "   - Enable plugins by setting 'enabled: true' in each plugin's config.json"
 echo "   - For Gmail plugins, add credentials.json files"
 echo "   - For TODO app, configure API URL and key"
