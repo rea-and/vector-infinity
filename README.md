@@ -65,8 +65,6 @@ The web UI will be available at:
 
 **Note:** For OAuth authentication (Gmail, Calendar), you need HTTPS. See the [HTTPS Setup](#https-setup-for-oauth-required-for-gmail-api) section below.
 
-**Note:** OAuth authentication (like Gmail) requires HTTPS, so use Option A if you need to authenticate plugins.
-
 ### 3. Configuration
 
 #### Environment Variables
