@@ -52,20 +52,32 @@ class Plugin(DataSourcePlugin):
                 try:
                     flow = InstalledAppFlow.from_client_secrets_file(
                         str(credentials_path), SCOPES)
-                    # Try local server first (for desktop), fall back to console flow (for headless)
+                    # Try local server first (for desktop), fall back to manual flow (for headless)
                     try:
-                        creds = flow.run_local_server(port=0)
+                        # Try with browser first
+                        creds = flow.run_local_server(port=0, open_browser=True)
                     except Exception as local_error:
-                        # If local server fails (e.g., no browser), use console flow
-                        logger.info("Local server authentication failed, using console flow for headless server")
-                        logger.info("Please visit the following URL to authorize the application:")
-                        logger.info("=" * 80)
-                        flow.run_console()
-                        creds = flow.credentials
+                        # If browser fails, try without opening browser (headless)
+                        logger.info("Browser authentication failed, trying headless mode...")
+                        try:
+                            creds = flow.run_local_server(port=0, open_browser=False)
+                        except Exception as headless_error:
+                            # Last resort: manual authorization URL
+                            logger.info("=" * 80)
+                            logger.info("HEADLESS SERVER AUTHENTICATION REQUIRED")
+                            logger.info("=" * 80)
+                            logger.info("Please visit the following URL to authorize:")
+                            auth_url, _ = flow.authorization_url(prompt='consent')
+                            logger.info(auth_url)
+                            logger.info("=" * 80)
+                            logger.info("After authorization, enter the authorization code:")
+                            code = input("Enter authorization code: ").strip()
+                            flow.fetch_token(code=code)
+                            creds = flow.credentials
                 except Exception as e:
                     logger.warning(f"Error during OAuth flow: {e}")
                     logger.info("If you're on a headless server, you can manually authenticate by:")
-                    logger.info("1. Running the import from a terminal")
+                    logger.info("1. Running the import from a terminal (not via web UI)")
                     logger.info("2. Copying the authorization URL that appears")
                     logger.info("3. Opening it in a browser on your local machine")
                     logger.info("4. Pasting the authorization code back into the terminal")
