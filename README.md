@@ -287,23 +287,27 @@ Example: `GET /api/plugins/gmail_personal/context?limit=20&days=7&query=meeting`
 
 ## Architecture
 
-- **Database**: SQLite (lightweight, no separate server) for structured data
+- **Database**: SQLite (lightweight, no separate server) for structured data and vector embeddings
 - **Backend**: Flask (lightweight web framework) with REST API endpoints
 - **Scheduler**: APScheduler (background task scheduling)
 - **Frontend**: Vanilla HTML/CSS/JS (responsive, mobile-friendly) - Control plane only
-- **Custom GPT Integration**: Each plugin exposes endpoints that ChatGPT can call
+- **Embedding Service**: Generates and stores vector embeddings for semantic search
+- **Custom GPT Integration**: Each plugin exposes endpoints that ChatGPT can call via Actions
 
 ### How It Works
 
 1. **Import**: Plugins fetch data from various sources (Gmail, TODO apps, etc.) on a schedule
 2. **Storage**: Data is stored in SQLite with metadata (title, content, timestamps, etc.)
-3. **API Access**: Each plugin exposes REST endpoints:
+3. **Embeddings**: Vector embeddings are automatically generated during import for semantic search
+4. **API Access**: Each plugin exposes REST endpoints:
    - `/api/plugins/{plugin_name}/context` - Get recent data as context
-   - `/api/plugins/{plugin_name}/search` - Search data by text
-4. **Custom GPT**: Upload the plugin's `custom_gpt_schema.json` to ChatGPT to enable the plugin
-5. **ChatGPT Integration**: ChatGPT can call these endpoints to retrieve relevant context when answering questions
+   - `/api/plugins/{plugin_name}/search` - Keyword search in data
+   - `/api/plugins/{plugin_name}/semantic-search` - Semantic search using vector embeddings (Action)
+   - `/api/plugins/{plugin_name}/inbox` - Get all emails as flat text
+5. **Custom GPT**: Upload the plugin's `custom_gpt_schema.json` to ChatGPT Actions to enable the plugin
+6. **ChatGPT Integration**: ChatGPT automatically calls the semantic search endpoint when you ask questions about your data
 
-This allows ChatGPT to access your personal data (emails, todos, health data, calendar) as context when you're having conversations.
+This allows ChatGPT to access your personal data (emails, todos, health data, calendar) as context when you're having conversations, using semantic search to find relevant information by meaning.
 
 ## Low RAM Optimization
 
@@ -312,7 +316,8 @@ The system is optimized for low RAM usage:
 - Lightweight Flask framework
 - Minimal dependencies
 - Efficient data storage
-- Simple text search (no vector embeddings needed)
+- Embeddings stored in SQLite (no separate vector database needed)
+- Batch processing of embeddings during import to minimize memory usage
 
 ## Troubleshooting
 
