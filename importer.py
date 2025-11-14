@@ -1,5 +1,5 @@
 """Data importer that runs plugins and stores data."""
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy.orm import Session
 from database import ImportLog, DataItem, SessionLocal
@@ -30,8 +30,8 @@ class DataImporter:
             log_entry = ImportLog(
                 plugin_name=plugin_name,
                 status="error",
-                started_at=datetime.utcnow(),
-                completed_at=datetime.utcnow(),
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
                 error_message=f"Plugin {plugin_name} not found or not enabled"
             )
             db.add(log_entry)
@@ -43,7 +43,7 @@ class DataImporter:
         log_entry = ImportLog(
             plugin_name=plugin_name,
             status="running",
-            started_at=datetime.utcnow()
+            started_at=datetime.now(timezone.utc)
         )
         db.add(log_entry)
         db.commit()
@@ -66,7 +66,7 @@ class DataImporter:
                     existing.title = item_data.get("title")
                     existing.content = item_data.get("content")
                     existing.item_metadata = item_data.get("metadata", {})
-                    existing.updated_at = datetime.utcnow()
+                    existing.updated_at = datetime.now(timezone.utc)
                     if item_data.get("source_timestamp"):
                         existing.source_timestamp = item_data.get("source_timestamp")
                 else:
@@ -87,7 +87,7 @@ class DataImporter:
             
             # Update log entry
             log_entry.status = "success"
-            log_entry.completed_at = datetime.utcnow()
+            log_entry.completed_at = datetime.now(timezone.utc)
             log_entry.records_imported = records_imported
             db.commit()
             
@@ -96,7 +96,7 @@ class DataImporter:
         except Exception as e:
             logger.error(f"Error importing from {plugin_name}: {e}", exc_info=True)
             log_entry.status = "error"
-            log_entry.completed_at = datetime.utcnow()
+            log_entry.completed_at = datetime.now(timezone.utc)
             log_entry.error_message = str(e)
             db.commit()
         
