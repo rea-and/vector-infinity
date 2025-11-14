@@ -116,28 +116,45 @@ fi
 
 # Allow Python to bind to port 80 without root (using setcap)
 echo "Step 10: Configuring port 80 binding permissions..."
-if [ -f "$SCRIPT_DIR/venv/bin/python3" ]; then
+PYTHON_BIN="$SCRIPT_DIR/venv/bin/python3"
+if [ -f "$PYTHON_BIN" ] || [ -L "$PYTHON_BIN" ]; then
+    # Resolve symlink to actual file (setcap requires regular file, not symlink)
+    if [ -L "$PYTHON_BIN" ]; then
+        PYTHON_BIN=$(readlink -f "$PYTHON_BIN")
+        echo "Resolved Python symlink to: $PYTHON_BIN"
+    fi
+    
     # Find setcap command (usually in /usr/sbin or /sbin)
     SETCAP_CMD=""
-    for path in /usr/sbin/setcap /sbin/setcap; do
-        if [ -f "$path" ]; then
+    for path in /usr/sbin/setcap /sbin/setcap $(which setcap 2>/dev/null); do
+        if [ -f "$path" ] && [ -x "$path" ]; then
             SETCAP_CMD="$path"
             break
         fi
     done
     
-    if [ -n "$SETCAP_CMD" ]; then
-        sudo "$SETCAP_CMD" 'cap_net_bind_service=+ep' "$SCRIPT_DIR/venv/bin/python3"
+    if [ -n "$SETCAP_CMD" ] && [ -f "$PYTHON_BIN" ]; then
+        echo "Setting capabilities on: $PYTHON_BIN"
+        sudo "$SETCAP_CMD" 'cap_net_bind_service=+ep' "$PYTHON_BIN"
         if [ $? -eq 0 ]; then
             echo "✓ Python binary can now bind to port 80 without root privileges"
+            # Verify it worked
+            if command -v getcap >/dev/null 2>&1; then
+                getcap "$PYTHON_BIN" 2>/dev/null || true
+            fi
         else
             echo "⚠ Warning: Failed to set capabilities. You may need to run manually:"
-            echo "   sudo $SETCAP_CMD 'cap_net_bind_service=+ep' $SCRIPT_DIR/venv/bin/python3"
+            echo "   sudo setcap 'cap_net_bind_service=+ep' $PYTHON_BIN"
         fi
     else
-        echo "⚠ Warning: setcap command not found. Install libcap2-bin:"
-        echo "   sudo apt-get install -y libcap2-bin"
-        echo "   Then run: sudo setcap 'cap_net_bind_service=+ep' $SCRIPT_DIR/venv/bin/python3"
+        if [ -z "$SETCAP_CMD" ]; then
+            echo "⚠ Warning: setcap command not found. Install libcap2-bin:"
+            echo "   sudo apt-get install -y libcap2-bin"
+        fi
+        if [ ! -f "$PYTHON_BIN" ]; then
+            echo "⚠ Warning: Python binary not found at: $PYTHON_BIN"
+        fi
+        echo "   Then run: sudo setcap 'cap_net_bind_service=+ep' $PYTHON_BIN"
     fi
 else
     echo "⚠ Warning: Could not find Python binary to set capabilities"
