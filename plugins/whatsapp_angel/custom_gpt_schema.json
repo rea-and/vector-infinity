@@ -1,0 +1,105 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "WhatsApp Angel Chat API",
+    "description": "Access WhatsApp chat history with Angel for context in ChatGPT conversations",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://vectorinfinity.com/",
+      "description": "Your Vector Infinity server URL"
+    }
+  ],
+  "paths": {
+    "/api/plugins/whatsapp_angel/semantic-search": {
+      "post": {
+        "operationId": "semanticSearchWhatsAppAngel",
+        "summary": "Semantic search in WhatsApp chat with Angel using vector embeddings",
+        "description": "Search your WhatsApp chat history with Angel using semantic similarity. This uses vector embeddings to find messages that are semantically similar to your query, not just keyword matches.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "The search query. This will be converted to an embedding and compared against all message embeddings to find semantically similar messages."
+                  },
+                  "top_k": {
+                    "type": "integer",
+                    "description": "Number of results to return (default: 5, recommended: 5-20)",
+                    "default": 5,
+                    "minimum": 1,
+                    "maximum": 50
+                  }
+                },
+                "required": ["query"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results with similarity scores",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "description": "Array of search results, sorted by similarity score (highest first)",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "description": "The full text of the message (sender, date, time, content)"
+                          },
+                          "score": {
+                            "type": "number",
+                            "description": "Similarity score (0-1, higher is more similar)",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "metadata": {
+                            "type": "object",
+                            "description": "Additional metadata about the message",
+                            "properties": {
+                              "id": { "type": "integer" },
+                              "title": { "type": "string" },
+                              "source_id": { "type": "string" },
+                              "item_type": { "type": "string" },
+                              "source_timestamp": { "type": "string", "format": "date-time" }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "query": {
+                      "type": "string",
+                      "description": "The original search query"
+                    },
+                    "total_found": {
+                      "type": "integer",
+                      "description": "Total number of messages that matched (before limiting to top_k)"
+                    },
+                    "returned": {
+                      "type": "integer",
+                      "description": "Number of results returned"
+                    }
+                  },
+                  "required": ["results", "query", "total_found", "returned"]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

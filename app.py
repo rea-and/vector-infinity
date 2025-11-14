@@ -1,5 +1,7 @@
 """Main Flask application."""
 from flask import Flask, jsonify, request, render_template_string, send_file, redirect, url_for
+import tempfile
+import os
 from flask_cors import CORS
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
@@ -191,10 +193,33 @@ def list_imports():
 @app.route("/api/imports/run", methods=["POST"])
 def run_import():
     """Run import for a specific plugin or all plugins (async)."""
-    data = request.get_json() or {}
-    plugin_name = data.get("plugin_name")
+    plugin_name = None
+    uploaded_file_path = None
+    
+    # Check if this is a file upload (multipart/form-data)
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        plugin_name = request.form.get("plugin_name")
+        if 'file' in request.files:
+            file = request.files['file']
+            if file.filename:
+                # Save uploaded file to temporary location
+                temp_dir = Path(tempfile.gettempdir()) / "vector_infinity_uploads"
+                temp_dir.mkdir(exist_ok=True)
+                uploaded_file_path = temp_dir / f"{plugin_name}_{secrets.token_hex(8)}_{file.filename}"
+                file.save(str(uploaded_file_path))
+                logger.info(f"Saved uploaded file to: {uploaded_file_path}")
+    else:
+        # JSON request
+        data = request.get_json() or {}
+        plugin_name = data.get("plugin_name")
     
     if plugin_name:
+        # Handle file upload for whatsapp_angel plugin
+        if plugin_name == "whatsapp_angel" and uploaded_file_path:
+            plugin = plugin_loader.get_plugin(plugin_name)
+            if plugin and hasattr(plugin, 'set_uploaded_file'):
+                plugin.set_uploaded_file(str(uploaded_file_path))
+        
         # Create log entry first
         db = SessionLocal()
         try:
