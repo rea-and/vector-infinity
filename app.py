@@ -305,6 +305,28 @@ def plugin_auth_callback(plugin_name):
     if error:
         error_description = request.args.get('error_description', '')
         redirect_uri_info = ""
+        test_user_info = ""
+        
+        # Check if it's an access_denied error (test user issue)
+        if error == 'access_denied' or 'verification process' in error_description.lower() or 'test user' in error_description.lower():
+            test_user_info = """
+                <h2>OAuth Consent Screen - Add Test User</h2>
+                <p style="color: red; font-weight: bold;">⚠️ Your app is in "Testing" mode and your email is not in the test users list.</p>
+                <p>To fix this:</p>
+                <ol>
+                    <li>Go to <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
+                    <li>Navigate to: <strong>APIs & Services > OAuth consent screen</strong></li>
+                    <li>Scroll down to the <strong>"Test users"</strong> section</li>
+                    <li>Click <strong>"ADD USERS"</strong></li>
+                    <li>Add your Gmail address (the one you're trying to authenticate with, e.g., <code>your-email@gmail.com</code>)</li>
+                    <li>Click <strong>"ADD"</strong></li>
+                    <li>Try authenticating again</li>
+                </ol>
+                <p><strong>Note:</strong> The app is in "Testing" mode, so only approved test users can authenticate. 
+                You can add up to 100 test users. To allow anyone to use it, you'd need to publish the app 
+                (requires verification for sensitive scopes like Gmail).</p>
+            """
+        
         if state in oauth_flows and 'redirect_uri' in oauth_flows[state]:
             redirect_uri = oauth_flows[state]['redirect_uri']
             redirect_uri_info = f"""
@@ -339,6 +361,27 @@ def plugin_auth_callback(plugin_name):
                 </ol>
                 <p><strong>Production Option:</strong> Set up Nginx with Let's Encrypt (see README.md for full instructions)</p>
             """
+        
+        return render_template_string("""
+            <html>
+                <head><title>Authentication Error</title></head>
+                <body style="font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto;">
+                    <h1>Authentication Failed</h1>
+                    <p><strong>Error:</strong> {{ error }}</p>
+                    {% if error_description %}
+                    <p><strong>Details:</strong> {{ error_description }}</p>
+                    {% endif %}
+                    {{ test_user_info|safe }}
+                    {{ redirect_uri_info|safe }}
+                    <p style="margin-top: 20px;">You can close this window.</p>
+                    <script>
+                        setTimeout(function() {
+                            window.close();
+                        }, 30000);
+                    </script>
+                </body>
+            </html>
+        """, error=error, error_description=error_description, redirect_uri_info=redirect_uri_info, test_user_info=test_user_info)
         
         return render_template_string("""
             <html>
