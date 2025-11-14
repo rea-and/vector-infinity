@@ -108,8 +108,8 @@ sudo ufw status numbered
 echo "Step 9: Setting up environment file..."
 if [ ! -f ".env" ]; then
     cat > .env << EOF
-# OpenAI API Configuration
-OPENAI_API_KEY=your_openai_api_key_here
+# OpenAI API Configuration (optional - only needed if using vector DB)
+# OPENAI_API_KEY=your_openai_api_key_here
 
 # Web Server Configuration
 WEB_HOST=0.0.0.0
@@ -119,7 +119,7 @@ WEB_PORT=5000
 TZ=UTC
 DAILY_IMPORT_TIME=02:00
 EOF
-    echo "Created .env file. Please edit it and add your OpenAI API key."
+    echo "Created .env file. OpenAI API key is optional (only needed for vector DB)."
 else
     echo ".env file already exists, skipping..."
 fi
@@ -151,7 +151,7 @@ echo "Setup completed successfully!"
 echo "========================================="
 echo ""
 echo "Next steps:"
-echo "1. Edit .env file and add your OpenAI API key:"
+echo "1. (Optional) Edit .env file and add your OpenAI API key if using vector DB:"
 echo "   nano .env"
 echo ""
 echo "2. Configure your plugins in the plugins/ directory:"

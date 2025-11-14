@@ -13,9 +13,9 @@ load_dotenv(dotenv_path=env_path)
 # Database
 DATABASE_PATH = BASE_DIR / "data" / "vector_infinity.db"
 
-# Vector Database
+# Vector Database (optional - only needed if using vector search)
 VECTOR_DB_PATH = BASE_DIR / "data" / "chroma_db"
-EMBEDDING_MODEL = "text-embedding-3-small"  # OpenAI embedding model (smaller, cheaper, good quality)
+EMBEDDING_MODEL = "text-embedding-3-small"  # OpenAI embedding model (only needed if using vector DB)
 
 # Plugins directory
 PLUGINS_DIR = BASE_DIR / "plugins"
@@ -23,9 +23,9 @@ PLUGINS_DIR = BASE_DIR / "plugins"
 # Logs directory
 LOGS_DIR = BASE_DIR / "logs"
 
-# OpenAI API
+# OpenAI API (optional - only needed if using vector DB for embeddings)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENAI_MODEL = "gpt-5"  # GPT-5 model
+OPENAI_MODEL = "gpt-5"  # Not used in current architecture (kept for potential future use)
 
 # Web server
 WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")
@@ -37,7 +37,7 @@ DAILY_IMPORT_TIME = os.getenv("DAILY_IMPORT_TIME", "02:00")  # 2 AM
 
 # Create necessary directories
 DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-VECTOR_DB_PATH.mkdir(parents=True, exist_ok=True)
+# VECTOR_DB_PATH is created on demand if vector DB is used
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 PLUGINS_DIR.mkdir(parents=True, exist_ok=True)
 
