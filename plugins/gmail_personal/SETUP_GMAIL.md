@@ -33,10 +33,14 @@
    - Review and go back to dashboard
 
 4. Back in Credentials, click "Create Credentials" > "OAuth client ID"
-5. Choose "Desktop app" as the application type
+5. **Important:** Choose "Web application" as the application type (NOT "Desktop app")
 6. Give it a name (e.g., "Vector Infinity Gmail")
-7. Click "Create"
-8. Click "Download JSON" to download the credentials file
+7. Under "Authorized redirect URIs", click "ADD URI" and add:
+   - `http://your-server-ip/api/plugins/gmail_personal/auth/callback`
+   - Or if using a domain: `http://your-domain.com/api/plugins/gmail_personal/auth/callback`
+   - Replace `your-server-ip` or `your-domain.com` with your actual server IP or domain
+8. Click "Create"
+9. Click "Download JSON" to download the credentials file
 
 ## Step 4: Install Credentials File
 

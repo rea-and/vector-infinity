@@ -318,10 +318,14 @@ def plugin_auth_callback(plugin_name):
                     <li>Go to <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
                     <li>Navigate to: APIs & Services > Credentials</li>
                     <li>Click on your OAuth 2.0 Client ID</li>
+                    <li><strong>Important:</strong> Make sure your OAuth client type is "Web application" (not "Desktop app")</li>
+                    <li>If it's "Desktop app", you need to create a new "Web application" OAuth client</li>
                     <li>Under "Authorized redirect URIs", click "ADD URI"</li>
                     <li>Paste the redirect URI above</li>
                     <li>Click "SAVE"</li>
                 </ol>
+                <p><strong>Note:</strong> If you don't see "Authorized redirect URIs", your OAuth client is likely set as "Desktop app". 
+                You need to create a new OAuth client with type "Web application" to use web-based authentication.</p>
             """
         
         return render_template_string("""
