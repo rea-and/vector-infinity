@@ -131,16 +131,8 @@ class DataImporter:
                 text_for_embedding = "\n".join(text_parts)
                 
                 if existing:
-                    # Update existing item
-                    existing.title = item_data.get("title")
-                    existing.content = item_data.get("content")
-                    existing.item_metadata = item_data.get("metadata", {})
-                    existing.updated_at = datetime.now(timezone.utc)
-                    if item_data.get("source_timestamp"):
-                        existing.source_timestamp = item_data.get("source_timestamp")
-                    # Re-generate embedding if content changed
-                    if text_for_embedding:
-                        items_to_embed.append((existing, text_for_embedding))
+                    # Skip existing items - only import new ones
+                    continue
                 else:
                     # Create new item
                     new_item = DataItem(
@@ -251,7 +243,21 @@ class DataImporter:
                     return
                 
                 try:
-                    log_entry.progress_message = "Fetching data from source..."
+                    log_entry.progress_message = "Checking for new data..."
+                    db.commit()
+                    
+                    # Get the latest imported timestamp for this plugin to only fetch new items
+                    latest_item = db.query(DataItem).filter_by(
+                        plugin_name=plugin_name
+                    ).order_by(DataItem.source_timestamp.desc()).first()
+                    
+                    # Pass the latest timestamp to plugin if it supports incremental imports
+                    if latest_item and latest_item.source_timestamp:
+                        if hasattr(plugin, 'set_latest_timestamp'):
+                            plugin.set_latest_timestamp(latest_item.source_timestamp)
+                        log_entry.progress_message = f"Fetching new data since {latest_item.source_timestamp.isoformat()}..."
+                    else:
+                        log_entry.progress_message = "Fetching data from source (first import)..."
                     db.commit()
                     
                     data_items = plugin.fetch_data()
@@ -298,15 +304,8 @@ class DataImporter:
                         text_for_embedding = "\n".join(text_parts)
                         
                         if existing:
-                            existing.title = item_data.get("title")
-                            existing.content = item_data.get("content")
-                            existing.item_metadata = item_data.get("metadata", {})
-                            existing.updated_at = datetime.now(timezone.utc)
-                            if item_data.get("source_timestamp"):
-                                existing.source_timestamp = item_data.get("source_timestamp")
-                            # Re-generate embedding if content changed
-                            if text_for_embedding:
-                                items_to_embed.append((existing, text_for_embedding))
+                            # Skip existing items - only import new ones
+                            continue
                         else:
                             new_item = DataItem(
                                 plugin_name=plugin_name,

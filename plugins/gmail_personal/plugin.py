@@ -21,8 +21,13 @@ class Plugin(DataSourcePlugin):
         super().__init__("gmail_personal")
         self.service = None
         self._oauth_flow = None  # Store OAuth flow for web-based auth
+        self._latest_timestamp = None  # For incremental imports
         # Don't authenticate on init - do it lazily when needed
         # self._authenticate()
+    
+    def set_latest_timestamp(self, timestamp):
+        """Set the latest imported timestamp for incremental imports."""
+        self._latest_timestamp = timestamp
     
     def get_authorization_url(self, state):
         """Get OAuth authorization URL for web-based authentication."""
@@ -212,9 +217,17 @@ class Plugin(DataSourcePlugin):
         
         query = self.config.get("query", "")
         if not query:
-            # Default: get emails from last N days
-            after_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y/%m/%d")
-            query = f"after:{after_date}"
+            # If we have a latest timestamp, only fetch emails after that (incremental import)
+            if self._latest_timestamp:
+                # Add 1 second to avoid re-fetching the last email
+                after_timestamp = self._latest_timestamp + timedelta(seconds=1)
+                after_date = after_timestamp.strftime("%Y/%m/%d")
+                query = f"after:{after_date}"
+                logger.info(f"Incremental import: fetching emails after {after_date} (latest imported: {self._latest_timestamp.isoformat()})")
+            else:
+                # Default: get emails from last N days (first import or full import)
+                after_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y/%m/%d")
+                query = f"after:{after_date}"
         
         logger.info(f"Gmail query: {query}, max_results: {max_results}, days_back: {days_back}")
         
