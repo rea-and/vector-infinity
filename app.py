@@ -352,14 +352,12 @@ def plugin_auth_callback(plugin_name):
                 You need to create a new OAuth client with type "Web application" to use web-based authentication.</p>
                 <h2>HTTPS Setup Required</h2>
                 <p><strong>Google requires HTTPS for Gmail API.</strong> If the redirect URI above starts with <code>http://</code>, you need HTTPS.</p>
-                <p><strong>Quick Test Option (ngrok):</strong></p>
+                <p><strong>Production Setup:</strong> Set up Nginx with Let's Encrypt (see README.md for full instructions)</p>
                 <ol>
-                    <li>Install ngrok: <code>sudo apt install ngrok</code> or download from <a href="https://ngrok.com" target="_blank">ngrok.com</a></li>
-                    <li>Run: <code>ngrok http 80</code></li>
-                    <li>Copy the HTTPS URL (e.g., <code>https://abc123.ngrok.io</code>)</li>
-                    <li>Use: <code>https://abc123.ngrok.io/api/plugins/gmail_personal/auth/callback</code> in Google Cloud Console</li>
+                    <li>Run: <code>sudo ./setup_nginx.sh your-domain.com</code></li>
+                    <li>Run: <code>sudo ./setup_ssl.sh your-domain.com</code></li>
+                    <li>Add the redirect URI to Google Cloud Console: <code>https://your-domain.com/api/plugins/gmail_personal/auth/callback</code></li>
                 </ol>
-                <p><strong>Production Option:</strong> Set up Nginx with Let's Encrypt (see README.md for full instructions)</p>
             """
         
         return render_template_string("""

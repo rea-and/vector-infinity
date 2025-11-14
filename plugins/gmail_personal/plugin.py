@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 import os
 from pathlib import Path
 import logging
-import requests
 
 logger = logging.getLogger(__name__)
 
@@ -35,54 +34,33 @@ class Plugin(DataSourcePlugin):
         try:
             from flask import request
             
-            # First, check if ngrok is running and get its HTTPS URL
-            ngrok_url = None
-            try:
-                ngrok_response = requests.get('http://localhost:4040/api/tunnels', timeout=1)
-                if ngrok_response.status_code == 200:
-                    tunnels = ngrok_response.json().get('tunnels', [])
-                    for tunnel in tunnels:
-                        if tunnel.get('proto') == 'https' and tunnel.get('public_url'):
-                            ngrok_url = tunnel['public_url']
-                            logger.info(f"Detected ngrok running: {ngrok_url}")
-                            break
-            except:
-                # ngrok not running or not accessible
-                pass
+            # Get the base URL from the request
+            # Use scheme and host from request, but prefer X-Forwarded-Proto if behind proxy (Nginx)
+            scheme = request.headers.get('X-Forwarded-Proto', request.scheme)
+            host = request.headers.get('X-Forwarded-Host', request.host)
             
-            # If ngrok is running, use it for the redirect URI
-            if ngrok_url:
-                base_url = ngrok_url.rstrip('/')
-                redirect_uri = f"{base_url}/api/plugins/gmail_personal/auth/callback"
-                logger.info(f"Using ngrok redirect URI: {redirect_uri}")
-            else:
-                # Get the base URL from the request
-                # Use scheme and host from request, but prefer X-Forwarded-Proto if behind proxy
-                scheme = request.headers.get('X-Forwarded-Proto', request.scheme)
-                host = request.headers.get('X-Forwarded-Host', request.host)
-                
-                # Google requires HTTPS for sensitive scopes like Gmail
-                # If we're on HTTP, try to detect if we should use HTTPS
-                if scheme == 'http':
-                    # Check if we're behind a proxy that handles HTTPS
-                    if request.headers.get('X-Forwarded-Proto') == 'https':
-                        scheme = 'https'
-                    # If we have a domain (not localhost/IP), we likely need HTTPS
-                    elif host and not host.startswith('localhost') and not host.startswith('127.0.0.1') and ':' not in host.split('.')[0]:
-                        # It's a domain name, likely needs HTTPS
-                        logger.warning(f"Gmail API requires HTTPS. Detected domain '{host}' but scheme is HTTP. "
-                                     "Forcing HTTPS. Make sure your domain has HTTPS set up or you're using ngrok.")
-                        scheme = 'https'
-                    else:
-                        # For Gmail API, we need HTTPS - warn the user
-                        logger.warning("Gmail API requires HTTPS. Current scheme is HTTP. "
-                                     "Please set up HTTPS or use a reverse proxy with SSL termination.")
-                        # Still use HTTP for now, but it will fail at Google's end
-                        # The error message will guide the user
-                
-                base_url = f"{scheme}://{host}"
-                redirect_uri = f"{base_url}/api/plugins/gmail_personal/auth/callback"
-                logger.info(f"Using redirect URI: {redirect_uri}")
+            # Google requires HTTPS for sensitive scopes like Gmail
+            # If we're on HTTP, try to detect if we should use HTTPS
+            if scheme == 'http':
+                # Check if we're behind a proxy that handles HTTPS (Nginx with SSL)
+                if request.headers.get('X-Forwarded-Proto') == 'https':
+                    scheme = 'https'
+                # If we have a domain (not localhost/IP), we likely need HTTPS
+                elif host and not host.startswith('localhost') and not host.startswith('127.0.0.1') and ':' not in host.split('.')[0]:
+                    # It's a domain name, likely needs HTTPS
+                    logger.warning(f"Gmail API requires HTTPS. Detected domain '{host}' but scheme is HTTP. "
+                                 "Forcing HTTPS. Make sure your domain has HTTPS set up (see README.md for Nginx setup).")
+                    scheme = 'https'
+                else:
+                    # For Gmail API, we need HTTPS - warn the user
+                    logger.warning("Gmail API requires HTTPS. Current scheme is HTTP. "
+                                 "Please set up HTTPS with Nginx and Let's Encrypt (see README.md).")
+                    # Still use HTTP for now, but it will fail at Google's end
+                    # The error message will guide the user
+            
+            base_url = f"{scheme}://{host}"
+            redirect_uri = f"{base_url}/api/plugins/gmail_personal/auth/callback"
+            logger.info(f"Using redirect URI: {redirect_uri}")
             
             flow = InstalledAppFlow.from_client_secrets_file(
                 str(credentials_path), SCOPES)

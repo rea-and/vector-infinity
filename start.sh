@@ -1,40 +1,10 @@
 #!/bin/bash
-# Launcher script that starts ngrok and the Flask app together
-# This is useful for OAuth authentication which requires HTTPS
+# Launcher script for Vector Infinity Flask app
 
 set -e
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
-
-# Check if ngrok is installed
-if ! command -v ngrok &> /dev/null; then
-    echo "Error: ngrok is not installed."
-    echo "Install it with: sudo snap install ngrok"
-    echo "Or run the setup script again: ./setup_ubuntu.sh"
-    exit 1
-fi
-
-# Check if ngrok is configured
-if ! ngrok config check &> /dev/null; then
-    echo "⚠️  ngrok is not configured yet."
-    echo ""
-    echo "To configure ngrok:"
-    echo "1. Sign up at https://ngrok.com (free)"
-    echo "2. Get your authtoken from https://dashboard.ngrok.com/get-started/your-authtoken"
-    echo "3. Run: ngrok config add-authtoken YOUR_AUTHTOKEN"
-    echo ""
-    read -p "Do you want to configure ngrok now? (y/N): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        read -p "Enter your ngrok authtoken: " authtoken
-        ngrok config add-authtoken "$authtoken"
-        echo "✓ ngrok configured"
-    else
-        echo "Exiting. Please configure ngrok first."
-        exit 1
-    fi
-fi
 
 # Activate virtual environment
 if [ ! -d "venv" ]; then
@@ -44,53 +14,58 @@ fi
 
 source venv/bin/activate
 
+# Check if .env exists
+if [ ! -f ".env" ]; then
+    echo "⚠️  Warning: .env file not found. Creating from template..."
+    if [ -f ".env.example" ]; then
+        cp .env.example .env
+        echo "✓ Created .env file. Please edit it with your configuration."
+    fi
+fi
+
 # Function to cleanup on exit
 cleanup() {
     echo ""
     echo "Shutting down..."
-    kill $NGROK_PID 2>/dev/null || true
     kill $FLASK_PID 2>/dev/null || true
     exit 0
 }
 
 trap cleanup SIGINT SIGTERM
 
-# Start ngrok in background
-echo "Starting ngrok..."
-ngrok http 80 > /tmp/ngrok.log 2>&1 &
-NGROK_PID=$!
-
-# Wait a moment for ngrok to start
-sleep 3
-
-# Get ngrok URL
-NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | grep -o 'https://[^"]*\.ngrok[^"]*' | head -1)
-
-if [ -z "$NGROK_URL" ]; then
-    echo "Error: Could not get ngrok URL. Check if ngrok started correctly."
-    kill $NGROK_PID 2>/dev/null || true
-    exit 1
+# Get port from config or .env
+PORT=${WEB_PORT:-5000}
+if [ -f ".env" ]; then
+    PORT=$(grep "^WEB_PORT=" .env 2>/dev/null | cut -d'=' -f2 || echo "5000")
 fi
 
-echo "✓ ngrok started"
+echo "Starting Vector Infinity..."
 echo ""
-echo "═══════════════════════════════════════════════════════════════"
-echo "  ngrok HTTPS URL: $NGROK_URL"
-echo ""
-echo "  Add this redirect URI to Google Cloud Console:"
-echo "  $NGROK_URL/api/plugins/gmail_personal/auth/callback"
-echo ""
-echo "  Web UI: $NGROK_URL"
-echo "═══════════════════════════════════════════════════════════════"
-echo ""
-echo "Starting Flask app..."
-echo "Press Ctrl+C to stop both ngrok and the app"
+
+# Check if running behind Nginx (port 5000) or directly (port 80)
+if [ "$PORT" = "5000" ]; then
+    echo "Running on port 5000 (behind Nginx reverse proxy)"
+    echo "Make sure Nginx is configured and running:"
+    echo "  sudo systemctl status nginx"
+    echo ""
+    echo "If you haven't set up Nginx yet, run:"
+    echo "  sudo ./setup_nginx.sh your-domain.com"
+    echo "  sudo ./setup_ssl.sh your-domain.com"
+    echo ""
+elif [ "$PORT" = "80" ]; then
+    echo "Running directly on port 80 (HTTP only)"
+    echo "⚠️  Note: OAuth (Gmail) requires HTTPS. Set up Nginx for production:"
+    echo "  sudo ./setup_nginx.sh your-domain.com"
+    echo "  sudo ./setup_ssl.sh your-domain.com"
+    echo ""
+fi
+
+echo "Press Ctrl+C to stop"
 echo ""
 
 # Start Flask app
 python3 app.py &
 FLASK_PID=$!
 
-# Wait for both processes
-wait $FLASK_PID $NGROK_PID
-
+# Wait for Flask process
+wait $FLASK_PID
