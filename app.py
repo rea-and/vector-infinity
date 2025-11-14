@@ -886,6 +886,44 @@ def get_vector_store_info(plugin_name):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/data/clear", methods=["POST"])
+def clear_all_data():
+    """Clear all imported data from the database."""
+    db = SessionLocal()
+    try:
+        # Get confirmation from request
+        data = request.get_json() or {}
+        confirm = data.get("confirm", False)
+        
+        if not confirm:
+            return jsonify({"error": "Confirmation required. Set 'confirm': true in request body."}), 400
+        
+        # Count items before deletion
+        total_items = db.query(DataItem).count()
+        
+        # Delete all data items
+        db.query(DataItem).delete()
+        
+        # Optionally clear import logs (commented out - uncomment if you want to clear logs too)
+        # db.query(ImportLog).delete()
+        
+        db.commit()
+        
+        logger.info(f"Cleared {total_items} data items from database")
+        
+        return jsonify({
+            "success": True,
+            "message": f"Successfully cleared {total_items} data items from database",
+            "items_deleted": total_items
+        })
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error clearing data: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
+
 @app.route("/api/stats", methods=["GET"])
 def get_stats():
     """Get statistics about imported data."""

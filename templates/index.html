@@ -326,6 +326,9 @@
             <div class="card">
                 <h2>Statistics</h2>
                 <button class="btn" onclick="loadStats()">Refresh</button>
+                <button class="btn" onclick="clearAllData()" style="background: #dc3545; margin-left: 10px;">
+                    Clear All Data
+                </button>
                 <div id="stats-content"></div>
             </div>
         </div>
@@ -935,6 +938,47 @@
             } catch (error) {
                 console.error('Error loading stats:', error);
                 document.getElementById('stats-content').innerHTML = `<p style="color: red;">Error loading stats: ${error.message}</p>`;
+            }
+        }
+        
+        async function clearAllData() {
+            // Double confirmation
+            const confirm1 = confirm('⚠️ WARNING: This will delete ALL imported data from the database.\n\nThis includes:\n- All emails\n- All calendar events\n- All TODO items\n- All health data\n- All embeddings\n\nImport logs will be preserved.\n\nAre you sure you want to continue?');
+            if (!confirm1) {
+                return;
+            }
+            
+            const confirm2 = confirm('⚠️ FINAL CONFIRMATION\n\nThis action CANNOT be undone. All imported data will be permanently deleted.\n\nType "DELETE" in the next prompt to confirm.');
+            if (!confirm2) {
+                return;
+            }
+            
+            const typed = prompt('Type "DELETE" (all caps) to confirm deletion:');
+            if (typed !== 'DELETE') {
+                alert('Deletion cancelled. You did not type "DELETE" correctly.');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/data/clear`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({confirm: true})
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert(`✓ Success! Deleted ${data.items_deleted} data items from the database.`);
+                    // Refresh stats and imports
+                    loadStats();
+                    loadImports();
+                } else {
+                    alert(`Error: ${data.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Error clearing data:', error);
+                alert(`Error: ${error.message}`);
             }
         }
         
