@@ -234,14 +234,15 @@ Vector Infinity can also sync to OpenAI's managed Vector Store:
 5. In ChatGPT Custom GPT configuration (Configure tab → Knowledge section), add the Vector Store ID
 
 See [VECTOR_STORE_SETUP.md](VECTOR_STORE_SETUP.md) for detailed instructions on OpenAI Vector Store.
+See [SEMANTIC_SEARCH_SETUP.md](SEMANTIC_SEARCH_SETUP.md) for detailed instructions on semantic search via Actions.
 
-## Custom GPT Integration (Alternative: Direct API)
+### Setting Up Actions in ChatGPT
 
-### Setting Up a Plugin in ChatGPT
+For semantic search (recommended) or other API endpoints:
 
 1. **Get your server URL**: Make sure your Vector Infinity server is accessible (e.g., `https://your-server.com`)
 
-2. **Edit the schema file**: Open `plugins/{plugin_name}/custom_gpt_schema.json` and replace `YOUR_SERVER_URL` with your actual server URL
+2. **Edit the schema file**: Open `plugins/{plugin_name}/custom_gpt_schema.json` and replace `https://vectorinfinity.com/` with your actual server URL
 
 3. **Create a Custom GPT**:
    - Go to [ChatGPT Custom GPTs](https://chat.openai.com/gpts)
@@ -251,6 +252,7 @@ See [VECTOR_STORE_SETUP.md](VECTOR_STORE_SETUP.md) for detailed instructions on 
    - Click "Create new action"
    - Click "Import from URL" or paste the JSON schema content
    - Paste the contents of `custom_gpt_schema.json` (with your server URL)
+   - Add authentication if needed (API key, bearer token, etc.)
    - Save the GPT
 
 4. **Test it**: In a conversation with your Custom GPT, ask questions that would benefit from your data. ChatGPT will automatically call the API endpoints when needed.
