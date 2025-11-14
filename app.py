@@ -34,15 +34,33 @@ def index():
 @app.route("/api/plugins", methods=["GET"])
 def list_plugins():
     """List all available plugins."""
-    plugins = plugin_loader.get_all_plugins()
-    result = []
-    for name, plugin in plugins.items():
-        result.append({
-            "name": name,
-            "enabled": plugin.config.get("enabled", False),
-            "config_schema": plugin.get_config_schema()
-        })
-    return jsonify(result)
+    db = SessionLocal()
+    try:
+        plugins = plugin_loader.get_all_plugins()
+        result = []
+        for name, plugin in plugins.items():
+            # Get last import time for this plugin
+            last_import = db.query(ImportLog).filter(
+                ImportLog.plugin_name == name,
+                ImportLog.status == "success"
+            ).order_by(ImportLog.completed_at.desc()).first()
+            
+            last_import_time = None
+            last_import_records = None
+            if last_import and last_import.completed_at:
+                last_import_time = last_import.completed_at.isoformat()
+                last_import_records = last_import.records_imported
+            
+            result.append({
+                "name": name,
+                "enabled": plugin.config.get("enabled", False),
+                "config_schema": plugin.get_config_schema(),
+                "last_import_time": last_import_time,
+                "last_import_records": last_import_records
+            })
+        return jsonify(result)
+    finally:
+        db.close()
 
 
 @app.route("/api/imports", methods=["GET"])
