@@ -7,6 +7,9 @@ from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 import os
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
@@ -17,35 +20,62 @@ class Plugin(DataSourcePlugin):
     def __init__(self):
         super().__init__("gmail_personal")
         self.service = None
-        self._authenticate()
+        # Don't authenticate on init - do it lazily when needed
+        # self._authenticate()
     
     def _authenticate(self):
         """Authenticate with Gmail API."""
+        if self.service:
+            return  # Already authenticated
+        
         creds = None
         token_path = Path(__file__).parent / "token.json"
         credentials_path = Path(__file__).parent / "credentials.json"
         
         if token_path.exists():
-            creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+            try:
+                creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+            except Exception as e:
+                logger.warning(f"Error loading token: {e}")
         
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
+                try:
+                    creds.refresh(Request())
+                except Exception as e:
+                    logger.warning(f"Error refreshing token: {e}")
+                    creds = None
             else:
                 if not credentials_path.exists():
+                    logger.warning("Gmail credentials.json not found")
                     return  # Can't authenticate without credentials
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    str(credentials_path), SCOPES)
-                creds = flow.run_local_server(port=0)
+                try:
+                    flow = InstalledAppFlow.from_client_secrets_file(
+                        str(credentials_path), SCOPES)
+                    creds = flow.run_local_server(port=0)
+                except Exception as e:
+                    logger.warning(f"Error during OAuth flow: {e}")
+                    return
             
-            with open(token_path, 'w') as token:
-                token.write(creds.to_json())
+            if creds:
+                try:
+                    with open(token_path, 'w') as token:
+                        token.write(creds.to_json())
+                except Exception as e:
+                    logger.warning(f"Error saving token: {e}")
         
         if creds:
-            self.service = build('gmail', 'v1', credentials=creds)
+            try:
+                self.service = build('gmail', 'v1', credentials=creds)
+            except Exception as e:
+                logger.warning(f"Error building Gmail service: {e}")
     
     def fetch_data(self):
         """Fetch emails from Gmail."""
+        # Authenticate if not already done
+        if not self.service:
+            self._authenticate()
+        
         if not self.service:
             raise Exception("Gmail service not authenticated. Please set up credentials.json")
         
