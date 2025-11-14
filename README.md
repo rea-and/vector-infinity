@@ -174,6 +174,32 @@ To create a new plugin:
 
 4. Enable the plugin by setting `"enabled": true` in `config.json`
 
+## Custom GPT Integration
+
+### Setting Up a Plugin in ChatGPT
+
+1. **Get your server URL**: Make sure your Vector Infinity server is accessible (e.g., `https://your-server.com`)
+
+2. **Edit the schema file**: Open `plugins/{plugin_name}/custom_gpt_schema.json` and replace `YOUR_SERVER_URL` with your actual server URL
+
+3. **Create a Custom GPT**:
+   - Go to [ChatGPT Custom GPTs](https://chat.openai.com/gpts)
+   - Click "Create" or "Edit" on an existing GPT
+   - Go to "Configure" tab
+   - Scroll to "Actions" section
+   - Click "Create new action"
+   - Click "Import from URL" or paste the JSON schema content
+   - Paste the contents of `custom_gpt_schema.json` (with your server URL)
+   - Save the GPT
+
+4. **Test it**: In a conversation with your Custom GPT, ask questions that would benefit from your data. ChatGPT will automatically call the API endpoints when needed.
+
+Example prompts:
+- "What emails did I receive about project X?"
+- "Show me my upcoming calendar events"
+- "What are my recent TODO items?"
+- "What's my sleep data from last week?"
+
 ## API Endpoints
 
 ### Control Plane
