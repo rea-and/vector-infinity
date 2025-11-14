@@ -271,6 +271,7 @@ class DataImporter:
                     
                     records_imported = 0
                     items_to_sync = []
+                    items_to_embed = []
                     
                     for idx, item_data in enumerate(data_items):
                         if idx % 10 == 0 or idx == len(data_items) - 1:
@@ -283,6 +284,16 @@ class DataImporter:
                             source_id=item_data.get("source_id")
                         ).first()
                         
+                        # Prepare text for embedding
+                        text_parts = []
+                        if item_data.get("title"):
+                            text_parts.append(f"Subject: {item_data['title']}")
+                        if item_data.get("metadata", {}).get("from"):
+                            text_parts.append(f"From: {item_data['metadata']['from']}")
+                        if item_data.get("content"):
+                            text_parts.append(item_data["content"])
+                        text_for_embedding = "\n".join(text_parts)
+                        
                         if existing:
                             existing.title = item_data.get("title")
                             existing.content = item_data.get("content")
@@ -290,6 +301,9 @@ class DataImporter:
                             existing.updated_at = datetime.now(timezone.utc)
                             if item_data.get("source_timestamp"):
                                 existing.source_timestamp = item_data.get("source_timestamp")
+                            # Re-generate embedding if content changed
+                            if text_for_embedding:
+                                items_to_embed.append((existing, text_for_embedding))
                         else:
                             new_item = DataItem(
                                 plugin_name=plugin_name,
@@ -302,6 +316,8 @@ class DataImporter:
                             )
                             db.add(new_item)
                             records_imported += 1
+                            if text_for_embedding:
+                                items_to_embed.append((new_item, text_for_embedding))
                         
                         items_to_sync.append({
                             "title": item_data.get("title"),
@@ -309,6 +325,30 @@ class DataImporter:
                             "metadata": item_data.get("metadata", {}),
                             "source_timestamp": item_data.get("source_timestamp").isoformat() if item_data.get("source_timestamp") else None
                         })
+                    
+                    db.commit()
+                    
+                    # Generate embeddings for items
+                    if items_to_embed:
+                        log_entry.progress_message = f"Generating embeddings for {len(items_to_embed)} items..."
+                        db.commit()
+                        try:
+                            from embedding_service import EmbeddingService
+                            embedding_service = EmbeddingService()
+                            
+                            # Generate embeddings in batches
+                            texts = [text for _, text in items_to_embed]
+                            embeddings = embedding_service.generate_embeddings_batch(texts)
+                            
+                            # Store embeddings
+                            for (item, _), embedding in zip(items_to_embed, embeddings):
+                                if embedding:
+                                    item.embedding = embedding_service.embedding_to_bytes(embedding)
+                            
+                            db.commit()
+                            logger.info(f"Generated {sum(1 for e in embeddings if e)} embeddings for {plugin_name}")
+                        except Exception as e:
+                            logger.warning(f"Failed to generate embeddings (this is optional): {e}")
                     
                     db.commit()
                     
