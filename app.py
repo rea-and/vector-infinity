@@ -29,14 +29,6 @@ plugin_loader = PluginLoader()
 scheduler = ImportScheduler()
 scheduler.start()
 
-# Initialize vector store service (optional, only if OPENAI_API_KEY is set)
-vector_store_service = None
-try:
-    from vector_store_service import VectorStoreService
-    vector_store_service = VectorStoreService()
-    logger.info("Vector Store service initialized")
-except Exception as e:
-    logger.warning(f"Vector Store service not available (OPENAI_API_KEY may be missing): {e}")
 
 
 @app.route("/")
@@ -151,14 +143,6 @@ def list_plugins():
             else:
                 auth_status = "not_authenticated"
             
-            # Get vector store ID if available
-            vector_store_id = None
-            if vector_store_service:
-                try:
-                    vector_store_id = vector_store_service.get_store_id(name)
-                except:
-                    pass
-            
             result.append({
                 "name": name,
                 "enabled": enabled,
@@ -166,8 +150,7 @@ def list_plugins():
                 "last_import_time": last_import_time,
                 "last_import_records": last_import_records,
                 "auth_status": auth_status,
-                "last_auth_time": last_auth_time,
-                "vector_store_id": vector_store_id
+                "last_auth_time": last_auth_time
             })
         return jsonify(result)
     finally:
@@ -642,81 +625,6 @@ def plugin_auth_callback(plugin_name):
                 </body>
             </html>
         """, error=str(e))
-
-
-@app.route("/api/plugins/<plugin_name>/vector-store/sync", methods=["POST"])
-def sync_plugin_to_vector_store(plugin_name):
-    """Sync plugin data to OpenAI Vector Store."""
-    if not vector_store_service:
-        return jsonify({"error": "Vector Store service not available. Set OPENAI_API_KEY in .env"}), 503
-    
-    db = SessionLocal()
-    try:
-        # Get all data items for this plugin
-        items = db.query(DataItem).filter(
-            DataItem.plugin_name == plugin_name
-        ).all()
-        
-        if not items:
-            return jsonify({"error": "No data found for this plugin. Run an import first."}), 404
-        
-        # Format items for vector store
-        data_items = []
-        for item in items:
-            data_items.append({
-                "title": item.title,
-                "content": item.content,
-                "metadata": item.item_metadata or {},
-                "source_timestamp": item.source_timestamp.isoformat() if item.source_timestamp else None
-            })
-        
-        # Sync to vector store
-        result = vector_store_service.sync_data_to_store(plugin_name, data_items)
-        
-        return jsonify({
-            "success": True,
-            "plugin_name": plugin_name,
-            "items_synced": len(data_items),
-            "vector_store_id": result.get("store_id"),
-            "file_batch_id": result.get("file_batch_id"),
-            "message": f"Synced {len(data_items)} items to vector store. Use the store_id in ChatGPT Custom GPT configuration."
-        })
-    except Exception as e:
-        logger.error(f"Error syncing to vector store: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db.close()
-
-
-@app.route("/api/plugins/<plugin_name>/vector-store/info", methods=["GET"])
-def get_vector_store_info(plugin_name):
-    """Get vector store information for a plugin."""
-    if not vector_store_service:
-        return jsonify({"error": "Vector Store service not available. Set OPENAI_API_KEY in .env"}), 503
-    
-    try:
-        store_id = vector_store_service.get_store_id(plugin_name)
-        if not store_id:
-            return jsonify({
-                "has_store": False,
-                "message": "No vector store exists for this plugin. Run a sync first."
-            })
-        
-        # Get store details from OpenAI
-        vector_stores = vector_store_service._get_vector_stores_api()
-        store = vector_stores.retrieve(store_id)
-        
-        return jsonify({
-            "has_store": True,
-            "store_id": store_id,
-            "store_name": store.name,
-            "created_at": store.created_at,
-            "file_counts": store.file_counts if hasattr(store, 'file_counts') else None,
-            "usage_bytes": store.usage_bytes if hasattr(store, 'usage_bytes') else None
-        })
-    except Exception as e:
-        logger.error(f"Error getting vector store info: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/data/clear", methods=["POST"])

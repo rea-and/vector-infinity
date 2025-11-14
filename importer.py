@@ -95,7 +95,6 @@ class DataImporter:
             db.commit()
             
             records_imported = 0
-            items_to_sync = []  # Collect items for vector store sync
             items_to_embed = []  # Collect items for embedding generation
             
             for idx, item_data in enumerate(data_items):
@@ -148,12 +147,6 @@ class DataImporter:
                         items_to_embed.append((new_item, text_for_embedding))
                 
                 # Collect item for vector store sync
-                items_to_sync.append({
-                    "title": item_data.get("title"),
-                    "content": item_data.get("content"),
-                    "metadata": item_data.get("metadata", {}),
-                    "source_timestamp": item_data.get("source_timestamp").isoformat() if item_data.get("source_timestamp") else None
-                })
             
             db.commit()
             
@@ -180,17 +173,6 @@ class DataImporter:
                     logger.warning(f"Failed to generate embeddings (this is optional): {e}")
             
             db.commit()
-            
-            # Sync to OpenAI Vector Store if enabled
-            log_entry.progress_message = "Syncing to vector store..."
-            db.commit()
-            try:
-                from vector_store_service import VectorStoreService
-                vector_service = VectorStoreService()
-                sync_result = vector_service.sync_data_to_store(plugin_name, items_to_sync)
-                logger.info(f"Synced {len(items_to_sync)} items to vector store: {sync_result.get('status')}")
-            except Exception as e:
-                logger.warning(f"Failed to sync to vector store (this is optional): {e}")
             
             # Update log entry
             log_entry.status = "success"
@@ -270,7 +252,6 @@ class DataImporter:
                     db.commit()
                     
                     records_imported = 0
-                    items_to_sync = []
                     items_to_embed = []
                     
                     for idx, item_data in enumerate(data_items):
@@ -319,12 +300,6 @@ class DataImporter:
                             if text_for_embedding:
                                 items_to_embed.append((new_item, text_for_embedding))
                         
-                        items_to_sync.append({
-                            "title": item_data.get("title"),
-                            "content": item_data.get("content"),
-                            "metadata": item_data.get("metadata", {}),
-                            "source_timestamp": item_data.get("source_timestamp").isoformat() if item_data.get("source_timestamp") else None
-                        })
                     
                     db.commit()
                     
@@ -351,16 +326,6 @@ class DataImporter:
                             logger.warning(f"Failed to generate embeddings (this is optional): {e}")
                     
                     db.commit()
-                    
-                    log_entry.progress_message = "Syncing to vector store..."
-                    db.commit()
-                    try:
-                        from vector_store_service import VectorStoreService
-                        vector_service = VectorStoreService()
-                        sync_result = vector_service.sync_data_to_store(plugin_name, items_to_sync)
-                        logger.info(f"Synced {len(items_to_sync)} items to vector store: {sync_result.get('status')}")
-                    except Exception as e:
-                        logger.warning(f"Failed to sync to vector store (this is optional): {e}")
                     
                     log_entry.status = "success"
                     log_entry.completed_at = datetime.now(timezone.utc)
