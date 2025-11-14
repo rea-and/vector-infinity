@@ -511,6 +511,9 @@
                                     <button class="btn btn-success" onclick="downloadSchema('${plugin.name}')" style="margin-top: 5px; width: 100%;">
                                         Download Schema
                                     </button>
+                                    <button class="btn" onclick="regenerateEmbeddings('${plugin.name}')" style="margin-top: 5px; width: 100%; background: #ffc107; color: #000;">
+                                        Regenerate Embeddings
+                                    </button>
                                 </div>
                             `;
                             }
@@ -528,6 +531,9 @@
                                 </button>
                                 <button class="btn btn-success" onclick="downloadSchema('${plugin.name}')" style="margin-top: 5px;">
                                     Download Schema
+                                </button>
+                                <button class="btn" onclick="regenerateEmbeddings('${plugin.name}')" style="margin-top: 5px; background: #ffc107; color: #000;">
+                                    Regenerate Embeddings
                                 </button>
                             </div>
                         `;
@@ -773,6 +779,48 @@
         
         function downloadUnifiedSchema() {
             window.location.href = `${API_BASE}/schema`;
+        }
+        
+        async function regenerateEmbeddings(pluginName) {
+            if (!confirm(`Regenerate embeddings for all items in ${pluginName} that don't have embeddings? This may take a while.`)) {
+                return;
+            }
+            
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Regenerating...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/plugins/${pluginName}/regenerate-embeddings`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert(`✓ Success! Generated embeddings for ${data.items_processed} items.`);
+                    btn.innerHTML = '✓ Complete';
+                    btn.style.background = '#27ae60';
+                    btn.style.color = '#fff';
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.innerHTML = originalText;
+                        btn.style.background = '#ffc107';
+                        btn.style.color = '#000';
+                    }, 3000);
+                } else {
+                    alert(`Error: ${data.error || 'Unknown error'}`);
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            } catch (error) {
+                console.error('Error regenerating embeddings:', error);
+                alert(`Error: ${error.message}`);
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
         }
         
         function copyToClipboard(text) {

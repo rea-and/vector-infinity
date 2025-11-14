@@ -717,6 +717,86 @@ def plugin_auth_callback(plugin_name):
         """, error=str(e))
 
 
+@app.route("/api/plugins/<plugin_name>/regenerate-embeddings", methods=["POST"])
+def regenerate_embeddings(plugin_name):
+    """Regenerate embeddings for all items in a plugin that don't have embeddings."""
+    db = SessionLocal()
+    try:
+        # Get all items without embeddings
+        items_without_embeddings = db.query(DataItem).filter(
+            DataItem.plugin_name == plugin_name,
+            (DataItem.embedding.is_(None)) | (DataItem.embedding == b'')
+        ).all()
+        
+        if not items_without_embeddings:
+            return jsonify({
+                "success": True,
+                "message": "All items already have embeddings",
+                "items_processed": 0
+            })
+        
+        try:
+            from embedding_service import EmbeddingService
+            embedding_service = EmbeddingService()
+        except Exception as e:
+            return jsonify({"error": f"Embedding service not available: {str(e)}"}), 503
+        
+        # Process in batches
+        batch_size = 200
+        total_processed = 0
+        
+        for batch_start in range(0, len(items_without_embeddings), batch_size):
+            batch_end = min(batch_start + batch_size, len(items_without_embeddings))
+            batch_items = items_without_embeddings[batch_start:batch_end]
+            
+            # Prepare texts for embedding
+            items_to_embed = []
+            for item in batch_items:
+                text_parts = []
+                if item.item_type == "whatsapp_message":
+                    if item.item_metadata and item.item_metadata.get("sender"):
+                        text_parts.append(f"From: {item.item_metadata['sender']}")
+                    if item.content:
+                        text_parts.append(item.content)
+                else:
+                    if item.title:
+                        text_parts.append(f"Subject: {item.title}")
+                    if item.item_metadata and item.item_metadata.get("from"):
+                        text_parts.append(f"From: {item.item_metadata['from']}")
+                    if item.content:
+                        text_parts.append(item.content)
+                
+                text_for_embedding = "\n".join(text_parts)
+                if text_for_embedding:
+                    items_to_embed.append((item, text_for_embedding))
+            
+            if items_to_embed:
+                texts = [text for _, text in items_to_embed]
+                embeddings = embedding_service.generate_embeddings_batch(texts)
+                
+                # Store embeddings
+                for (item, _), embedding in zip(items_to_embed, embeddings):
+                    if embedding:
+                        item.embedding = embedding_service.embedding_to_bytes(embedding)
+                        total_processed += 1
+            
+            db.commit()
+            logger.info(f"Processed embedding batch {batch_start//batch_size + 1} ({batch_end}/{len(items_without_embeddings)} items)")
+        
+        return jsonify({
+            "success": True,
+            "message": f"Generated embeddings for {total_processed} items",
+            "items_processed": total_processed,
+            "total_items": len(items_without_embeddings)
+        })
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error regenerating embeddings: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
+
 @app.route("/api/data/clear", methods=["POST"])
 def clear_all_data():
     """Clear all imported data from the database."""

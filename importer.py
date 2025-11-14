@@ -153,7 +153,7 @@ class DataImporter:
             
             db.commit()
             
-            # Generate embeddings for items
+            # Generate embeddings for items in smaller batches to avoid token limits
             if items_to_embed:
                 log_entry.progress_message = f"Generating embeddings for {len(items_to_embed)} items..."
                 db.commit()
@@ -161,19 +161,35 @@ class DataImporter:
                     from embedding_service import EmbeddingService
                     embedding_service = EmbeddingService()
                     
-                    # Generate embeddings in batches
-                    texts = [text for _, text in items_to_embed]
-                    embeddings = embedding_service.generate_embeddings_batch(texts)
+                    # Process in smaller batches to avoid token limits (max ~300k tokens per request)
+                    # Estimate: ~1000 tokens per item on average, so batch size of 200 should be safe
+                    batch_size = 200
+                    total_embeddings_generated = 0
                     
-                    # Store embeddings
-                    for (item, _), embedding in zip(items_to_embed, embeddings):
-                        if embedding:
-                            item.embedding = embedding_service.embedding_to_bytes(embedding)
+                    for batch_start in range(0, len(items_to_embed), batch_size):
+                        batch_end = min(batch_start + batch_size, len(items_to_embed))
+                        batch_items = items_to_embed[batch_start:batch_end]
+                        
+                        log_entry.progress_message = f"Generating embeddings: {batch_end}/{len(items_to_embed)} items..."
+                        db.commit()
+                        
+                        texts = [text for _, text in batch_items]
+                        embeddings = embedding_service.generate_embeddings_batch(texts)
+                        
+                        # Store embeddings
+                        for (item, _), embedding in zip(batch_items, embeddings):
+                            if embedding:
+                                item.embedding = embedding_service.embedding_to_bytes(embedding)
+                                total_embeddings_generated += 1
+                        
+                        db.commit()
+                        logger.info(f"Generated embeddings for batch {batch_start//batch_size + 1} ({batch_end}/{len(items_to_embed)} items)")
                     
-                    db.commit()
-                    logger.info(f"Generated {sum(1 for e in embeddings if e)} embeddings for {plugin_name}")
+                    logger.info(f"Generated {total_embeddings_generated} embeddings for {plugin_name}")
                 except Exception as e:
-                    logger.warning(f"Failed to generate embeddings (this is optional): {e}")
+                    logger.error(f"Failed to generate embeddings: {e}", exc_info=True)
+                    log_entry.progress_message = f"Warning: Embedding generation failed: {str(e)[:200]}"
+                    db.commit()
             
             db.commit()
             
@@ -324,7 +340,7 @@ class DataImporter:
                     
                     db.commit()
                     
-                    # Generate embeddings for items
+                    # Generate embeddings for items in smaller batches to avoid token limits
                     if items_to_embed:
                         log_entry.progress_message = f"Generating embeddings for {len(items_to_embed)} items..."
                         db.commit()
@@ -332,19 +348,35 @@ class DataImporter:
                             from embedding_service import EmbeddingService
                             embedding_service = EmbeddingService()
                             
-                            # Generate embeddings in batches
-                            texts = [text for _, text in items_to_embed]
-                            embeddings = embedding_service.generate_embeddings_batch(texts)
+                            # Process in smaller batches to avoid token limits (max ~300k tokens per request)
+                            # Estimate: ~1000 tokens per item on average, so batch size of 200 should be safe
+                            batch_size = 200
+                            total_embeddings_generated = 0
                             
-                            # Store embeddings
-                            for (item, _), embedding in zip(items_to_embed, embeddings):
-                                if embedding:
-                                    item.embedding = embedding_service.embedding_to_bytes(embedding)
+                            for batch_start in range(0, len(items_to_embed), batch_size):
+                                batch_end = min(batch_start + batch_size, len(items_to_embed))
+                                batch_items = items_to_embed[batch_start:batch_end]
+                                
+                                log_entry.progress_message = f"Generating embeddings: {batch_end}/{len(items_to_embed)} items..."
+                                db.commit()
+                                
+                                texts = [text for _, text in batch_items]
+                                embeddings = embedding_service.generate_embeddings_batch(texts)
+                                
+                                # Store embeddings
+                                for (item, _), embedding in zip(batch_items, embeddings):
+                                    if embedding:
+                                        item.embedding = embedding_service.embedding_to_bytes(embedding)
+                                        total_embeddings_generated += 1
+                                
+                                db.commit()
+                                logger.info(f"Generated embeddings for batch {batch_start//batch_size + 1} ({batch_end}/{len(items_to_embed)} items)")
                             
-                            db.commit()
-                            logger.info(f"Generated {sum(1 for e in embeddings if e)} embeddings for {plugin_name}")
+                            logger.info(f"Generated {total_embeddings_generated} embeddings for {plugin_name}")
                         except Exception as e:
-                            logger.warning(f"Failed to generate embeddings (this is optional): {e}")
+                            logger.error(f"Failed to generate embeddings: {e}", exc_info=True)
+                            log_entry.progress_message = f"Warning: Embedding generation failed: {str(e)[:200]}"
+                            db.commit()
                     
                     db.commit()
                     
