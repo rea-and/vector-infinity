@@ -16,15 +16,21 @@ class Plugin(DataSourcePlugin):
     
     def __init__(self):
         super().__init__("whatsapp_angel")
-        self.uploaded_file_path = None
+        self._uploaded_file_path = None
     
     def set_uploaded_file(self, file_path: str):
         """Set the path to the uploaded zip file."""
-        self.uploaded_file_path = file_path
+        self._uploaded_file_path = file_path
+        logger.info(f"Plugin {self.name}: Set uploaded file path to {file_path}")
+    
+    @property
+    def uploaded_file_path(self):
+        """Get the uploaded file path."""
+        return self._uploaded_file_path
     
     def fetch_data(self) -> List[Dict[str, Any]]:
         """Parse WhatsApp chat from uploaded zip file."""
-        if not self.uploaded_file_path:
+        if not self._uploaded_file_path:
             raise Exception("No file uploaded. Please upload a zip file containing the chat export.")
         
         results = []
@@ -34,7 +40,7 @@ class Plugin(DataSourcePlugin):
             with tempfile.TemporaryDirectory() as temp_dir:
                 temp_path = Path(temp_dir)
                 
-                with zipfile.ZipFile(self.uploaded_file_path, 'r') as zip_ref:
+                with zipfile.ZipFile(self._uploaded_file_path, 'r') as zip_ref:
                     zip_ref.extractall(temp_path)
                 
                 # Find the txt file (WhatsApp exports are usually named like "WhatsApp Chat with Angel.txt")
@@ -110,7 +116,7 @@ class Plugin(DataSourcePlugin):
     
     def test_connection(self) -> bool:
         """Test if a file has been uploaded."""
-        return self.uploaded_file_path is not None and Path(self.uploaded_file_path).exists()
+        return self._uploaded_file_path is not None and Path(self._uploaded_file_path).exists()
     
     def get_config_schema(self) -> Dict[str, Any]:
         """Return configuration schema."""

@@ -253,6 +253,24 @@ class DataImporter:
                 plugin = self.plugin_loader.get_plugin(plugin_name)
                 if not plugin:
                     log_entry.status = "error"
+                    log_entry.error_message = f"Plugin {plugin_name} not found"
+                    log_entry.completed_at = datetime.now(timezone.utc)
+                    db.commit()
+                    return
+                
+                # Verify file path is set for whatsapp_angel plugin
+                if plugin_name == "whatsapp_angel" and hasattr(plugin, 'uploaded_file_path'):
+                    if not plugin.uploaded_file_path:
+                        log_entry.status = "error"
+                        log_entry.error_message = "No file uploaded. Please upload a zip file containing the chat export."
+                        log_entry.completed_at = datetime.now(timezone.utc)
+                        db.commit()
+                        logger.error(f"No file path set on plugin {plugin_name}")
+                        return
+                    logger.info(f"Using uploaded file path: {plugin.uploaded_file_path}")
+                
+                if not plugin:
+                    log_entry.status = "error"
                     log_entry.completed_at = datetime.now(timezone.utc)
                     log_entry.error_message = f"Plugin {plugin_name} not found or not enabled"
                     db.commit()

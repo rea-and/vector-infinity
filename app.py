@@ -214,12 +214,6 @@ def run_import():
         plugin_name = data.get("plugin_name")
     
     if plugin_name:
-        # Handle file upload for whatsapp_angel plugin
-        if plugin_name == "whatsapp_angel" and uploaded_file_path:
-            plugin = plugin_loader.get_plugin(plugin_name)
-            if plugin and hasattr(plugin, 'set_uploaded_file'):
-                plugin.set_uploaded_file(str(uploaded_file_path))
-        
         # Create log entry first
         db = SessionLocal()
         try:
@@ -234,6 +228,14 @@ def run_import():
             log_id = log_entry.id
         finally:
             db.close()
+        
+        # Handle file upload for whatsapp_angel plugin
+        # Set the file path on the plugin instance before starting async import
+        if plugin_name == "whatsapp_angel" and uploaded_file_path:
+            plugin = plugin_loader.get_plugin(plugin_name)
+            if plugin and hasattr(plugin, 'set_uploaded_file'):
+                plugin.set_uploaded_file(str(uploaded_file_path))
+                logger.info(f"Set uploaded file path on plugin: {uploaded_file_path}")
         
         # Start import in background thread
         importer.import_from_plugin_async(plugin_name, log_id)
