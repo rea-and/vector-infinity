@@ -216,14 +216,25 @@ class Plugin(DataSourcePlugin):
             after_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y/%m/%d")
             query = f"after:{after_date}"
         
+        logger.info(f"Gmail query: {query}, max_results: {max_results}, days_back: {days_back}")
+        
         try:
-            messages = self.service.users().messages().list(
+            messages_response = self.service.users().messages().list(
                 userId='me',
                 q=query,
                 maxResults=max_results
             ).execute()
             
-            for msg in messages.get('messages', [])[:max_results]:
+            messages_list = messages_response.get('messages', [])
+            result_size_estimate = messages_response.get('resultSizeEstimate', 0)
+            
+            logger.info(f"Gmail API returned {len(messages_list)} messages (resultSizeEstimate: {result_size_estimate})")
+            
+            if not messages_list:
+                logger.warning(f"No messages found with query: {query}")
+                return results
+            
+            for msg in messages_list[:max_results]:
                 msg_detail = self.service.users().messages().get(
                     userId='me',
                     id=msg['id'],
