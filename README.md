@@ -47,33 +47,23 @@ This will:
 
 ### 2. Running the Application
 
-#### Option A: Run with ngrok (Recommended for OAuth/HTTPS)
-
-For OAuth authentication (like Gmail), you need HTTPS. The easiest way is to use ngrok:
+#### Option A: Run directly (Development)
 
 ```bash
-./start_with_ngrok.sh
+./start.sh
 ```
 
-This script will:
-- Start ngrok to provide an HTTPS URL
-- Start the Flask app
-- Display the ngrok URL and the redirect URI to add to Google Cloud Console
-
-**First time setup:**
-1. Sign up at https://ngrok.com (free)
-2. Get your authtoken from https://dashboard.ngrok.com/get-started/your-authtoken
-3. Run: `ngrok config add-authtoken YOUR_AUTHTOKEN`
-4. Then run: `./start_with_ngrok.sh`
-
-#### Option B: Run directly (HTTP only)
-
+Or manually:
 ```bash
 source venv/bin/activate
 python3 app.py
 ```
 
-The web UI will be available at `http://your-server-ip`
+The web UI will be available at:
+- `http://your-server-ip` if running on port 80
+- `http://your-server-ip:5000` if running on port 5000 (behind Nginx)
+
+**Note:** For OAuth authentication (Gmail, Calendar), you need HTTPS. See the [HTTPS Setup](#https-setup-for-oauth-required-for-gmail-api) section below.
 
 **Note:** OAuth authentication (like Gmail) requires HTTPS, so use Option A if you need to authenticate plugins.
 
