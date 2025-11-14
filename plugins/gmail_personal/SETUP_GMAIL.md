@@ -28,7 +28,9 @@
    - Click "Save and Continue"
    - Add scopes: `https://www.googleapis.com/auth/gmail.readonly`
    - Click "Save and Continue"
-   - Add test users (your Gmail address) if needed
+   - **IMPORTANT:** Add test users - Click "ADD USERS" and add your Gmail address (e.g., `your-email@gmail.com`)
+     - This is required because the app is in "Testing" mode
+     - Only test users can authenticate until the app is published
    - Click "Save and Continue"
    - Review and go back to dashboard
 
