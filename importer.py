@@ -48,8 +48,18 @@ class DataImporter:
             )
             db.add(log_entry)
             db.commit()
+            # Extract values before closing session
+            result = {
+                "id": log_entry.id,
+                "plugin_name": log_entry.plugin_name,
+                "status": log_entry.status,
+                "started_at": log_entry.started_at,
+                "completed_at": log_entry.completed_at,
+                "records_imported": log_entry.records_imported,
+                "error_message": log_entry.error_message
+            }
             db.close()
-            return log_entry
+            return ImportLogResult(result)
         
         # Create log entry
         log_entry = ImportLog(
