@@ -315,7 +315,7 @@ Now when you chat with your Custom GPT, it will automatically:
   - Returns: Results sorted by similarity score
   - This is the recommended endpoint for Custom GPT Actions
 
-Example: `GET /api/plugins/gmail_personal/context?limit=20&days=7&query=meeting`
+Example: `POST /api/plugins/gmail_personal/semantic-search` with body `{"query": "vacation plans", "top_k": 5}`
 
 ## Architecture
 
