@@ -269,13 +269,6 @@ class DataImporter:
                         return
                     logger.info(f"Using uploaded file path: {plugin.uploaded_file_path}")
                 
-                if not plugin:
-                    log_entry.status = "error"
-                    log_entry.completed_at = datetime.now(timezone.utc)
-                    log_entry.error_message = f"Plugin {plugin_name} not found or not enabled"
-                    db.commit()
-                    return
-                
                 try:
                     log_entry.progress_message = "Checking for new data..."
                     db.commit()
