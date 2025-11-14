@@ -56,12 +56,56 @@ def list_plugins():
                 last_import_time = last_import.completed_at.isoformat()
                 last_import_records = last_import.records_imported
             
+            # Check authentication status and last auth time
+            auth_status = None
+            last_auth_time = None
+            plugin_dir = config.PLUGINS_DIR / name
+            token_path = plugin_dir / "token.json"
+            
+            if token_path.exists():
+                try:
+                    # Get file modification time (when token was last saved/updated)
+                    import os
+                    from datetime import datetime, timezone
+                    mtime = os.path.getmtime(token_path)
+                    last_auth_time = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
+                    
+                    # Try to check if token is valid by checking if plugin can authenticate
+                    if hasattr(plugin, '_authenticate'):
+                        try:
+                            # Just check if service exists or token is readable
+                            from google.oauth2.credentials import Credentials
+                            # Check if plugin has SCOPES attribute (Google OAuth plugins)
+                            scopes = getattr(plugin, 'SCOPES', None)
+                            if scopes:
+                                creds = Credentials.from_authorized_user_file(str(token_path), scopes)
+                                if creds and creds.valid:
+                                    auth_status = "authenticated"
+                                elif creds and creds.expired and creds.refresh_token:
+                                    auth_status = "expired"  # Can be refreshed
+                                else:
+                                    auth_status = "invalid"
+                            else:
+                                auth_status = "authenticated"  # Token file exists, assume valid
+                        except Exception as e:
+                            logger.debug(f"Error validating token for {name}: {e}")
+                            auth_status = "invalid"
+                    else:
+                        auth_status = "authenticated"  # Token file exists
+                except Exception as e:
+                    logger.warning(f"Error checking auth status for {name}: {e}")
+                    auth_status = "unknown"
+            else:
+                auth_status = "not_authenticated"
+            
             result.append({
                 "name": name,
                 "enabled": plugin.config.get("enabled", False),
                 "config_schema": plugin.get_config_schema(),
                 "last_import_time": last_import_time,
-                "last_import_records": last_import_records
+                "last_import_records": last_import_records,
+                "auth_status": auth_status,
+                "last_auth_time": last_auth_time
             })
         return jsonify(result)
     finally:
