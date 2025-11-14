@@ -27,7 +27,7 @@ sudo apt-get install -y python3 python3-pip python3-venv
 
 # Install system dependencies (including build tools and libcap for port 80 binding)
 echo "Step 3: Installing system dependencies..."
-sudo apt-get install -y build-essential libssl-dev libffi-dev python3-dev cmake ninja-build ufw libcap2-bin
+sudo apt-get install -y build-essential libssl-dev libffi-dev python3-dev cmake ninja-build ufw libcap2-bin snapd
 
 # Get the directory where the script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -212,5 +212,19 @@ echo ""
 echo "Note: Port 80 binding is configured using setcap, so you can run"
 echo "      the app without root privileges. The systemd service runs as"
 echo "      your user account (not root) for better security."
+echo ""
+echo "Step 12: Installing ngrok (for HTTPS OAuth testing)..."
+if ! command -v ngrok &> /dev/null; then
+    sudo snap install ngrok
+    echo "✓ ngrok installed"
+    echo ""
+    echo "⚠️  IMPORTANT: To use ngrok for OAuth:"
+    echo "   1. Sign up at https://ngrok.com (free)"
+    echo "   2. Get your authtoken from https://dashboard.ngrok.com/get-started/your-authtoken"
+    echo "   3. Run: ngrok config add-authtoken YOUR_AUTHTOKEN"
+    echo "   4. Use the launcher script: ./start_with_ngrok.sh"
+else
+    echo "✓ ngrok already installed"
+fi
 echo ""
 

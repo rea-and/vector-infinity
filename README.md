@@ -45,7 +45,39 @@ This will:
 - Initialize the database
 - Create necessary directories
 
-### 2. Configuration
+### 2. Running the Application
+
+#### Option A: Run with ngrok (Recommended for OAuth/HTTPS)
+
+For OAuth authentication (like Gmail), you need HTTPS. The easiest way is to use ngrok:
+
+```bash
+./start_with_ngrok.sh
+```
+
+This script will:
+- Start ngrok to provide an HTTPS URL
+- Start the Flask app
+- Display the ngrok URL and the redirect URI to add to Google Cloud Console
+
+**First time setup:**
+1. Sign up at https://ngrok.com (free)
+2. Get your authtoken from https://dashboard.ngrok.com/get-started/your-authtoken
+3. Run: `ngrok config add-authtoken YOUR_AUTHTOKEN`
+4. Then run: `./start_with_ngrok.sh`
+
+#### Option B: Run directly (HTTP only)
+
+```bash
+source venv/bin/activate
+python3 app.py
+```
+
+The web UI will be available at `http://your-server-ip`
+
+**Note:** OAuth authentication (like Gmail) requires HTTPS, so use Option A if you need to authenticate plugins.
+
+### 3. Configuration
 
 #### Environment Variables
 
