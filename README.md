@@ -204,10 +204,10 @@ Vector Infinity can automatically sync your imported data to OpenAI's Vector Sto
 
 **Setup:**
 1. Set `OPENAI_API_KEY` in your `.env` file
-2. Import your data (Run Imports tab)
-3. Click "Sync to Vector Store" button in the web UI
-4. Copy the Vector Store ID
-5. In ChatGPT Custom GPT configuration, add the Vector Store ID in the "Knowledge" section
+2. Import your data (in Vector Infinity web UI: Run Imports tab)
+3. In Vector Infinity web UI, click "Sync to Vector Store" button for your plugin
+4. Copy the Vector Store ID from the popup
+5. In ChatGPT Custom GPT configuration (Configure tab → Knowledge section), add the Vector Store ID
 
 See [VECTOR_STORE_SETUP.md](VECTOR_STORE_SETUP.md) for detailed instructions.
 
