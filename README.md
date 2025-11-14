@@ -63,7 +63,7 @@ The web UI will be available at:
 - `http://your-server-ip` if running on port 80
 - `http://your-server-ip:5000` if running on port 5000 (behind Nginx)
 
-**Note:** For OAuth authentication (Gmail, Calendar), you need HTTPS. See the [HTTPS Setup](#https-setup-for-oauth-required-for-gmail-api) section below.
+**Note:** For OAuth authentication (Gmail), you need HTTPS. See the [HTTPS Setup](#https-setup-for-oauth-required-for-gmail-api) section below.
 
 ### 3. Configuration
 
@@ -344,7 +344,7 @@ The system is optimized for low RAM usage:
 - Verify `config.json` has `"enabled": true`
 - Check logs in `logs/` directory
 
-### Authentication errors (Gmail/Calendar)
+### Authentication errors (Gmail)
 - Ensure `credentials.json` is in the plugin directory
 - Delete `token.json` and re-authenticate
 - Check OAuth scopes in Google Cloud Console
