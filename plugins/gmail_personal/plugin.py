@@ -37,6 +37,20 @@ class Plugin(DataSourcePlugin):
             # Use scheme and host from request, but prefer X-Forwarded-Proto if behind proxy
             scheme = request.headers.get('X-Forwarded-Proto', request.scheme)
             host = request.headers.get('X-Forwarded-Host', request.host)
+            
+            # Google requires HTTPS for sensitive scopes like Gmail
+            # If we're on HTTP, try to detect if we should use HTTPS
+            if scheme == 'http':
+                # Check if we're behind a proxy that handles HTTPS
+                if request.headers.get('X-Forwarded-Proto') == 'https':
+                    scheme = 'https'
+                else:
+                    # For Gmail API, we need HTTPS - warn the user
+                    logger.warning("Gmail API requires HTTPS. Current scheme is HTTP. "
+                                 "Please set up HTTPS or use a reverse proxy with SSL termination.")
+                    # Still use HTTP for now, but it will fail at Google's end
+                    # The error message will guide the user
+            
             base_url = f"{scheme}://{host}"
             redirect_uri = f"{base_url}/api/plugins/gmail_personal/auth/callback"
             

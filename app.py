@@ -326,6 +326,9 @@ def plugin_auth_callback(plugin_name):
                 </ol>
                 <p><strong>Note:</strong> If you don't see "Authorized redirect URIs", your OAuth client is likely set as "Desktop app". 
                 You need to create a new OAuth client with type "Web application" to use web-based authentication.</p>
+                <p><strong>HTTPS Required:</strong> Google requires HTTPS for sensitive scopes like Gmail API. 
+                If your redirect URI starts with <code>http://</code>, you need to set up HTTPS. 
+                See instructions below for setting up SSL/TLS.</p>
             """
         
         return render_template_string("""

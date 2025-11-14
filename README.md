@@ -282,6 +282,71 @@ python3 app.py
 
 **Note**: If you reinstall the virtual environment or update Python, you'll need to run the `setcap` command again.
 
+### HTTPS Setup for OAuth (Required for Gmail API)
+
+Google requires HTTPS for OAuth redirects when using sensitive scopes like Gmail API. If you're getting "URI must use https://" errors, you need to set up HTTPS.
+
+**Option 1: Use Nginx Reverse Proxy with Let's Encrypt (Recommended)**
+
+1. Install Nginx and Certbot:
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y nginx certbot python3-certbot-nginx
+   ```
+
+2. Configure Nginx to proxy to your Flask app:
+   ```bash
+   sudo nano /etc/nginx/sites-available/vector-infinity
+   ```
+   
+   Add this configuration:
+   ```nginx
+   server {
+       listen 80;
+       server_name your-domain.com;  # Replace with your domain or IP
+       
+       location / {
+           proxy_pass http://127.0.0.1:5000;  # Or whatever port your app runs on
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto $scheme;
+       }
+   }
+   ```
+
+3. Enable the site:
+   ```bash
+   sudo ln -s /etc/nginx/sites-available/vector-infinity /etc/nginx/sites-enabled/
+   sudo nginx -t
+   sudo systemctl restart nginx
+   ```
+
+4. Get SSL certificate:
+   ```bash
+   sudo certbot --nginx -d your-domain.com
+   ```
+
+5. Update your `.env` file to set `WEB_PORT=5000` (or another port) since Nginx will handle port 80/443
+
+6. Update the redirect URI in Google Cloud Console to use `https://your-domain.com/api/plugins/gmail_personal/auth/callback`
+
+**Option 2: Use Cloudflare or Similar Service**
+
+If you're using Cloudflare or a similar CDN/proxy service:
+1. Enable SSL/TLS in Cloudflare
+2. Set up a proxy rule to forward to your server
+3. Make sure `X-Forwarded-Proto` header is set correctly
+4. Use your Cloudflare domain in the redirect URI
+
+**Option 3: For Testing Only - Use ngrok**
+
+For temporary testing, you can use ngrok:
+```bash
+ngrok http 80
+```
+Then use the HTTPS URL provided by ngrok in your redirect URI.
+
 ## License
 
 MIT License
