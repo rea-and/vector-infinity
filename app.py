@@ -229,16 +229,9 @@ def run_import():
         finally:
             db.close()
         
-        # Handle file upload for whatsapp_angel plugin
-        # Set the file path on the plugin instance before starting async import
-        if plugin_name == "whatsapp_angel" and uploaded_file_path:
-            plugin = plugin_loader.get_plugin(plugin_name)
-            if plugin and hasattr(plugin, 'set_uploaded_file'):
-                plugin.set_uploaded_file(str(uploaded_file_path))
-                logger.info(f"Set uploaded file path on plugin: {uploaded_file_path}")
-        
         # Start import in background thread
-        importer.import_from_plugin_async(plugin_name, log_id)
+        # Pass uploaded_file_path to the async function so it can set it on the plugin instance
+        importer.import_from_plugin_async(plugin_name, log_id, uploaded_file_path=str(uploaded_file_path) if uploaded_file_path else None)
         
         return jsonify({
             "success": True,

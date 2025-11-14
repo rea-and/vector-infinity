@@ -239,7 +239,7 @@ class DataImporter:
         
         return results
     
-    def import_from_plugin_async(self, plugin_name: str, log_id: int):
+    def import_from_plugin_async(self, plugin_name: str, log_id: int, uploaded_file_path: str = None):
         """Run import in a background thread."""
         def run_import():
             db = SessionLocal()
@@ -257,6 +257,18 @@ class DataImporter:
                     log_entry.completed_at = datetime.now(timezone.utc)
                     db.commit()
                     return
+                
+                # Set file path for whatsapp_angel plugin if provided
+                if plugin_name == "whatsapp_angel" and uploaded_file_path:
+                    if hasattr(plugin, 'set_uploaded_file'):
+                        plugin.set_uploaded_file(str(uploaded_file_path))
+                        logger.info(f"Set uploaded file path on plugin in async thread: {uploaded_file_path}")
+                    else:
+                        log_entry.status = "error"
+                        log_entry.error_message = "Plugin does not support file uploads"
+                        log_entry.completed_at = datetime.now(timezone.utc)
+                        db.commit()
+                        return
                 
                 # Verify file path is set for whatsapp_angel plugin
                 if plugin_name == "whatsapp_angel" and hasattr(plugin, 'uploaded_file_path'):
