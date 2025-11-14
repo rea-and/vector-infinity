@@ -300,56 +300,82 @@
         }
         
         async function loadImports() {
-            const response = await fetch(`${API_BASE}/imports?limit=50`);
-            const imports = await response.json();
-            
-            const table = `
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Plugin</th>
-                            <th>Status</th>
-                            <th>Started</th>
-                            <th>Completed</th>
-                            <th>Records</th>
-                            <th>Error</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${imports.map(imp => `
+            try {
+                const response = await fetch(`${API_BASE}/imports?limit=50`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const imports = await response.json();
+                
+                if (!imports || imports.length === 0) {
+                    document.getElementById('imports-table').innerHTML = '<p>No import logs yet.</p>';
+                    return;
+                }
+                
+                const table = `
+                    <table>
+                        <thead>
                             <tr>
-                                <td>${imp.plugin_name}</td>
-                                <td><span class="status-badge status-${imp.status}">${imp.status}</span></td>
-                                <td>${new Date(imp.started_at).toLocaleString()}</td>
-                                <td>${imp.completed_at ? new Date(imp.completed_at).toLocaleString() : '-'}</td>
-                                <td>${imp.records_imported || 0}</td>
-                                <td>${imp.error_message || '-'}</td>
+                                <th>Plugin</th>
+                                <th>Status</th>
+                                <th>Started</th>
+                                <th>Completed</th>
+                                <th>Records</th>
+                                <th>Error</th>
                             </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-            document.getElementById('imports-table').innerHTML = table;
+                        </thead>
+                        <tbody>
+                            ${imports.map(imp => `
+                                <tr>
+                                    <td>${imp.plugin_name}</td>
+                                    <td><span class="status-badge status-${imp.status}">${imp.status}</span></td>
+                                    <td>${imp.started_at ? new Date(imp.started_at).toLocaleString() : '-'}</td>
+                                    <td>${imp.completed_at ? new Date(imp.completed_at).toLocaleString() : '-'}</td>
+                                    <td>${imp.records_imported || 0}</td>
+                                    <td>${imp.error_message || '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                document.getElementById('imports-table').innerHTML = table;
+            } catch (error) {
+                console.error('Error loading imports:', error);
+                document.getElementById('imports-table').innerHTML = `<p style="color: red;">Error loading imports: ${error.message}</p>`;
+            }
         }
         
         async function loadPlugins() {
-            const response = await fetch(`${API_BASE}/plugins`);
-            const plugins = await response.json();
-            
-            const html = `
-                <div class="plugin-list" style="margin-top: 20px;">
-                    ${plugins.map(plugin => `
-                        <div class="plugin-card">
-                            <h3>${plugin.name}</h3>
-                            <p>Status: ${plugin.enabled ? 'Enabled' : 'Disabled'}</p>
-                            <button class="btn" onclick="runImport('${plugin.name}')" ${!plugin.enabled ? 'disabled' : ''}>
-                                Run Import
-                            </button>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-            document.getElementById('plugins-list').innerHTML = html;
+            try {
+                const response = await fetch(`${API_BASE}/plugins`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const plugins = await response.json();
+                
+                if (!plugins || plugins.length === 0) {
+                    document.getElementById('plugins-list').innerHTML = '<p>No plugins found.</p>';
+                    return;
+                }
+                
+                const html = `
+                    <div class="plugin-list" style="margin-top: 20px;">
+                        ${plugins.map(plugin => `
+                            <div class="plugin-card">
+                                <h3>${plugin.name}</h3>
+                                <p>Status: ${plugin.enabled ? 'Enabled' : 'Disabled'}</p>
+                                <button class="btn" onclick="runImport('${plugin.name}')" ${!plugin.enabled ? 'disabled' : ''}>
+                                    Run Import
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                document.getElementById('plugins-list').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading plugins:', error);
+                document.getElementById('plugins-list').innerHTML = `<p style="color: red;">Error loading plugins: ${error.message}</p>`;
+            }
         }
         
         async function runImport(pluginName) {
@@ -391,63 +417,90 @@
         }
         
         async function loadAPIInfo() {
-            const pluginsResponse = await fetch(`${API_BASE}/plugins`);
-            const plugins = await pluginsResponse.json();
-            
-            const baseUrl = window.location.origin;
-            
-            let html = '<div style="margin-top: 20px;">';
-            html += '<h3>Available Plugin Endpoints:</h3>';
-            
-            plugins.forEach(plugin => {
-                html += `<div class="plugin-card" style="margin-top: 15px;">
-                    <h3>${plugin.name}</h3>
-                    <p><strong>Get Context:</strong></p>
-                    <code style="background: #f4f4f4; padding: 5px; display: block; margin: 5px 0;">
-                        GET ${baseUrl}/api/plugins/${plugin.name}/context?limit=50&days=30
-                    </code>
-                    <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                        Parameters: limit (default: 50), days (default: 30), item_type (optional), query (optional text search)
-                    </p>
-                    <p><strong>Search:</strong></p>
-                    <code style="background: #f4f4f4; padding: 5px; display: block; margin: 5px 0;">
-                        GET ${baseUrl}/api/plugins/${plugin.name}/search?q=search+term&limit=20
-                    </code>
-                    <p style="font-size: 12px; color: #666; margin-top: 5px;">
-                        Parameters: q (required), limit (default: 20), days (default: 30)
-                    </p>
-                    <p style="margin-top: 10px;">
-                        <strong>Custom GPT Schema:</strong> See <code>plugins/${plugin.name}/custom_gpt_schema.json</code>
-                    </p>
-                </div>`;
-            });
-            
-            html += '</div>';
-            document.getElementById('api-endpoints').innerHTML = html;
+            try {
+                const pluginsResponse = await fetch(`${API_BASE}/plugins`);
+                if (!pluginsResponse.ok) {
+                    throw new Error(`HTTP error! status: ${pluginsResponse.status}`);
+                }
+                const plugins = await pluginsResponse.json();
+                
+                if (!plugins || plugins.length === 0) {
+                    document.getElementById('api-endpoints').innerHTML = '<p>No plugins found.</p>';
+                    return;
+                }
+                
+                const baseUrl = window.location.origin;
+                
+                let html = '<div style="margin-top: 20px;">';
+                html += '<h3>Available Plugin Endpoints:</h3>';
+                
+                plugins.forEach(plugin => {
+                    html += `<div class="plugin-card" style="margin-top: 15px;">
+                        <h3>${plugin.name}</h3>
+                        <p><strong>Get Context:</strong></p>
+                        <code style="background: #f4f4f4; padding: 5px; display: block; margin: 5px 0;">
+                            GET ${baseUrl}/api/plugins/${plugin.name}/context?limit=50&days=30
+                        </code>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            Parameters: limit (default: 50), days (default: 30), item_type (optional), query (optional text search)
+                        </p>
+                        <p><strong>Search:</strong></p>
+                        <code style="background: #f4f4f4; padding: 5px; display: block; margin: 5px 0;">
+                            GET ${baseUrl}/api/plugins/${plugin.name}/search?q=search+term&limit=20
+                        </code>
+                        <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                            Parameters: q (required), limit (default: 20), days (default: 30)
+                        </p>
+                        <p style="margin-top: 10px;">
+                            <strong>Custom GPT Schema:</strong> See <code>plugins/${plugin.name}/custom_gpt_schema.json</code>
+                        </p>
+                    </div>`;
+                });
+                
+                html += '</div>';
+                document.getElementById('api-endpoints').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading API info:', error);
+                document.getElementById('api-endpoints').innerHTML = `<p style="color: red;">Error loading API info: ${error.message}</p>`;
+            }
         }
         
         async function loadStats() {
-            const response = await fetch(`${API_BASE}/stats`);
-            const stats = await response.json();
-            
-            const html = `
-                <div style="margin-top: 20px;">
-                    <h3>Total Items: ${stats.total_items}</h3>
-                    <h3 style="margin-top: 20px;">By Plugin:</h3>
-                    <ul>
-                        ${Object.entries(stats.by_plugin).map(([plugin, count]) => 
-                            `<li>${plugin}: ${count}</li>`
-                        ).join('')}
-                    </ul>
-                    <h3 style="margin-top: 20px;">By Type:</h3>
-                    <ul>
-                        ${Object.entries(stats.by_type).map(([type, count]) => 
-                            `<li>${type}: ${count}</li>`
-                        ).join('')}
-                    </ul>
-                </div>
-            `;
-            document.getElementById('stats-content').innerHTML = html;
+            try {
+                const response = await fetch(`${API_BASE}/stats`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const stats = await response.json();
+                
+                const html = `
+                    <div style="margin-top: 20px;">
+                        <h3>Total Items: ${stats.total_items || 0}</h3>
+                        <h3 style="margin-top: 20px;">By Plugin:</h3>
+                        <ul>
+                            ${Object.keys(stats.by_plugin || {}).length > 0 
+                                ? Object.entries(stats.by_plugin).map(([plugin, count]) => 
+                                    `<li>${plugin}: ${count}</li>`
+                                ).join('')
+                                : '<li>No data yet</li>'
+                            }
+                        </ul>
+                        <h3 style="margin-top: 20px;">By Type:</h3>
+                        <ul>
+                            ${Object.keys(stats.by_type || {}).length > 0
+                                ? Object.entries(stats.by_type).map(([type, count]) => 
+                                    `<li>${type}: ${count}</li>`
+                                ).join('')
+                                : '<li>No data yet</li>'
+                            }
+                        </ul>
+                    </div>
+                `;
+                document.getElementById('stats-content').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                document.getElementById('stats-content').innerHTML = `<p style="color: red;">Error loading stats: ${error.message}</p>`;
+            }
         }
         
         // Load initial data
