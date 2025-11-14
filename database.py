@@ -54,6 +54,14 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def init_db():
     """Initialize the database tables."""
     Base.metadata.create_all(bind=engine)
+    # Run migration to add new columns if needed
+    try:
+        from migrate_db import migrate_database
+        migrate_database()
+    except Exception as e:
+        # Migration is optional - if it fails, the app can still run
+        # (columns might already exist or migration script might not be available)
+        pass
 
 
 def get_db():
