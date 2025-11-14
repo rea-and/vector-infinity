@@ -1,5 +1,5 @@
 """Main Flask application."""
-from flask import Flask, jsonify, request, render_template_string
+from flask import Flask, jsonify, request, render_template_string, send_file
 from flask_cors import CORS
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
@@ -9,6 +9,7 @@ from scheduler import ImportScheduler
 from plugin_loader import PluginLoader
 import config
 import logging
+from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -199,6 +200,26 @@ def search_plugin_context(plugin_name):
         return jsonify(result)
     finally:
         db.close()
+
+
+@app.route("/api/plugins/<plugin_name>/schema", methods=["GET"])
+def get_plugin_schema(plugin_name):
+    """Download the Custom GPT schema JSON file for a plugin."""
+    schema_path = config.PLUGINS_DIR / plugin_name / "custom_gpt_schema.json"
+    
+    if not schema_path.exists():
+        return jsonify({"error": f"Schema file not found for plugin: {plugin_name}"}), 404
+    
+    try:
+        return send_file(
+            str(schema_path),
+            mimetype='application/json',
+            as_attachment=True,
+            download_name=f"{plugin_name}_custom_gpt_schema.json"
+        )
+    except Exception as e:
+        logger.error(f"Error serving schema file: {e}")
+        return jsonify({"error": "Failed to serve schema file"}), 500
 
 
 @app.route("/api/stats", methods=["GET"])

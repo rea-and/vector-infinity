@@ -367,6 +367,9 @@
                                 <button class="btn" onclick="runImport('${plugin.name}')" ${!plugin.enabled ? 'disabled' : ''}>
                                     Run Import
                                 </button>
+                                <button class="btn btn-success" onclick="downloadSchema('${plugin.name}')" style="margin-top: 5px;">
+                                    Download Schema
+                                </button>
                             </div>
                         `).join('')}
                     </div>
@@ -416,6 +419,10 @@
             loadImports();
         }
         
+        function downloadSchema(pluginName) {
+            window.location.href = `${API_BASE}/plugins/${pluginName}/schema`;
+        }
+        
         async function loadAPIInfo() {
             try {
                 const pluginsResponse = await fetch(`${API_BASE}/plugins`);
@@ -452,7 +459,10 @@
                             Parameters: q (required), limit (default: 20), days (default: 30)
                         </p>
                         <p style="margin-top: 10px;">
-                            <strong>Custom GPT Schema:</strong> See <code>plugins/${plugin.name}/custom_gpt_schema.json</code>
+                            <strong>Custom GPT Schema:</strong>
+                            <button class="btn btn-success" onclick="downloadSchema('${plugin.name}')" style="margin-left: 10px;">
+                                Download Schema JSON
+                            </button>
                         </p>
                     </div>`;
                 });
