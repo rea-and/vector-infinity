@@ -195,13 +195,8 @@ echo "   - For Whoop, add API key"
 echo ""
 echo "3. To run manually (for testing):"
 echo "   source venv/bin/activate"
-if [ -n "$DOMAIN_NAME" ]; then
-    echo "   python3 app.py"
-    echo "   (App runs on port 5000, Nginx proxies from port 80/443)"
-else
-    echo "   python3 app.py"
-    echo "   (Port 80 binding is configured via setcap, no sudo needed)"
-fi
+echo "   python3 app.py"
+echo "   (App runs on port 5000, Nginx proxies from port 80/443)"
 echo ""
 echo "4. To install as a systemd service (optional):"
 echo "   sudo cp $SERVICE_FILE /etc/systemd/system/vector-infinity.service"
@@ -212,45 +207,38 @@ echo ""
 echo "5. To check service status:"
 echo "   sudo systemctl status vector-infinity"
 echo ""
-if [ -n "$DOMAIN_NAME" ]; then
-    echo "6. Set up SSL (HTTPS) with Let's Encrypt:"
+echo "The web UI will be available at:"
+echo "  - HTTP: http://$DOMAIN_NAME (if SSL not set up yet)"
+echo "  - HTTPS: https://$DOMAIN_NAME (if SSL certificate was installed)"
+echo ""
+echo "Note: The Flask app runs on port 5000, and Nginx handles ports 80/443."
+echo "      This allows the app to run without root privileges."
+echo ""
+if ! sudo certbot certificates 2>/dev/null | grep -q "$DOMAIN_NAME"; then
+    echo "⚠️  SSL certificate not yet configured. To set it up:"
     echo "   sudo ./setup_ssl.sh $DOMAIN_NAME"
     echo ""
-    echo "The web UI will be available at:"
-    echo "  - HTTP: http://$DOMAIN_NAME (until SSL is set up)"
-    echo "  - HTTPS: https://$DOMAIN_NAME (after running setup_ssl.sh)"
-else
-    echo "The web UI will be available at: http://your-server-ip"
-    echo ""
-    echo "Note: Port 80 binding is configured using setcap, so you can run"
-    echo "      the app without root privileges. The systemd service runs as"
-    echo "      your user account (not root) for better security."
-    echo ""
-    echo "⚠️  For OAuth (Gmail), you need HTTPS. Set up Nginx with:"
-    echo "   sudo ./setup_nginx.sh your-domain.com"
-    echo "   sudo ./setup_ssl.sh your-domain.com"
 fi
 echo ""
-# Setup Nginx reverse proxy
+# Setup Nginx reverse proxy (Required)
 echo "Step 12: Setting up Nginx reverse proxy..."
 NGINX_CONFIG="/etc/nginx/sites-available/vector-infinity"
 NGINX_ENABLED="/etc/nginx/sites-enabled/vector-infinity"
 
-# Ask for domain name
+# Ask for domain name (required)
 echo ""
-read -p "Enter your domain name (e.g., vectorinfinity.com) or press Enter to skip: " DOMAIN_NAME
+echo "Nginx reverse proxy setup is required for HTTPS (needed for OAuth/Gmail)."
+while [ -z "$DOMAIN_NAME" ]; do
+    read -p "Enter your domain name (e.g., vectorinfinity.com): " DOMAIN_NAME
+    if [ -z "$DOMAIN_NAME" ]; then
+        echo "⚠️  Domain name is required. Please enter a valid domain name."
+    fi
+done
 echo ""
 
-if [ -z "$DOMAIN_NAME" ]; then
-    echo "⚠️  Skipping Nginx setup. You can set it up later with:"
-    echo "   sudo ./setup_nginx.sh your-domain.com"
-    echo ""
-    echo "For now, the app will run directly on port 80 (HTTP only)."
-    echo "Note: OAuth (Gmail) requires HTTPS, so you'll need to set up Nginx for that."
-else
-    # Create Nginx configuration
-    echo "Creating Nginx configuration for $DOMAIN_NAME..."
-    sudo tee "$NGINX_CONFIG" > /dev/null << EOF
+# Create Nginx configuration
+echo "Creating Nginx configuration for $DOMAIN_NAME..."
+sudo tee "$NGINX_CONFIG" > /dev/null << EOF
 server {
     listen 80;
     server_name $DOMAIN_NAME;
@@ -281,40 +269,112 @@ server {
 }
 EOF
 
-    # Enable the site
-    if [ -L "$NGINX_ENABLED" ]; then
-        sudo rm "$NGINX_ENABLED"
-    fi
-    sudo ln -s "$NGINX_CONFIG" "$NGINX_ENABLED"
+# Enable the site
+if [ -L "$NGINX_ENABLED" ]; then
+    sudo rm "$NGINX_ENABLED"
+fi
+sudo ln -s "$NGINX_CONFIG" "$NGINX_ENABLED"
+
+# Remove default Nginx site if it exists
+if [ -L /etc/nginx/sites-enabled/default ]; then
+    sudo rm /etc/nginx/sites-enabled/default
+fi
+
+# Test Nginx configuration
+sudo nginx -t
+if [ $? -eq 0 ]; then
+    sudo systemctl restart nginx
+    sudo systemctl enable nginx
+    echo "✓ Nginx configured and started"
     
-    # Remove default Nginx site if it exists
-    if [ -L /etc/nginx/sites-enabled/default ]; then
-        sudo rm /etc/nginx/sites-enabled/default
-    fi
-    
-    # Test Nginx configuration
-    sudo nginx -t
-    if [ $? -eq 0 ]; then
-        sudo systemctl restart nginx
-        echo "✓ Nginx configured and started"
-        
-        # Update .env to use port 5000 (Flask app) since Nginx handles 80/443
-        if [ -f ".env" ]; then
-            # Update WEB_PORT to 5000 if it's 80
-            sed -i 's/^WEB_PORT=80$/WEB_PORT=5000/' .env || echo "WEB_PORT=5000" >> .env
+    # Update .env to use port 5000 (Flask app) since Nginx handles 80/443
+    if [ -f ".env" ]; then
+        # Update WEB_PORT to 5000 if it's 80, or add it if not present
+        if grep -q "^WEB_PORT=" .env; then
+            sed -i 's/^WEB_PORT=.*/WEB_PORT=5000/' .env
+        else
+            echo "WEB_PORT=5000" >> .env
         fi
-        
-        # Update systemd service to use port 5000
-        sed -i 's/--bind 0.0.0.0:80/--bind 0.0.0.0:5000/' "$SERVICE_FILE"
-        
-        echo ""
-        echo "Nginx is configured. Next steps:"
-        echo "1. Make sure your domain $DOMAIN_NAME points to this server's IP"
-        echo "2. Run SSL setup: sudo ./setup_ssl.sh $DOMAIN_NAME"
-        echo "   This will get a Let's Encrypt certificate and configure HTTPS"
     else
-        echo "⚠️  Nginx configuration test failed. Please check the configuration manually."
+        echo "WEB_PORT=5000" > .env
     fi
+    
+    # Update systemd service to use port 5000
+    sed -i 's/--bind 0.0.0.0:80/--bind 0.0.0.0:5000/' "$SERVICE_FILE"
+    
+    echo ""
+    echo "Nginx is configured. Next step: Set up SSL certificate."
+else
+    echo "⚠️  Nginx configuration test failed. Please check the configuration manually."
+    exit 1
+fi
+
+# Setup SSL certificate (Optional but recommended)
+echo ""
+echo "Step 13: Setting up SSL certificate (HTTPS)..."
+echo ""
+echo "To enable HTTPS (required for OAuth/Gmail), you need to set up an SSL certificate."
+echo "Make sure your domain $DOMAIN_NAME points to this server's IP address first."
+echo ""
+read -p "Do you want to set up SSL certificate with Let's Encrypt now? (Y/n): " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+    # Check if domain resolves to this server
+    echo "Checking if $DOMAIN_NAME points to this server..."
+    SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s icanhazip.com 2>/dev/null || echo "")
+    if [ -n "$SERVER_IP" ]; then
+        DOMAIN_IP=$(dig +short $DOMAIN_NAME 2>/dev/null | tail -n1 || echo "")
+        if [ -z "$DOMAIN_IP" ]; then
+            echo "⚠️  Warning: Could not resolve $DOMAIN_NAME. Make sure DNS is configured."
+            read -p "Continue anyway? (y/N): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                echo "Skipping SSL setup. You can run it later with: sudo ./setup_ssl.sh $DOMAIN_NAME"
+            else
+                echo "Getting SSL certificate from Let's Encrypt..."
+                sudo certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --register-unsafely-without-email
+                if [ $? -eq 0 ]; then
+                    echo "✓ SSL certificate installed successfully!"
+                else
+                    echo "⚠️  SSL certificate installation failed. You can try again later with:"
+                    echo "   sudo ./setup_ssl.sh $DOMAIN_NAME"
+                fi
+            fi
+        elif [ "$DOMAIN_IP" != "$SERVER_IP" ]; then
+            echo "⚠️  Warning: $DOMAIN_NAME resolves to $DOMAIN_IP, but this server's IP is $SERVER_IP"
+            echo "Make sure $DOMAIN_NAME points to this server before setting up SSL."
+            read -p "Continue anyway? (y/N): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                echo "Skipping SSL setup. You can run it later with: sudo ./setup_ssl.sh $DOMAIN_NAME"
+            else
+                echo "Getting SSL certificate from Let's Encrypt..."
+                sudo certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --register-unsafely-without-email
+                if [ $? -eq 0 ]; then
+                    echo "✓ SSL certificate installed successfully!"
+                else
+                    echo "⚠️  SSL certificate installation failed. You can try again later with:"
+                    echo "   sudo ./setup_ssl.sh $DOMAIN_NAME"
+                fi
+            fi
+        else
+            echo "✓ Domain DNS looks correct"
+            echo "Getting SSL certificate from Let's Encrypt..."
+            sudo certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --register-unsafely-without-email
+            if [ $? -eq 0 ]; then
+                echo "✓ SSL certificate installed successfully!"
+            else
+                echo "⚠️  SSL certificate installation failed. You can try again later with:"
+                echo "   sudo ./setup_ssl.sh $DOMAIN_NAME"
+            fi
+        fi
+    else
+        echo "⚠️  Could not determine server IP. Skipping automatic SSL setup."
+        echo "You can set up SSL later with: sudo ./setup_ssl.sh $DOMAIN_NAME"
+    fi
+else
+    echo "Skipping SSL setup. You can set it up later with:"
+    echo "   sudo ./setup_ssl.sh $DOMAIN_NAME"
 fi
 echo ""
 
