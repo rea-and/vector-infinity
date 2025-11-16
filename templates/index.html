@@ -619,12 +619,20 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 12px;
         }
         
         .chat-header h2 {
             font-size: 18px;
             margin: 0;
             color: var(--text-primary);
+            flex: 1;
+        }
+        
+        .chat-header .btn-new-thread {
+            padding: 6px 12px;
+            font-size: 13px;
+            white-space: nowrap;
         }
         
         .chat-title-mobile {
@@ -637,8 +645,9 @@
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 0 12px;
+            padding: 0 8px;
             align-items: center;
+            gap: 8px;
             z-index: 1000;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
             overflow: hidden;
@@ -651,6 +660,62 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            flex: 1;
+        }
+        
+        .chat-title-mobile .btn-new-thread {
+            padding: 4px 8px;
+            font-size: 12px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        
+        .sidebar-threads {
+            padding: 8px;
+            border-top: 1px solid var(--border-color);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .sidebar-threads-header {
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .sidebar-thread-item {
+            padding: 10px 12px;
+            margin-bottom: 2px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+        
+        .sidebar-thread-item:hover {
+            background: var(--bg-hover);
+        }
+        
+        .sidebar-thread-item.active {
+            background: var(--accent-color);
+            color: white;
+        }
+        
+        .sidebar-thread-title {
+            font-weight: 500;
+            margin-bottom: 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .sidebar-thread-time {
+            font-size: 11px;
+            opacity: 0.7;
         }
         
         @media (max-width: 768px) {
@@ -1075,6 +1140,12 @@
                     ⚙️ Settings
                 </div>
             </div>
+            <div class="sidebar-threads" id="sidebar-threads">
+                <div class="sidebar-threads-header">Conversations</div>
+                <div id="sidebar-threads-list">
+                    <!-- Threads will be loaded here -->
+                </div>
+            </div>
             <div class="sidebar-footer" style="padding: 12px; border-top: 1px solid var(--border-color); margin-top: auto;">
                 <button class="theme-toggle" onclick="toggleTheme()" id="theme-toggle" style="margin-bottom: 12px;">
                     <span id="theme-icon">🌙</span>
@@ -1092,6 +1163,7 @@
         <div class="main-content">
             <div class="chat-title-mobile">
                 <h2 id="chat-thread-title-mobile">New Conversation</h2>
+                <button class="btn btn-new-thread" onclick="newChatThread()">+ New</button>
             </div>
             <div id="chat" class="tab-content active">
                 <div class="chat-container">
