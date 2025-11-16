@@ -986,22 +986,44 @@
                 </div>
             </div>
             
-            <div id="settings" class="tab-content">
-                <div class="container">
-                    <div class="card">
-                        <h2>Settings</h2>
-                        <div style="margin-top: 20px;">
-                            <h3>Data Management</h3>
-                            <p style="color: var(--text-secondary); margin-bottom: 15px;">
-                                Clear all imported data from the database. This action cannot be undone.
-                            </p>
-                            <button class="btn btn-danger" onclick="clearAllData()">
-                                Clear All Data
-                            </button>
+                <div id="settings" class="tab-content">
+                    <div class="container">
+                        <div class="card">
+                            <h2>Settings</h2>
+                            <div style="margin-top: 20px;">
+                                <h3>Data Management</h3>
+                                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                                    Clear all imported data from the database. This action cannot be undone.
+                                </p>
+                                <button class="btn btn-danger" onclick="clearAllData()">
+                                    Clear All Data
+                                </button>
+                            </div>
+                            <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                                <h3>Factory Reset</h3>
+                                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                                    <strong style="color: var(--text-primary);">⚠️ DANGER ZONE ⚠️</strong><br>
+                                    This will permanently delete <strong>EVERYTHING</strong>:
+                                </p>
+                                <ul style="color: var(--text-secondary); margin-bottom: 15px; padding-left: 20px;">
+                                    <li>All imported data (emails, WhatsApp, WHOOP, etc.)</li>
+                                    <li>All import logs</li>
+                                    <li>All temporary files</li>
+                                    <li>All log files</li>
+                                    <li>All OpenAI vector store files</li>
+                                    <li>OAuth authentication tokens</li>
+                                    <li>The entire database (will be recreated empty)</li>
+                                </ul>
+                                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                                    <strong style="color: #e74c3c;">This action CANNOT be undone!</strong> Use this only if you want to completely start over.
+                                </p>
+                                <button class="btn btn-danger" onclick="factoryReset()" style="background: #c0392b; border: 2px solid #a93226;">
+                                    🔥 Factory Reset
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
         </div>
     </div>
     
@@ -1160,6 +1182,7 @@
         
         // Store active polling intervals for running imports
         const activeImportPollers = new Map();
+        const activePluginPollers = new Map(); // For plugin tab polling
         
         async function loadImports() {
             try {
@@ -1295,14 +1318,37 @@
         
         async function loadPlugins() {
             try {
-                const response = await fetch(`${API_BASE}/plugins`);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                // Fetch plugins and running imports in parallel
+                const [pluginsResponse, importsResponse] = await Promise.all([
+                    fetch(`${API_BASE}/plugins`),
+                    fetch(`${API_BASE}/imports?limit=100`).catch(() => null) // Don't fail if this fails
+                ]);
+                
+                if (!pluginsResponse.ok) {
+                    throw new Error(`HTTP error! status: ${pluginsResponse.status}`);
                 }
-                const plugins = await response.json();
+                const plugins = await pluginsResponse.json();
+                
+                // Get running imports to show progress
+                let runningImports = {};
+                if (importsResponse && importsResponse.ok) {
+                    const imports = await importsResponse.json();
+                    // Find the most recent running import for each plugin
+                    imports.filter(imp => imp.status === 'running').forEach(imp => {
+                        if (!runningImports[imp.plugin_name] || 
+                            new Date(imp.started_at) > new Date(runningImports[imp.plugin_name].started_at)) {
+                            runningImports[imp.plugin_name] = imp;
+                        }
+                    });
+                }
+                
+                // Clear existing plugin pollers
+                activePluginPollers.forEach(interval => clearInterval(interval));
+                activePluginPollers.clear();
                 
                 // Debug: log plugins data
                 console.log('Plugins data:', plugins);
+                console.log('Running imports:', runningImports);
                 
                 if (!plugins || plugins.length === 0) {
                     document.getElementById('plugins-list').innerHTML = '<p>No plugins found.</p>';
@@ -1369,19 +1415,47 @@
                                 </div>
                             `;
                             
+                            // Check if this plugin has a running import
+                            const runningImport = runningImports[plugin.name];
+                            const hasRunningImport = runningImport && runningImport.status === 'running';
+                            
+                            // Progress display for running imports
+                            let progressHtml = '';
+                            if (hasRunningImport) {
+                                const progressMsg = runningImport.progress_message || 'Processing...';
+                                const progressCount = runningImport.progress_total > 0 
+                                    ? ` (${runningImport.progress_current || 0}/${runningImport.progress_total})` 
+                                    : '';
+                                const progressPercent = runningImport.progress_total > 0 
+                                    ? Math.round(((runningImport.progress_current || 0) / runningImport.progress_total) * 100) 
+                                    : 0;
+                                const progressBar = runningImport.progress_total > 0 
+                                    ? `<div class="progress-bar" style="margin-top: 8px;"><div class="progress-fill" style="width: ${progressPercent}%"></div></div>` 
+                                    : '';
+                                
+                                progressHtml = `
+                                    <div id="plugin-progress-${plugin.name}" class="import-progress" style="margin: 10px 0; padding: 10px; background: var(--bg-secondary); border-radius: 4px; border-left: 3px solid var(--accent-color);">
+                                        <strong>Import in progress:</strong><br>
+                                        ${progressMsg}${progressCount}
+                                        ${progressBar}
+                                    </div>
+                                `;
+                            }
+                            
                             // Special handling for whatsapp_angel plugin (file upload)
                             if (plugin.name === 'whatsapp_angel') {
                                 return `
                                 <div class="plugin-card">
                                     <h3>${plugin.name}</h3>
                                     <p>Status: ${plugin.enabled ? 'Enabled' : 'Disabled'}</p>
+                                    ${progressHtml}
                                     <div style="margin-top: 10px;">
                                         <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 600;">
                                             Upload WhatsApp Chat Export (ZIP):
                                         </label>
                                         <input type="file" id="file-${plugin.name}" accept=".zip" style="margin-bottom: 10px; font-size: 12px;">
-                                        <button class="btn" onclick="runImportWithFile('${plugin.name}')" ${!plugin.enabled ? 'disabled' : ''} style="margin-top: 5px; width: 100%;">
-                                            Upload & Import
+                                        <button class="btn" id="btn-${plugin.name}" onclick="runImportWithFile('${plugin.name}')" ${!plugin.enabled || hasRunningImport ? 'disabled' : ''} style="margin-top: 5px; width: 100%;">
+                                            ${hasRunningImport ? '<span class="loading"></span> Importing...' : 'Upload & Import'}
                                         </button>
                                     </div>
                                 </div>
@@ -1393,11 +1467,12 @@
                                 <h3>${plugin.name}</h3>
                                 <p>Status: ${plugin.enabled ? 'Enabled' : 'Disabled'}</p>
                                 ${authInfo || ''}
+                                ${progressHtml}
                                 <button class="btn" onclick="authenticatePlugin('${plugin.name}')" style="margin-top: 5px;">
                                     Authenticate
                                 </button>
-                                <button class="btn" onclick="runImport('${plugin.name}')" ${!plugin.enabled ? 'disabled' : ''} style="margin-top: 5px;">
-                                    Run Import
+                                <button class="btn" id="btn-${plugin.name}" onclick="runImport('${plugin.name}')" ${!plugin.enabled || hasRunningImport ? 'disabled' : ''} style="margin-top: 5px;">
+                                    ${hasRunningImport ? '<span class="loading"></span> Importing...' : 'Run Import'}
                                 </button>
                             </div>
                         `;
@@ -1405,10 +1480,81 @@
                     </div>
                 `;
                 document.getElementById('plugins-list').innerHTML = html;
+                
+                // Start polling for running imports
+                Object.entries(runningImports).forEach(([pluginName, importData]) => {
+                    if (importData.status === 'running') {
+                        startPluginProgressPolling(pluginName, importData.id);
+                    }
+                });
             } catch (error) {
                 console.error('Error loading plugins:', error);
                 document.getElementById('plugins-list').innerHTML = `<p style="color: red;">Error loading plugins: ${error.message}</p>`;
             }
+        }
+        
+        function startPluginProgressPolling(pluginName, logId) {
+            // Clear any existing poller for this plugin
+            if (activePluginPollers.has(pluginName)) {
+                clearInterval(activePluginPollers.get(pluginName));
+            }
+            
+            const pollInterval = setInterval(async () => {
+                try {
+                    const statusResponse = await fetch(`${API_BASE}/imports/${logId}/status`);
+                    if (!statusResponse.ok) {
+                        clearInterval(pollInterval);
+                        activePluginPollers.delete(pluginName);
+                        return;
+                    }
+                    
+                    const status = await statusResponse.json();
+                    const progressElement = document.getElementById(`plugin-progress-${pluginName}`);
+                    const buttonElement = document.getElementById(`btn-${pluginName}`);
+                    
+                    if (progressElement) {
+                        const progressMsg = status.progress_message || 'Processing...';
+                        const progressCount = status.progress_total > 0 
+                            ? ` (${status.progress_current || 0}/${status.progress_total})` 
+                            : '';
+                        const progressPercent = status.progress_total > 0 
+                            ? Math.round(((status.progress_current || 0) / status.progress_total) * 100) 
+                            : 0;
+                        const progressBar = status.progress_total > 0 
+                            ? `<div class="progress-bar" style="margin-top: 8px;"><div class="progress-fill" style="width: ${progressPercent}%"></div></div>` 
+                            : '';
+                        
+                        progressElement.innerHTML = `
+                            <strong>Import in progress:</strong><br>
+                            ${progressMsg}${progressCount}
+                            ${progressBar}
+                        `;
+                    }
+                    
+                    if (buttonElement) {
+                        if (status.progress_total > 0) {
+                            const percent = status.progress_percent || 0;
+                            buttonElement.innerHTML = `<span class="loading"></span> ${status.progress_message || 'Processing...'} (${percent}%)`;
+                        } else {
+                            buttonElement.innerHTML = `<span class="loading"></span> ${status.progress_message || 'Processing...'}`;
+                        }
+                        buttonElement.disabled = true;
+                    }
+                    
+                    // Stop polling if import is complete
+                    if (status.status === 'success' || status.status === 'error') {
+                        clearInterval(pollInterval);
+                        activePluginPollers.delete(pluginName);
+                        
+                        // Reload plugins to show final state
+                        setTimeout(() => loadPlugins(), 1000);
+                    }
+                } catch (error) {
+                    console.error(`Error polling plugin ${pluginName} import:`, error);
+                }
+            }, 1000); // Poll every second
+            
+            activePluginPollers.set(pluginName, pollInterval);
         }
         
         async function runImportWithFile(pluginName) {
@@ -2155,6 +2301,73 @@
             } catch (error) {
                 console.error('Error clearing data:', error);
                 alert(`Error: ${error.message}`);
+            }
+        }
+        
+        async function factoryReset() {
+            // Triple confirmation for factory reset
+            const confirm1 = confirm('🔥 FACTORY RESET WARNING 🔥\n\nThis will PERMANENTLY DELETE EVERYTHING:\n\n- All imported data (emails, WhatsApp, WHOOP, etc.)\n- All import logs\n- All temporary files\n- All log files\n- All OpenAI vector store files\n- OAuth authentication tokens\n- The entire database (will be recreated empty)\n\nThis action CANNOT be undone!\n\nAre you absolutely sure you want to continue?');
+            if (!confirm1) {
+                return;
+            }
+            
+            const confirm2 = confirm('⚠️ SECOND CONFIRMATION\n\nYou are about to wipe out EVERYTHING. This will:\n- Delete all your data\n- Delete all logs\n- Delete all temporary files\n- Delete all vector store files\n- Reset the database to empty\n\nType "FACTORY RESET" in the next prompt to continue.');
+            if (!confirm2) {
+                return;
+            }
+            
+            const typed = prompt('Type "FACTORY RESET" (all caps) to confirm:');
+            if (typed !== 'FACTORY RESET') {
+                alert('Factory reset cancelled. You did not type "FACTORY RESET" correctly.');
+                return;
+            }
+            
+            const confirm3 = confirm('⚠️ FINAL WARNING ⚠️\n\nThis is your LAST chance to cancel.\n\nClicking OK will immediately delete EVERYTHING.\n\nAre you 100% certain?');
+            if (!confirm3) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/factory-reset`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({confirm: true})
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || `HTTP error! status: ${response.status}`);
+                }
+                
+                // Show detailed results
+                const results = data.results || {};
+                const summary = [
+                    `✅ Factory reset completed!`,
+                    ``,
+                    `Deleted:`,
+                    `- ${results.database_items_deleted || 0} database items`,
+                    `- ${results.database_logs_deleted || 0} import logs`,
+                    `- ${results.temp_files_deleted || 0} temporary files`,
+                    `- ${results.log_files_deleted || 0} log files`,
+                    `- ${results.vector_store_files_deleted || 0} vector store files`,
+                    results.errors && results.errors.length > 0 ? `\n⚠️ Errors: ${results.errors.length}` : ''
+                ].join('\n');
+                
+                alert(summary);
+                
+                // Refresh all data
+                loadStats();
+                loadImports();
+                loadPlugins();
+                
+                // Reload the page after a short delay to ensure everything is reset
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } catch (error) {
+                console.error('Error during factory reset:', error);
+                alert(`❌ Error during factory reset: ${error.message}`);
             }
         }
         

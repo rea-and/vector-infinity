@@ -747,6 +747,171 @@ def clear_all_data():
         db.close()
 
 
+@app.route("/api/factory-reset", methods=["POST"])
+def factory_reset():
+    """Factory reset: Delete absolutely everything - database, logs, temp files, vector store."""
+    try:
+        # Get confirmation from request
+        data = request.get_json() or {}
+        confirm = data.get("confirm", False)
+        
+        if not confirm:
+            return jsonify({"error": "Confirmation required. Set 'confirm': true in request body."}), 400
+        
+        results = {
+            "database_items_deleted": 0,
+            "database_logs_deleted": 0,
+            "temp_files_deleted": 0,
+            "log_files_deleted": 0,
+            "vector_store_files_deleted": 0,
+            "errors": []
+        }
+        
+        # 1. Clear all database data
+        db = SessionLocal()
+        try:
+            results["database_items_deleted"] = db.query(DataItem).count()
+            results["database_logs_deleted"] = db.query(ImportLog).count()
+            
+            db.query(DataItem).delete()
+            db.query(ImportLog).delete()
+            db.commit()
+            logger.info(f"Cleared {results['database_items_deleted']} data items and {results['database_logs_deleted']} import logs")
+        except Exception as e:
+            db.rollback()
+            error_msg = f"Error clearing database: {e}"
+            logger.error(error_msg, exc_info=True)
+            results["errors"].append(error_msg)
+        finally:
+            db.close()
+        
+        # 2. Delete temporary upload files
+        try:
+            temp_upload_dir = Path(tempfile.gettempdir()) / "vector_infinity_uploads"
+            if temp_upload_dir.exists():
+                temp_files = list(temp_upload_dir.glob("*"))
+                for temp_file in temp_files:
+                    try:
+                        if temp_file.is_file():
+                            temp_file.unlink()
+                            results["temp_files_deleted"] += 1
+                    except Exception as e:
+                        error_msg = f"Error deleting temp file {temp_file}: {e}"
+                        logger.warning(error_msg)
+                        results["errors"].append(error_msg)
+                logger.info(f"Deleted {results['temp_files_deleted']} temporary files")
+        except Exception as e:
+            error_msg = f"Error deleting temp files: {e}"
+            logger.error(error_msg, exc_info=True)
+            results["errors"].append(error_msg)
+        
+        # 3. Delete log files
+        try:
+            if config.LOGS_DIR.exists():
+                log_files = list(config.LOGS_DIR.glob("*"))
+                for log_file in log_files:
+                    try:
+                        if log_file.is_file():
+                            log_file.unlink()
+                            results["log_files_deleted"] += 1
+                    except Exception as e:
+                        error_msg = f"Error deleting log file {log_file}: {e}"
+                        logger.warning(error_msg)
+                        results["errors"].append(error_msg)
+                logger.info(f"Deleted {results['log_files_deleted']} log files")
+        except Exception as e:
+            error_msg = f"Error deleting log files: {e}"
+            logger.error(error_msg, exc_info=True)
+            results["errors"].append(error_msg)
+        
+        # 4. Clear OAuth flows in memory
+        try:
+            oauth_flows.clear()
+            logger.info("Cleared OAuth flows from memory")
+        except Exception as e:
+            error_msg = f"Error clearing OAuth flows: {e}"
+            logger.warning(error_msg)
+            results["errors"].append(error_msg)
+        
+        # 5. Delete OpenAI vector store files (optional - may fail if API key not set)
+        try:
+            from vector_store_service import VectorStoreService
+            vector_store_service = VectorStoreService()
+            vector_store_id = vector_store_service.get_unified_vector_store_id()
+            
+            if vector_store_id:
+                # List all files in the vector store (handle pagination)
+                all_files = []
+                has_more = True
+                after = None
+                
+                while has_more:
+                    params = {"vector_store_id": vector_store_id, "limit": 100}
+                    if after:
+                        params["after"] = after
+                    
+                    files = vector_store_service.client.vector_stores.files.list(**params)
+                    
+                    if hasattr(files, 'data') and files.data:
+                        all_files.extend(files.data)
+                        # Check if there are more pages
+                        has_more = hasattr(files, 'has_more') and files.has_more
+                        if has_more and files.data:
+                            after = files.data[-1].id
+                        else:
+                            has_more = False
+                    else:
+                        has_more = False
+                
+                # Delete all files
+                for file_item in all_files:
+                    try:
+                        # Delete file from vector store
+                        vector_store_service.client.vector_stores.files.delete(
+                            vector_store_id=vector_store_id,
+                            file_id=file_item.id
+                        )
+                        results["vector_store_files_deleted"] += 1
+                    except Exception as e:
+                        error_msg = f"Error deleting vector store file {file_item.id}: {e}"
+                        logger.warning(error_msg)
+                        results["errors"].append(error_msg)
+                
+                logger.info(f"Deleted {results['vector_store_files_deleted']} files from vector store")
+        except Exception as e:
+            # This is optional - don't fail if vector store deletion fails
+            error_msg = f"Error clearing vector store (optional): {e}"
+            logger.warning(error_msg)
+            results["errors"].append(error_msg)
+        
+        # 6. Recreate database (drop and recreate)
+        try:
+            # Close any existing connections
+            from database import engine, Base
+            Base.metadata.drop_all(bind=engine)
+            Base.metadata.create_all(bind=engine)
+            logger.info("Recreated database schema")
+        except Exception as e:
+            error_msg = f"Error recreating database: {e}"
+            logger.error(error_msg, exc_info=True)
+            results["errors"].append(error_msg)
+        
+        success = len(results["errors"]) == 0 or (
+            results["database_items_deleted"] > 0 or 
+            results["database_logs_deleted"] > 0 or
+            results["temp_files_deleted"] > 0
+        )
+        
+        return jsonify({
+            "success": success,
+            "message": "Factory reset completed",
+            "results": results
+        })
+    except Exception as e:
+        logger.error(f"Error during factory reset: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/stats", methods=["GET"])
 def get_stats():
     """Get statistics about imported data."""
