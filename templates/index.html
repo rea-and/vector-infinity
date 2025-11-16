@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Vector Infinity</title>
     <!-- Markdown rendering libraries -->
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
@@ -66,12 +66,14 @@
             line-height: 1.6;
             transition: background-color 0.3s ease, color 0.3s ease;
             height: 100vh;
+            height: 100dvh; /* Dynamic viewport height for mobile */
             overflow: hidden;
         }
         
         .app-container {
             display: flex;
             height: 100vh;
+            height: 100dvh; /* Dynamic viewport height for mobile */
         }
         
         .sidebar {
@@ -603,8 +605,10 @@
         
         .chat-input-container {
             padding: 16px;
+            padding-bottom: max(16px, env(safe-area-inset-bottom));
             background: var(--bg-primary);
             border-top: 1px solid var(--border-color);
+            flex-shrink: 0;
         }
         
         .chat-input-wrapper {
@@ -825,10 +829,33 @@
             
             .chat-messages {
                 padding: 16px;
+                padding-bottom: 8px;
             }
             
             .chat-input-container {
                 padding: 12px;
+                padding-bottom: max(12px, env(safe-area-inset-bottom));
+                position: sticky;
+                bottom: 0;
+            }
+            
+            .chat-input {
+                font-size: 16px; /* Prevents zoom on iOS */
+            }
+            
+            body {
+                height: 100vh;
+                height: 100dvh; /* Use dynamic viewport height on mobile */
+            }
+            
+            .app-container {
+                height: 100vh;
+                height: 100dvh;
+            }
+            
+            .chat-container {
+                height: 100%;
+                min-height: 0; /* Allows flexbox to shrink */
             }
         }
     </style>
