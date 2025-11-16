@@ -302,7 +302,7 @@ class DataImporter:
                         db.commit()
                         return
                 
-                # Set file path for whatsapp_angel plugin if provided
+                # Set file path for whatsapp plugin if provided
                 if plugin_name == "whatsapp" and uploaded_file_path:
                     if hasattr(plugin, 'set_uploaded_file'):
                         plugin.set_uploaded_file(str(uploaded_file_path))
@@ -314,7 +314,7 @@ class DataImporter:
                         db.commit()
                         return
                 
-                # Verify file path is set for whatsapp_angel plugin
+                # Verify file path is set for whatsapp plugin
                 if plugin_name == "whatsapp" and hasattr(plugin, 'uploaded_file_path'):
                     if not plugin.uploaded_file_path:
                         log_entry.status = "error"
