@@ -39,6 +39,16 @@ def list_plugins():
             plugin_dir = config.PLUGINS_DIR / name
             config_path = plugin_dir / "config.json"
             
+            # Read nice_name from config.json if available
+            nice_name = name  # Default to plugin name
+            if config_path.exists():
+                try:
+                    with open(config_path, 'r') as f:
+                        plugin_config_json = json.load(f)
+                        nice_name = plugin_config_json.get("nice_name", name)
+                except Exception as e:
+                    logger.debug(f"Error reading config.json for {name}: {e}")
+            
             # Check user-specific enabled status from database
             plugin_config_db = db.query(PluginConfiguration).filter(
                 PluginConfiguration.user_id == current_user.id,
@@ -138,6 +148,7 @@ def list_plugins():
             
             plugin_data = {
                 "name": name,
+                "nice_name": nice_name,
                 "enabled": enabled,
                 "config_schema": config_schema,
                 "last_import_time": last_import_time,
