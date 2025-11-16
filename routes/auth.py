@@ -88,25 +88,44 @@ def login():
         email = data.get("email", "").strip().lower()
         password = data.get("password", "")
         
+        logger.info(f"Login attempt for email: {email}")
+        
         if not email or not password:
+            logger.warning("Login attempt with missing email or password")
             return jsonify({"error": "Email and password are required"}), 400
         
         db = SessionLocal()
         try:
             user = db.query(User).filter_by(email=email).first()
             
-            if not user or not check_password_hash(user.password_hash, password):
+            if not user:
+                logger.warning(f"Login attempt with non-existent email: {email}")
+                return jsonify({"error": "Invalid email or password"}), 401
+            
+            # Check password
+            try:
+                password_valid = check_password_hash(user.password_hash, password)
+            except Exception as pwd_error:
+                logger.error(f"Error checking password hash for user {email}: {pwd_error}", exc_info=True)
+                return jsonify({"error": "Authentication error. Please contact support."}), 500
+            
+            if not password_valid:
+                logger.warning(f"Login attempt with invalid password for email: {email}")
                 return jsonify({"error": "Invalid email or password"}), 401
             
             # Check if user account is active (approved)
             if not user.is_active():
+                logger.warning(f"Login attempt for inactive account: {email} (ID: {user.id})")
                 return jsonify({"error": "Your account is pending admin approval. Please wait for an administrator to approve your account before logging in."}), 403
             
             # Log in the user
             remember = data.get('remember', False)
-            login_user(user, remember=remember)
-            
-            logger.info(f"User logged in: {email} (ID: {user.id})")
+            try:
+                login_user(user, remember=remember)
+                logger.info(f"User logged in successfully: {email} (ID: {user.id}, role: {user.role})")
+            except Exception as login_error:
+                logger.error(f"Error calling login_user for {email}: {login_error}", exc_info=True)
+                return jsonify({"error": "Session error. Please try again."}), 500
             
             return jsonify({
                 "success": True,
