@@ -100,6 +100,26 @@ Each plugin has its own configuration file in `plugins/<plugin_name>/config.json
 3. Zip the `.txt` file
 4. Use the "Upload & Import" button in the web UI to upload the ZIP file
 
+**WHOOP Plugin** (whoop):
+1. Enable the plugin: Set `"enabled": true` in `config.json`
+2. Get WHOOP API credentials:
+   - Go to [WHOOP Developer Platform](https://developer.whoop.com/)
+   - Sign in with your WHOOP account (WHOOP membership required)
+   - Create a new application in the Developer Dashboard
+   - Note your `client_id` and `client_secret`
+   - Create a `credentials.json` file in `plugins/whoop/` with:
+     ```json
+     {
+       "client_id": "your-client-id-here",
+       "client_secret": "your-client-secret-here"
+     }
+     ```
+3. Configure redirect URI in WHOOP Developer Dashboard:
+   - Add redirect URI: `https://your-domain.com/api/plugins/whoop/auth/callback`
+   - **Note**: WHOOP requires HTTPS for OAuth redirects (see [HTTPS Setup](#https-setup-for-oauth-required-for-gmail-api) section)
+4. Authenticate via the web UI using the "Authenticate" button
+5. Configure data range (optional): Set `"days_back": 365` in `config.json` to fetch the last year of data (default: 365 days)
+
 ### 3. Running
 
 #### Manual Run (Testing)
@@ -344,10 +364,13 @@ The system is optimized for low RAM usage:
 - Verify `config.json` has `"enabled": true`
 - Check logs in `logs/` directory
 
-### Authentication errors (Gmail)
-- Ensure `credentials.json` is in the plugin directory
-- Delete `token.json` and re-authenticate
-- Check OAuth scopes in Google Cloud Console
+### Authentication errors (Gmail/WHOOP)
+- Ensure `credentials.json` is in the plugin directory with correct credentials
+- Delete `token.json` and re-authenticate via the web UI
+- **Gmail**: Check OAuth scopes in Google Cloud Console
+- **WHOOP**: Verify redirect URI is correctly set in WHOOP Developer Dashboard
+- Ensure HTTPS is properly configured (required for OAuth redirects)
+- Check that the redirect URI matches exactly (including https:// and trailing path)
 
 ### Import failures
 - Check plugin configuration
@@ -375,14 +398,13 @@ python3 app.py
 
 **Note**: If you reinstall the virtual environment or update Python, you'll need to run the `setcap` command again.
 
-### HTTPS Setup for OAuth (Required for Gmail API)
+### HTTPS Setup for OAuth (Required for Gmail API and WHOOP API)
 
-**Google requires HTTPS for OAuth redirects when using sensitive scopes like Gmail API.**
+**Both Google and WHOOP require HTTPS for OAuth redirects when using their APIs.**
 
-The redirect URI you need to add to Google Cloud Console will be:
-```
-https://your-domain.com/api/plugins/gmail_personal/auth/callback
-```
+The redirect URIs you need to add will be:
+- **Gmail**: `https://your-domain.com/api/plugins/gmail_personal/auth/callback`
+- **WHOOP**: `https://your-domain.com/api/plugins/whoop/auth/callback`
 
 **Recommended: Nginx with Let's Encrypt (Production Setup)**
 
@@ -414,10 +436,9 @@ The setup script will prompt you for your domain name and configure Nginx automa
    ```
    If it shows `WEB_PORT=80`, change it to `WEB_PORT=5000` (Nginx handles 80/443)
 
-5. **Add redirect URI to Google Cloud Console:**
-   ```
-   https://your-domain.com/api/plugins/gmail_personal/auth/callback
-   ```
+5. **Add redirect URIs to your OAuth providers:**
+   - **Google Cloud Console**: `https://your-domain.com/api/plugins/gmail_personal/auth/callback`
+   - **WHOOP Developer Dashboard**: `https://your-domain.com/api/plugins/whoop/auth/callback`
 
 6. **Restart the Flask app** (if running as a service):
    ```bash
