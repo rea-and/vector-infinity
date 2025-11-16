@@ -41,25 +41,13 @@ class PluginLoader:
                 # Find plugin class (should be named Plugin)
                 if hasattr(module, 'Plugin'):
                     plugin_class = module.Plugin
-                    # Store the class, not the instance (lazy loading)
-                    # Check config first without instantiating
-                    config_path = plugin_dir / "config.json"
-                    import json
+                    # Always instantiate plugins (enabled state is now in database, not config.json)
                     try:
-                        if config_path.exists():
-                            with open(config_path, 'r') as f:
-                                plugin_config = json.load(f)
-                                if plugin_config.get("enabled", False):
-                                    # Only instantiate if enabled
-                                    plugin_instance = plugin_class()
-                                    self.plugins[plugin_name] = plugin_instance
-                                    print(f"Loaded plugin: {plugin_name}")
-                                else:
-                                    print(f"Plugin {plugin_name} is disabled")
-                        else:
-                            print(f"Plugin {plugin_name} has no config.json")
-                    except Exception as config_error:
-                        print(f"Error reading config for {plugin_name}: {config_error}")
+                        plugin_instance = plugin_class()
+                        self.plugins[plugin_name] = plugin_instance
+                        print(f"Loaded plugin: {plugin_name}")
+                    except Exception as instance_error:
+                        print(f"Error instantiating plugin {plugin_name}: {instance_error}")
                 else:
                     print(f"Plugin {plugin_name} does not have a Plugin class")
             except Exception as e:
