@@ -887,15 +887,37 @@
         
         async function loadStats() {
             try {
-                const response = await fetch(`${API_BASE}/stats`);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                const [statsResponse, vectorStoreResponse] = await Promise.all([
+                    fetch(`${API_BASE}/stats`),
+                    fetch(`${API_BASE}/vector-store/info`).catch(() => null) // Don't fail if vector store not available
+                ]);
+                
+                if (!statsResponse.ok) {
+                    throw new Error(`HTTP error! status: ${statsResponse.status}`);
                 }
-                const stats = await response.json();
+                const stats = await statsResponse.json();
+                
+                let vectorStoreInfo = null;
+                if (vectorStoreResponse && vectorStoreResponse.ok) {
+                    vectorStoreInfo = await vectorStoreResponse.json();
+                }
                 
                 const html = `
                     <div style="margin-top: 20px;">
                         <h3>Total Items: ${stats.total_items || 0}</h3>
+                        ${vectorStoreInfo ? `
+                            <div style="margin-top: 20px; padding: 15px; background: ${vectorStoreInfo.file_count > 0 ? '#d4edda' : '#fff3cd'}; border-radius: 4px; border: 1px solid ${vectorStoreInfo.file_count > 0 ? '#c3e6cb' : '#ffc107'};">
+                                <h3 style="margin-top: 0;">Vector Store Status</h3>
+                                <p><strong>Files in Vector Store:</strong> ${vectorStoreInfo.file_count}</p>
+                                <p><strong>Status:</strong> ${vectorStoreInfo.status || 'unknown'}</p>
+                                ${vectorStoreInfo.file_count === 0 ? '<p style="color: #856404; margin-top: 10px;"><strong>⚠️ No files in vector store!</strong> Click "Re-upload All Data to Vector Store" to upload your data.</p>' : ''}
+                            </div>
+                        ` : `
+                            <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 4px; border: 1px solid #ffc107;">
+                                <h3 style="margin-top: 0;">Vector Store Status</h3>
+                                <p style="color: #856404;"><strong>⚠️ Vector store not available.</strong> Make sure OPENAI_API_KEY is set and try re-uploading your data.</p>
+                            </div>
+                        `}
                         <h3 style="margin-top: 20px;">By Plugin:</h3>
                         <ul>
                             ${Object.keys(stats.by_plugin || {}).length > 0 
