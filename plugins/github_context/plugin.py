@@ -85,14 +85,35 @@ class Plugin(DataSourcePlugin):
         
         logger.info(f"Fetching file from GitHub: {api_url} (branch: {url_parts['branch']})")
         
-        response = requests.get(api_url, headers=headers, params=params)
+        try:
+            response = requests.get(api_url, headers=headers, params=params, timeout=30)
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Network error fetching file from GitHub: {e}")
         
         if response.status_code == 404:
-            raise Exception(f"File not found: {url}")
+            # Try to get more details about why it failed
+            error_details = ""
+            try:
+                error_json = response.json()
+                if "message" in error_json:
+                    error_details = f" - {error_json['message']}"
+            except:
+                pass
+            raise Exception(f"File not found at {url_parts['path']} in {url_parts['owner']}/{url_parts['repo']} (branch: {url_parts['branch']}){error_details}. Please verify the file path and branch name.")
         elif response.status_code == 403:
-            raise Exception(f"Access forbidden. Check your GitHub token permissions: {url}")
+            error_details = ""
+            try:
+                error_json = response.json()
+                if "message" in error_json:
+                    error_details = f" - {error_json['message']}"
+            except:
+                pass
+            raise Exception(f"Access forbidden for {url}. Check your GitHub token permissions and ensure it has access to the repository.{error_details}")
+        elif response.status_code == 401:
+            raise Exception(f"Authentication failed. Please check your GitHub token is valid and not expired.")
         elif response.status_code != 200:
-            raise Exception(f"GitHub API error ({response.status_code}): {response.text}")
+            error_details = response.text[:500]  # Limit error message length
+            raise Exception(f"GitHub API error ({response.status_code}): {error_details}")
         
         # Get file content (raw)
         content = response.text
@@ -153,6 +174,14 @@ class Plugin(DataSourcePlugin):
         for url in file_urls:
             try:
                 logger.info(f"Fetching file from GitHub: {url}")
+                # Validate URL format before attempting to fetch
+                try:
+                    url_parts = self._parse_github_url(url)
+                    logger.debug(f"Parsed URL: owner={url_parts['owner']}, repo={url_parts['repo']}, branch={url_parts['branch']}, path={url_parts['path']}")
+                except ValueError as parse_error:
+                    logger.error(f"Invalid GitHub URL format: {url} - {parse_error}")
+                    raise Exception(f"Invalid GitHub URL format: {url}. Expected format: https://github.com/owner/repo/blob/branch/path/to/file.txt")
+                
                 file_data = self._fetch_file_from_github(url)
                 
                 # Create a data item
