@@ -1949,13 +1949,12 @@
                                 <div class="plugin-card">
                                     <h3>${plugin.name}</h3>
                                     <div class="plugin-toggle">
-                                        <label>
-                                            <input type="checkbox" ${plugin.enabled ? 'checked' : ''} onchange="togglePlugin('${plugin.name}', this.checked)">
+                                        <label onclick="event.stopPropagation();">
+                                            <input type="checkbox" id="toggle-${plugin.name}" ${plugin.enabled ? 'checked' : ''} onchange="togglePlugin('${plugin.name}', this.checked)">
                                             <span style="margin-left: 10px;">Enable Plugin</span>
                                         </label>
-                                        <div class="toggle-switch ${plugin.enabled ? 'active' : ''}" onclick="document.querySelector('#toggle-${plugin.name}').click()">
+                                        <div class="toggle-switch ${plugin.enabled ? 'active' : ''}" onclick="const cb = document.querySelector('#toggle-${plugin.name}'); cb.checked = !cb.checked; togglePlugin('${plugin.name}', cb.checked);">
                                         </div>
-                                        <input type="checkbox" id="toggle-${plugin.name}" style="display: none;" ${plugin.enabled ? 'checked' : ''} onchange="togglePlugin('${plugin.name}', this.checked)">
                                     </div>
                                     ${lastImportHtml}
                                     <div style="margin: 10px 0; padding: 8px; background: var(--bg-tertiary); border-radius: 4px;">
