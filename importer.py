@@ -363,14 +363,16 @@ class DataImporter:
                             log_entry.progress_message = f"Processing item {idx + 1} of {total_items}..."
                             db.commit()
                         
+                        source_id = item_data.get("source_id")
                         existing = db.query(DataItem).filter_by(
                             user_id=user_id,
                             plugin_name=plugin_name,
-                            source_id=item_data.get("source_id")
+                            source_id=source_id
                         ).first()
                         
                         if existing:
                             # Skip existing items - only import new ones
+                            logger.debug(f"Skipping existing item: {source_id} (already in database, ID: {existing.id})")
                             continue
                         else:
                             new_item = DataItem(
@@ -390,6 +392,9 @@ class DataImporter:
                     
                     db.commit()
                     
+                    skipped_count = total_items - records_imported
+                    if skipped_count > 0:
+                        logger.info(f"Skipped {skipped_count} existing items for {plugin_name} (user {user_id})")
                     logger.info(f"Saved {records_imported} new items to database for {plugin_name} (user {user_id})")
                     
                     # Upload new items to vector store

@@ -204,10 +204,12 @@ class Plugin(DataSourcePlugin):
                 
                 # Create a data item
                 # Clean up the source_id to be filesystem-safe
+                # Use the path as-is but replace slashes and spaces
                 safe_path = file_data['path'].replace('/', '_').replace('\\', '_').replace(' ', '_')
                 # Remove any other potentially problematic characters
                 safe_path = ''.join(c if c.isalnum() or c in ('_', '-', '.') else '_' for c in safe_path)
                 source_id = f"github_{file_data['owner']}_{file_data['repo']}_{safe_path}"
+                logger.debug(f"Generated source_id: {source_id} for path: {file_data['path']}")
                 
                 # Format content with proper structure
                 # Preserve the original content exactly as it appears in the file
