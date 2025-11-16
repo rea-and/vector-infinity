@@ -627,9 +627,47 @@
             color: var(--text-primary);
         }
         
+        .chat-title-mobile {
+            display: none;
+            position: fixed;
+            top: 16px;
+            left: 64px; /* 40px hamburger + 8px gap + 16px */
+            right: 16px;
+            height: 40px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0 12px;
+            align-items: center;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        
+        .chat-title-mobile h2 {
+            font-size: 14px;
+            margin: 0;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
         @media (max-width: 768px) {
             .chat-threads-sidebar {
                 display: none; /* Hide on mobile for now */
+            }
+            
+            .chat-header {
+                display: none; /* Hide desktop header on mobile */
+            }
+            
+            .chat-title-mobile {
+                display: flex; /* Show mobile title bar */
+            }
+            
+            .chat-messages {
+                padding-top: 72px; /* Space for hamburger + title bar (40px + 16px gap + 16px) */
             }
         }
         
@@ -929,7 +967,7 @@
             
             .main-content {
                 width: 100%;
-                padding-top: 80px; /* Space for hamburger menu (40px button + 16px top + 24px spacing) */
+                padding-top: 0; /* No padding needed, chat messages handle their own padding */
             }
             
             .main-content .card h2 {
@@ -991,6 +1029,9 @@
             <line x1="3" y1="18" x2="21" y2="18"></line>
         </svg>
     </button>
+    <div class="chat-title-mobile">
+        <h2 id="chat-thread-title-mobile">New Conversation</h2>
+    </div>
     <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
     <div class="app-container">
         <div class="sidebar" id="sidebar">
@@ -2264,8 +2305,11 @@
             
             // Update UI
             const thread = allThreads.find(t => t.thread_id === threadId);
-            if (thread) {
-                document.getElementById('chat-thread-title').textContent = thread.title || 'New Conversation';
+            const title = thread ? (thread.title || 'New Conversation') : 'New Conversation';
+            document.getElementById('chat-thread-title').textContent = title;
+            const mobileTitle = document.getElementById('chat-thread-title-mobile');
+            if (mobileTitle) {
+                mobileTitle.textContent = title;
             }
             
             renderThreadsList();
