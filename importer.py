@@ -427,13 +427,15 @@ class DataImporter:
                                 else:
                                     logger.warning(f"Failed to upload batch {batch_num}/{total_batches} to vector store for user {user_id}")
                             
-                            logger.info(f"Uploaded {total_uploaded} items to vector store for {plugin_name}")
+                            logger.info(f"Uploaded {total_uploaded} items to vector store for {plugin_name} (user {user_id})")
                             log_entry.progress_message = f"Successfully uploaded {total_uploaded} items to vector store"
                             db.commit()
                         except Exception as e:
-                            logger.error(f"Failed to upload to vector store: {e}", exc_info=True)
+                            logger.error(f"Failed to upload to vector store for {plugin_name} (user {user_id}): {e}", exc_info=True)
                             log_entry.progress_message = f"Warning: Vector store upload failed: {str(e)[:200]}"
                             db.commit()
+                    else:
+                        logger.info(f"No new items to upload to vector store for {plugin_name} (user {user_id}) - {records_imported} items were already in database")
                     
                     db.commit()
                     
