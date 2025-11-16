@@ -1158,9 +1158,15 @@
                 padding-top: 0; /* No padding needed, chat messages handle their own padding */
             }
             
+            /* Add left padding to screen titles on non-Chat screens to avoid hamburger menu */
             .main-content .card h2 {
                 margin-top: 0; /* Ensure no extra top margin on page titles */
                 padding-left: 72px; /* Space for hamburger menu (40px + 16px gap + 16px) */
+            }
+            
+            /* Exclude chat screen titles (they have their own positioning) */
+            #chat .card h2 {
+                padding-left: 0;
             }
             
             /* Also handle h2 in Users section that's not in a card */
