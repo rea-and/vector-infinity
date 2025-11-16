@@ -18,7 +18,7 @@ class Plugin(DataSourcePlugin):
     """Gmail Personal data source plugin."""
     
     def __init__(self):
-        super().__init__("gmail_personal")
+        super().__init__("gmail")
         self.service = None
         self._oauth_flow = None  # Store OAuth flow for web-based auth
         self._latest_timestamp = None  # For incremental imports
@@ -64,7 +64,7 @@ class Plugin(DataSourcePlugin):
                     # The error message will guide the user
             
             base_url = f"{scheme}://{host}"
-            redirect_uri = f"{base_url}/api/plugins/gmail_personal/auth/callback"
+            redirect_uri = f"{base_url}/api/plugins/gmail/auth/callback"
             logger.info(f"Using redirect URI: {redirect_uri}")
             
             flow = InstalledAppFlow.from_client_secrets_file(
@@ -76,7 +76,7 @@ class Plugin(DataSourcePlugin):
             if hasattr(current_app, 'oauth_flows'):
                 current_app.oauth_flows[state] = {
                     'flow': flow,
-                    'plugin_name': 'gmail_personal',
+                    'plugin_name': 'gmail',
                     'redirect_uri': redirect_uri  # Store for debugging
                 }
             else:

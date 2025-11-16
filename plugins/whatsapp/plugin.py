@@ -15,7 +15,7 @@ class Plugin(DataSourcePlugin):
     """WhatsApp Angel chat history plugin."""
     
     def __init__(self):
-        super().__init__("whatsapp_angel")
+        super().__init__("whatsapp")
         self._uploaded_file_path = None
     
     def set_uploaded_file(self, file_path: str):

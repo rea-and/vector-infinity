@@ -471,7 +471,7 @@ def plugin_auth_callback(plugin_name):
                 <ol>
                     <li>Run: <code>sudo ./setup_nginx.sh your-domain.com</code></li>
                     <li>Run: <code>sudo ./setup_ssl.sh your-domain.com</code></li>
-                    <li>Add the redirect URI to Google Cloud Console: <code>https://your-domain.com/api/plugins/gmail_personal/auth/callback</code></li>
+                    <li>Add the redirect URI to Google Cloud Console: <code>https://your-domain.com/api/plugins/gmail/auth/callback</code></li>
                 </ol>
             """
         

@@ -303,7 +303,7 @@ class DataImporter:
                         return
                 
                 # Set file path for whatsapp_angel plugin if provided
-                if plugin_name == "whatsapp_angel" and uploaded_file_path:
+                if plugin_name == "whatsapp" and uploaded_file_path:
                     if hasattr(plugin, 'set_uploaded_file'):
                         plugin.set_uploaded_file(str(uploaded_file_path))
                         logger.info(f"Set uploaded file path on plugin in async thread: {uploaded_file_path}")
@@ -315,7 +315,7 @@ class DataImporter:
                         return
                 
                 # Verify file path is set for whatsapp_angel plugin
-                if plugin_name == "whatsapp_angel" and hasattr(plugin, 'uploaded_file_path'):
+                if plugin_name == "whatsapp" and hasattr(plugin, 'uploaded_file_path'):
                     if not plugin.uploaded_file_path:
                         log_entry.status = "error"
                         log_entry.error_message = "No file uploaded. Please upload a zip file containing the chat export."

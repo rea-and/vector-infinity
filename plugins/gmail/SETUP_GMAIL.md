@@ -38,8 +38,8 @@
 5. **Important:** Choose "Web application" as the application type (NOT "Desktop app")
 6. Give it a name (e.g., "Vector Infinity Gmail")
 7. Under "Authorized redirect URIs", click "ADD URI" and add:
-   - `http://your-server-ip/api/plugins/gmail_personal/auth/callback`
-   - Or if using a domain: `http://your-domain.com/api/plugins/gmail_personal/auth/callback`
+   - `http://your-server-ip/api/plugins/gmail/auth/callback`
+   - Or if using a domain: `http://your-domain.com/api/plugins/gmail/auth/callback`
    - Replace `your-server-ip` or `your-domain.com` with your actual server IP or domain
 8. Click "Create"
 9. Click "Download JSON" to download the credentials file
@@ -49,18 +49,18 @@
 1. Rename the downloaded file to `credentials.json`
 2. Copy it to the plugin directory:
    ```bash
-   cp ~/Downloads/credentials.json /path/to/vector-infinity/plugins/gmail_personal/
+   cp ~/Downloads/credentials.json /path/to/vector-infinity/plugins/gmail/
    ```
    Or use SCP if on a remote server:
    ```bash
-   scp ~/Downloads/credentials.json user@your-server:/path/to/vector-infinity/plugins/gmail_personal/
+   scp ~/Downloads/credentials.json user@your-server:/path/to/vector-infinity/plugins/gmail/
    ```
 
 ## Step 5: Enable the Plugin
 
 Edit the config file:
 ```bash
-nano plugins/gmail_personal/config.json
+nano plugins/gmail/config.json
 ```
 
 Change it to:
@@ -79,7 +79,7 @@ Change it to:
 2. Try to run an import manually from the web UI, or run:
    ```bash
    source venv/bin/activate
-   python3 -c "from importer import DataImporter; importer = DataImporter(); importer.import_from_plugin('gmail_personal')"
+   python3 -c "from importer import DataImporter; importer = DataImporter(); importer.import_from_plugin('gmail')"
    ```
 
 3. The first time, it will:
@@ -92,7 +92,7 @@ Change it to:
 
 1. Go to the web UI
 2. Click on "Run Imports" tab
-3. Click "Run Import" for the gmail_personal plugin
+3. Click "Run Import" for the gmail plugin
 4. Check the "Import Logs" tab to see if it succeeded
 
 ## Configuration Options
@@ -105,7 +105,7 @@ In `config.json`, you can customize:
 
 ## Troubleshooting
 
-- **"credentials.json not found"**: Make sure the file is in `plugins/gmail_personal/` directory
+- **"credentials.json not found"**: Make sure the file is in `plugins/gmail/` directory
 - **"Authentication failed"**: Delete `token.json` and try again
 - **"Permission denied"**: Make sure you granted the correct permissions during OAuth
 - **"No browser available"**: If running on a headless server, you'll need to:

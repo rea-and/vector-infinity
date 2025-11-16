@@ -89,7 +89,7 @@ The default port is 80. If you have an existing `.env` file with `WEB_PORT=5000`
 
 Each plugin has its own configuration file in `plugins/<plugin_name>/config.json`.
 
-**Gmail Plugin** (gmail_personal):
+**Gmail Plugin** (gmail):
 1. Enable the plugin: Set `"enabled": true` in `config.json`
 2. Get Google OAuth credentials:
    - Go to [Google Cloud Console](https://console.cloud.google.com/)
@@ -100,7 +100,7 @@ Each plugin has its own configuration file in `plugins/<plugin_name>/config.json
    - Place `credentials.json` in the plugin directory
 3. Authenticate via the web UI using the "Authenticate" button
 
-**WhatsApp Angel Plugin** (whatsapp_angel):
+**WhatsApp Plugin** (whatsapp):
 1. Enable the plugin: Set `"enabled": true` in `config.json`
 2. Export your WhatsApp chat with Angel as a `.txt` file
 3. Zip the `.txt` file

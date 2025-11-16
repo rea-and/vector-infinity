@@ -17,10 +17,10 @@ def export_emails():
     """Export all imported emails to a text file for ChatGPT knowledge upload."""
     db = SessionLocal()
     try:
-        # Query all emails from gmail_personal plugin for this user
+        # Query all emails from gmail plugin for this user
         emails = db.query(DataItem).filter(
             DataItem.user_id == current_user.id,
-            DataItem.plugin_name == "gmail_personal",
+            DataItem.plugin_name == "gmail",
             DataItem.item_type == "email"
         ).order_by(DataItem.source_timestamp.desc()).all()
         

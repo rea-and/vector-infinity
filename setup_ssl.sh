@@ -61,7 +61,7 @@ if [ $? -eq 0 ]; then
     echo "Your site is now available at: https://$DOMAIN"
     echo ""
     echo "Add this redirect URI to Google Cloud Console:"
-    echo "  https://$DOMAIN/api/plugins/gmail_personal/auth/callback"
+    echo "  https://$DOMAIN/api/plugins/gmail/auth/callback"
     echo ""
     echo "Certificate will auto-renew. Test renewal with: sudo certbot renew --dry-run"
 else
