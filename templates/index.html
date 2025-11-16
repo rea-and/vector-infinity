@@ -1598,57 +1598,14 @@
                 
                 const logId = result.log_id;
                 
-                // Poll for progress (same as runImport)
-                const pollInterval = setInterval(async () => {
-                    try {
-                        const statusResponse = await fetch(`${API_BASE}/imports/${logId}/status`);
-                        const status = await statusResponse.json();
-                        
-                        if (status.progress_total > 0) {
-                            const percent = status.progress_percent || 0;
-                            btn.innerHTML = `<span class="loading"></span> ${status.progress_message || 'Processing...'} (${percent}%)`;
-                        } else {
-                            btn.innerHTML = `<span class="loading"></span> ${status.progress_message || 'Processing...'}`;
-                        }
-                        
-                        if (status.status === 'success' || status.status === 'error') {
-                            clearInterval(pollInterval);
-                            
-                            if (status.status === 'success') {
-                                btn.innerHTML = '✓ Complete';
-                                btn.style.background = '#27ae60';
-                                setTimeout(() => {
-                                    btn.disabled = false;
-                                    btn.innerHTML = originalText;
-                                    btn.style.background = '';
-                                    fileInput.value = ''; // Clear file input
-                                }, 2000);
-                            } else {
-                                btn.innerHTML = '✗ Error';
-                                btn.style.background = '#dc3545';
-                                setTimeout(() => {
-                                    btn.disabled = false;
-                                    btn.innerHTML = originalText;
-                                    btn.style.background = '';
-                                }, 2000);
-                                alert(`Import failed: ${status.error_message || 'Unknown error'}`);
-                            }
-                            
-                            loadImports();
-                        }
-                    } catch (error) {
-                        console.error('Error polling import status:', error);
-                    }
-                }, 1000);
+                // Use centralized polling system so progress persists when navigating away
+                startPluginProgressPolling(pluginName, logId);
                 
-                setTimeout(() => {
-                    clearInterval(pollInterval);
-                    if (btn.disabled) {
-                        btn.disabled = false;
-                        btn.innerHTML = originalText;
-                        alert('Import is taking longer than expected. Check the imports tab for status.');
-                    }
-                }, 30 * 60 * 1000);
+                // Also update button immediately
+                btn.innerHTML = '<span class="loading"></span> Starting...';
+                
+                // Reload plugins to show progress display
+                setTimeout(() => loadPlugins(), 500);
                 
             } catch (error) {
                 console.error('Error starting import:', error);
@@ -1683,60 +1640,14 @@
                 
                 const logId = result.log_id;
                 
-                // Poll for progress
-                const pollInterval = setInterval(async () => {
-                    try {
-                        const statusResponse = await fetch(`${API_BASE}/imports/${logId}/status`);
-                        const status = await statusResponse.json();
-                        
-                        // Update button text with progress
-                        if (status.progress_total > 0) {
-                            const percent = status.progress_percent || 0;
-                            btn.innerHTML = `<span class="loading"></span> ${status.progress_message || 'Processing...'} (${percent}%)`;
-                        } else {
-                            btn.innerHTML = `<span class="loading"></span> ${status.progress_message || 'Processing...'}`;
-                        }
-                        
-                        // Check if import is complete
-                        if (status.status === 'success' || status.status === 'error') {
-                            clearInterval(pollInterval);
-                            
-                            if (status.status === 'success') {
-                                btn.innerHTML = '✓ Complete';
-                                btn.style.background = '#27ae60';
-                                setTimeout(() => {
-                                    btn.disabled = false;
-                                    btn.innerHTML = originalText;
-                                    btn.style.background = '';
-                                }, 2000);
-                            } else {
-                                btn.innerHTML = '✗ Error';
-                                btn.style.background = '#dc3545';
-                                setTimeout(() => {
-                                    btn.disabled = false;
-                                    btn.innerHTML = originalText;
-                                    btn.style.background = '';
-                                }, 2000);
-                                alert(`Import failed: ${status.error_message || 'Unknown error'}`);
-                            }
-                            
-                            // Refresh imports list
-                            loadImports();
-                        }
-                    } catch (error) {
-                        console.error('Error polling import status:', error);
-                    }
-                }, 1000); // Poll every second
+                // Use centralized polling system so progress persists when navigating away
+                startPluginProgressPolling(pluginName, logId);
                 
-                // Set a timeout to stop polling after 30 minutes (safety)
-                setTimeout(() => {
-                    clearInterval(pollInterval);
-                    if (btn.disabled) {
-                        btn.disabled = false;
-                        btn.innerHTML = originalText;
-                        alert('Import is taking longer than expected. Check the imports tab for status.');
-                    }
-                }, 30 * 60 * 1000);
+                // Also update button immediately
+                btn.innerHTML = '<span class="loading"></span> Starting...';
+                
+                // Reload plugins to show progress display
+                setTimeout(() => loadPlugins(), 500);
                 
             } catch (error) {
                 console.error('Error starting import:', error);
