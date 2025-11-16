@@ -1953,7 +1953,7 @@
                                         <button class="btn" id="btn-${plugin.name}" onclick="runImportWithFile('${plugin.name}')" ${!plugin.enabled || hasRunningImport ? 'disabled' : ''} style="margin-top: 5px; width: 100%;">
                                             ${hasRunningImport ? '<span class="loading"></span> Importing...' : 'Upload & Import'}
                                         </button>
-                                        <button type="button" class="btn btn-secondary" onclick="resetPlugin('${plugin.name}')" style="margin-top: 5px; width: 100%; background: #dc3545; color: white;">
+                                        <button type="button" class="btn btn-secondary" data-reset-plugin="${plugin.name}" style="margin-top: 5px; width: 100%; background: #dc3545; color: white; cursor: pointer;">
                                             🔄 Reset Plugin
                                         </button>
                                     </div>
@@ -1995,7 +1995,7 @@
                                     <button class="btn" id="btn-${plugin.name}" onclick="runImport('${plugin.name}')" ${!plugin.enabled || hasRunningImport || !tokenConfigured || fileCount === 0 ? 'disabled' : ''} style="margin-top: 5px; width: 100%;">
                                         ${hasRunningImport ? '<span class="loading"></span> Importing...' : 'Run Import'}
                                     </button>
-                                    <button type="button" class="btn btn-secondary" onclick="resetPlugin('${plugin.name}')" style="margin-top: 5px; width: 100%; background: #dc3545; color: white;">
+                                    <button type="button" class="btn btn-secondary" data-reset-plugin="${plugin.name}" style="margin-top: 5px; width: 100%; background: #dc3545; color: white; cursor: pointer;">
                                         🔄 Reset Plugin
                                     </button>
                                 </div>
@@ -2022,7 +2022,7 @@
                                 <button class="btn" id="btn-${plugin.name}" onclick="runImport('${plugin.name}')" ${!plugin.enabled || hasRunningImport ? 'disabled' : ''} style="margin-top: 5px;">
                                     ${hasRunningImport ? '<span class="loading"></span> Importing...' : 'Run Import'}
                                 </button>
-                                <button type="button" class="btn btn-secondary" onclick="resetPlugin('${plugin.name}')" style="margin-top: 5px; background: #dc3545; color: white;">
+                                <button type="button" class="btn btn-secondary" data-reset-plugin="${plugin.name}" style="margin-top: 5px; background: #dc3545; color: white; cursor: pointer;">
                                     🔄 Reset Plugin
                                 </button>
                             </div>
@@ -2031,6 +2031,17 @@
                     </div>
                 `;
                 document.getElementById('plugins-list').innerHTML = html;
+                
+                // Attach event listeners to reset buttons (delegated event handling)
+                document.querySelectorAll('[data-reset-plugin]').forEach(button => {
+                    button.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const pluginName = this.getAttribute('data-reset-plugin');
+                        console.log('Reset button clicked for plugin:', pluginName);
+                        resetPlugin(pluginName);
+                    });
+                });
                 
                 // Start polling for running imports
                 Object.entries(runningImports).forEach(([pluginName, importData]) => {
