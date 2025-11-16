@@ -228,27 +228,76 @@ class DataImporter:
                 if not log_entry:
                     return
                 
+                # Check if plugin is enabled for this user
+                plugin_config_db = db.query(PluginConfiguration).filter(
+                    PluginConfiguration.user_id == user_id,
+                    PluginConfiguration.plugin_name == plugin_name
+                ).first()
+                
+                enabled = False
+                if plugin_config_db and plugin_config_db.config_data:
+                    enabled = plugin_config_db.config_data.get("enabled", False)
+                
+                if not enabled:
+                    log_entry.status = "error"
+                    log_entry.error_message = "Plugin is not enabled. Please enable it first."
+                    log_entry.completed_at = datetime.now(timezone.utc)
+                    db.commit()
+                    logger.warning(f"Import attempted for disabled plugin {plugin_name} (user {user_id})")
+                    return
+                
                 # Run the actual import (reuse existing logic)
                 # We need to update the log_entry in this thread
                 plugin = self.plugin_loader.get_plugin(plugin_name)
+                
+                # If plugin not loaded, try to load it manually (for user-specific enabled plugins)
+                if not plugin:
+                    # Try to load the plugin directly
+                    try:
+                        import importlib.util
+                        import sys
+                        from pathlib import Path
+                        import config
+                        
+                        plugin_dir = config.PLUGINS_DIR / plugin_name
+                        plugin_file = plugin_dir / "plugin.py"
+                        
+                        if plugin_file.exists():
+                            spec = importlib.util.spec_from_file_location(
+                                f"plugins.{plugin_name}.plugin",
+                                plugin_file
+                            )
+                            module = importlib.util.module_from_spec(spec)
+                            sys.modules[f"plugins.{plugin_name}.plugin"] = module
+                            spec.loader.exec_module(module)
+                            
+                            if hasattr(module, 'Plugin'):
+                                plugin = module.Plugin()
+                                logger.info(f"Manually loaded plugin {plugin_name} for import")
+                    except Exception as e:
+                        logger.error(f"Error manually loading plugin {plugin_name}: {e}", exc_info=True)
+                
                 if not plugin:
                     log_entry.status = "error"
-                    log_entry.error_message = f"Plugin {plugin_name} not found or not enabled"
+                    log_entry.error_message = f"Plugin {plugin_name} not found"
                     log_entry.completed_at = datetime.now(timezone.utc)
                     db.commit()
                     return
                 
                 # Load user-specific plugin configuration from database
                 if plugin_name == "github_context":
-                    plugin_config = db.query(PluginConfiguration).filter(
-                        PluginConfiguration.user_id == user_id,
-                        PluginConfiguration.plugin_name == plugin_name
-                    ).first()
-                    if plugin_config and hasattr(plugin, 'set_user_config'):
-                        plugin.set_user_config(plugin_config.config_data)
-                    elif not plugin_config:
+                    if plugin_config_db and hasattr(plugin, 'set_user_config'):
+                        plugin.set_user_config(plugin_config_db.config_data)
+                        logger.info(f"Loaded user config for {plugin_name}: token_configured={bool(plugin_config_db.config_data.get('github_token'))}, file_urls={len(plugin_config_db.config_data.get('file_urls', []))}")
+                    elif not plugin_config_db:
                         log_entry.status = "error"
-                        log_entry.error_message = "Plugin not configured. Please configure it first."
+                        log_entry.error_message = "Plugin not configured. Please configure it first (GitHub token and file URLs)."
+                        log_entry.completed_at = datetime.now(timezone.utc)
+                        db.commit()
+                        return
+                    else:
+                        log_entry.status = "error"
+                        log_entry.error_message = "Plugin configuration error. Please reconfigure the plugin."
                         log_entry.completed_at = datetime.now(timezone.utc)
                         db.commit()
                         return
@@ -295,7 +344,9 @@ class DataImporter:
                         log_entry.progress_message = "Fetching data from source (first import)..."
                     db.commit()
                     
+                    logger.info(f"Calling fetch_data() for plugin {plugin_name}")
                     data_items = plugin.fetch_data()
+                    logger.info(f"Plugin {plugin_name} returned {len(data_items)} items")
                     
                     total_items = len(data_items)
                     log_entry.progress_total = total_items
