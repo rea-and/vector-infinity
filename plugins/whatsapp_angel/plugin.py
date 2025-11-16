@@ -81,41 +81,62 @@ class Plugin(DataSourcePlugin):
                 logger.info(f"Chat file read successfully. Content length: {len(content)} characters")
                 logger.info(f"First 500 characters of file:\n{content[:500]}")
                 
-                # Try patterns in order of likelihood
-                # Pattern 1: DD/MM/YYYY, HH:MM - Sender: Message (most common WhatsApp format)
-                pattern = r'(\d{1,2}/\d{1,2}/\d{4}),\s*(\d{1,2}:\d{2})\s*-\s*([^:]+):\s*(.*?)(?=\d{1,2}/\d{1,2}/\d{4},\s*\d{1,2}:\d{2}\s*-\s*|\Z)'
+                # Optimized parsing: Split by message boundaries first, then parse each message
+                # This is much faster than using regex lookahead on large files
+                # Pattern: DD/MM/YYYY, HH:MM - Sender: Message
+                # Find all message start positions (dates followed by time and dash)
+                message_start_pattern = r'(\d{1,2}/\d{1,2}/\d{4}),\s*(\d{1,2}:\d{2})\s*-\s*'
                 
-                logger.info(f"Searching for messages with pattern: {pattern}")
-                messages = re.finditer(pattern, content, re.DOTALL | re.MULTILINE)
+                logger.info("Finding message boundaries...")
+                # Find all positions where a new message starts
+                starts = []
+                for match in re.finditer(message_start_pattern, content):
+                    starts.append(match.start())
                 
-                # Convert to list to count
-                message_list = list(messages)
-                logger.info(f"Primary pattern found {len(message_list)} potential messages")
+                # If no matches, try alternative format
+                if not starts:
+                    logger.info("Trying alternative format with brackets...")
+                    alt_start_pattern = r'\[(\d{1,2}/\d{1,2}/\d{4}),\s*(\d{1,2}:\d{2}'
+                    for match in re.finditer(alt_start_pattern, content):
+                        starts.append(match.start())
                 
-                if len(message_list) == 0:
-                    # Try alternative patterns
-                    lines = content.split('\n')
-                    logger.info(f"File has {len(lines)} total lines")
-                    logger.info(f"First 20 lines of file:\n{chr(10).join(lines[:20])}")
+                logger.info(f"Found {len(starts)} message boundaries")
+                
+                message_list = []
+                
+                if not starts:
+                    logger.warning("No message boundaries found. Trying fallback regex pattern...")
+                    # Fallback to original method (slower but works)
+                    pattern = r'(\d{1,2}/\d{1,2}/\d{4}),\s*(\d{1,2}:\d{2})\s*-\s*([^:]+):\s*(.*?)(?=\d{1,2}/\d{1,2}/\d{4},\s*\d{1,2}:\d{2}\s*-\s*|\Z)'
+                    messages = re.finditer(pattern, content, re.DOTALL | re.MULTILINE)
+                    message_list = list(messages)
+                    logger.info(f"Fallback pattern found {len(message_list)} messages")
+                else:
+                    # Optimized: Process messages using boundaries (much faster - no lookahead)
+                    # Add end position for easier slicing
+                    starts.append(len(content))
                     
-                    alt_patterns = [
-                        # Pattern 2: [DD/MM/YYYY, HH:MM:SS] Sender: Message (brackets with seconds)
-                        r'\[(\d{1,2}/\d{1,2}/\d{4}),\s*(\d{1,2}:\d{2}:\d{2})\]\s*([^:]+):\s*(.*?)(?=\[\d{1,2}/\d{1,2}/\d{4}|\Z)',
-                        # Pattern 3: [DD/MM/YYYY, HH:MM:SS] Sender: Message (simpler)
-                        r'\[(\d{1,2}/\d{1,2}/\d{4}),\s*(\d{1,2}:\d{2}:\d{2})\]\s*([^:]+):\s*(.*)',
-                        # Pattern 4: DD.MM.YYYY, HH:MM - Sender: Message (dots instead of slashes)
-                        r'(\d{1,2}\.\d{1,2}\.\d{4}),\s*(\d{1,2}:\d{2})\s*-\s*([^:]+):\s*(.*)',
-                    ]
+                    # Message parsing pattern (without expensive lookahead)
+                    msg_pattern = r'(\d{1,2}/\d{1,2}/\d{4}),\s*(\d{1,2}:\d{2})\s*-\s*([^:]+):\s*(.*)'
+                    bracket_pattern = r'\[(\d{1,2}/\d{1,2}/\d{4}),\s*(\d{1,2}:\d{2}:\d{2})\]\s*([^:]+):\s*(.*)'
                     
-                    for i, alt_pattern in enumerate(alt_patterns):
-                        logger.info(f"Trying alternative pattern {i+1}: {alt_pattern}")
-                        alt_messages = re.finditer(alt_pattern, content, re.DOTALL | re.MULTILINE)
-                        alt_list = list(alt_messages)
-                        if alt_list:
-                            logger.info(f"Alternative pattern {i+1} found {len(alt_list)} messages!")
-                            message_list = alt_list
-                            pattern = alt_pattern
-                            break
+                    logger.info("Parsing messages from boundaries...")
+                    for i in range(len(starts) - 1):
+                        # Extract message block (from this message start to next message start)
+                        msg_start = starts[i]
+                        msg_end = starts[i + 1]
+                        msg_text = content[msg_start:msg_end].rstrip()
+                        
+                        # Parse the message (smaller regex operation, much faster)
+                        match = re.match(msg_pattern, msg_text, re.DOTALL)
+                        if not match:
+                            # Try bracket format
+                            match = re.match(bracket_pattern, msg_text, re.DOTALL)
+                        
+                        if match:
+                            message_list.append(match)
+                    
+                    logger.info(f"Parsed {len(message_list)} messages from boundaries")
                 
                 message_count = 0
                 for match in message_list:
