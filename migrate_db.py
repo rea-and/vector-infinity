@@ -1,4 +1,4 @@
-"""Database migration script to add progress tracking columns."""
+"""Database migration script to add progress tracking columns to import_logs table."""
 from database import engine, ImportLog
 from sqlalchemy import text
 import logging
@@ -40,18 +40,6 @@ def migrate_database():
             logger.info("✓ Added progress_message column")
         else:
             logger.info("progress_message column already exists")
-        
-        # Check data_items table for embedding column
-        result = conn.execute(text("PRAGMA table_info(data_items)"))
-        data_item_columns = [row[1] for row in result]
-        
-        if 'embedding' not in data_item_columns:
-            logger.info("Adding embedding column to data_items...")
-            conn.execute(text("ALTER TABLE data_items ADD COLUMN embedding BLOB"))
-            conn.commit()
-            logger.info("✓ Added embedding column to data_items")
-        else:
-            logger.info("embedding column already exists in data_items")
         
         logger.info("Database migration completed successfully!")
 

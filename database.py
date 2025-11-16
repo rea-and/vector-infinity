@@ -39,7 +39,7 @@ class DataItem(Base):
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     source_timestamp = Column(DateTime, nullable=True)  # Original timestamp from source
-    embedding = Column(LargeBinary, nullable=True)  # Vector embedding for semantic search
+    embedding = Column(LargeBinary, nullable=True)  # Deprecated: kept for backward compatibility (no longer used)
     
     # Unique constraint on plugin_name + source_id
     __table_args__ = (
