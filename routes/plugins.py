@@ -37,16 +37,19 @@ def list_plugins():
             # Get plugin config (even if not loaded)
             plugin_dir = config.PLUGINS_DIR / name
             config_path = plugin_dir / "config.json"
-            enabled = False
-            config_schema = {}
             
-            if config_path.exists():
-                try:
-                    with open(config_path, 'r') as f:
-                        plugin_config = json.load(f)
-                        enabled = plugin_config.get("enabled", False)
-                except:
-                    pass
+            # Check user-specific enabled status from database
+            plugin_config_db = db.query(PluginConfiguration).filter(
+                PluginConfiguration.user_id == current_user.id,
+                PluginConfiguration.plugin_name == name
+            ).first()
+            
+            # Default to False if not set in database
+            enabled = False
+            if plugin_config_db and plugin_config_db.config_data:
+                enabled = plugin_config_db.config_data.get("enabled", False)
+            
+            config_schema = {}
             
             # Get config schema from plugin if available, otherwise empty
             if plugin:
@@ -244,6 +247,75 @@ def get_plugin_config(plugin_name):
         db.close()
 
 
+@bp.route("/<plugin_name>/toggle", methods=["POST"])
+@login_required
+def toggle_plugin(plugin_name):
+    """Toggle plugin enabled/disabled status (user-specific)."""
+    db = SessionLocal()
+    try:
+        data = request.get_json() or {}
+        enabled = data.get("enabled", False)
+        
+        # Get or create plugin configuration
+        plugin_config = db.query(PluginConfiguration).filter(
+            PluginConfiguration.user_id == current_user.id,
+            PluginConfiguration.plugin_name == plugin_name
+        ).first()
+        
+        if plugin_config:
+            # Update existing configuration
+            current_config = plugin_config.config_data.copy() if plugin_config.config_data else {}
+            current_config["enabled"] = enabled
+            plugin_config.config_data = current_config
+            plugin_config.updated_at = datetime.now(timezone.utc)
+        else:
+            # Create new configuration
+            plugin_config = PluginConfiguration(
+                user_id=current_user.id,
+                plugin_name=plugin_name,
+                config_data={"enabled": enabled}
+            )
+            db.add(plugin_config)
+        
+        try:
+            db.commit()
+            db.refresh(plugin_config)
+        except Exception as commit_error:
+            db.rollback()
+            # Check if it's a unique constraint violation
+            if "UNIQUE constraint failed" in str(commit_error) or "unique constraint" in str(commit_error).lower():
+                # Try to get the existing config and update it
+                plugin_config = db.query(PluginConfiguration).filter(
+                    PluginConfiguration.user_id == current_user.id,
+                    PluginConfiguration.plugin_name == plugin_name
+                ).first()
+                if plugin_config:
+                    current_config = plugin_config.config_data.copy() if plugin_config.config_data else {}
+                    current_config["enabled"] = enabled
+                    plugin_config.config_data = current_config
+                    plugin_config.updated_at = datetime.now(timezone.utc)
+                    db.commit()
+                    db.refresh(plugin_config)
+                else:
+                    raise commit_error
+            else:
+                raise commit_error
+        
+        logger.info(f"Toggled plugin {plugin_name} to {'enabled' if enabled else 'disabled'} for user {current_user.id}")
+        
+        return jsonify({
+            "success": True,
+            "message": f"Plugin {'enabled' if enabled else 'disabled'} successfully",
+            "enabled": enabled
+        })
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error toggling plugin: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
+
 @bp.route("/<plugin_name>/config", methods=["POST"])
 @login_required
 def update_plugin_config(plugin_name):
@@ -260,7 +332,7 @@ def update_plugin_config(plugin_name):
         
         if plugin_config:
             # Update existing configuration
-            current_config = plugin_config.config_data.copy()
+            current_config = plugin_config.config_data.copy() if plugin_config.config_data else {}
             current_config.update(data)
             plugin_config.config_data = current_config
             plugin_config.updated_at = datetime.now(timezone.utc)
