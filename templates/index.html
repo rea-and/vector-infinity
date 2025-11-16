@@ -758,7 +758,7 @@
             
             /* Show mobile title bar only when chat tab is active */
             #chat.tab-content.active ~ .chat-title-mobile,
-            .main-content:has(#chat.tab-content.active) .chat-title-mobile {
+            body:has(#chat.tab-content.active) .chat-title-mobile {
                 display: flex;
             }
             
@@ -1186,9 +1186,6 @@
         </div>
         
         <div class="main-content">
-            <div class="chat-title-mobile">
-                <h2 id="chat-thread-title-mobile">New Conversation</h2>
-            </div>
             <button class="chat-title-mobile-new-btn" onclick="newChatThread()" aria-label="New conversation">+</button>
             <div id="chat" class="tab-content active">
                 <div class="chat-container">
@@ -2344,10 +2341,33 @@
                     // Create new thread if none exist
                     await newChatThread();
                 }
+                
+                // Ensure title is updated after initialization
+                updateThreadTitle();
             } catch (error) {
                 console.error('Error initializing chat:', error);
                 // If initialization fails, try to create a new thread
                 await newChatThread();
+            }
+        }
+        
+        function updateThreadTitle() {
+            if (!currentThreadId) return;
+            
+            const thread = allThreads.find(t => t.thread_id === currentThreadId);
+            const title = thread ? (thread.title || 'New Conversation') : 'New Conversation';
+            
+            const desktopTitle = document.getElementById('chat-thread-title');
+            if (desktopTitle) {
+                desktopTitle.textContent = title;
+            }
+            
+            const mobileTitle = document.getElementById('chat-thread-title-mobile');
+            if (mobileTitle) {
+                mobileTitle.textContent = title;
+                console.log('Updated mobile title to:', title);
+            } else {
+                console.warn('Mobile title element not found!');
             }
         }
         
@@ -2363,17 +2383,7 @@
                 renderThreadsList();
                 
                 // Update thread title if we have a current thread
-                if (currentThreadId) {
-                    const thread = allThreads.find(t => t.thread_id === currentThreadId);
-                    if (thread) {
-                        const title = thread.title || 'New Conversation';
-                        document.getElementById('chat-thread-title').textContent = title;
-                        const mobileTitle = document.getElementById('chat-thread-title-mobile');
-                        if (mobileTitle) {
-                            mobileTitle.textContent = title;
-                        }
-                    }
-                }
+                updateThreadTitle();
             } catch (error) {
                 console.error('Error loading chat threads:', error);
                 allThreads = [];
@@ -2450,13 +2460,7 @@
             localStorage.setItem('currentThreadId', threadId);
             
             // Update UI
-            const thread = allThreads.find(t => t.thread_id === threadId);
-            const title = thread ? (thread.title || 'New Conversation') : 'New Conversation';
-            document.getElementById('chat-thread-title').textContent = title;
-            const mobileTitle = document.getElementById('chat-thread-title-mobile');
-            if (mobileTitle) {
-                mobileTitle.textContent = title;
-            }
+            updateThreadTitle();
             
             renderThreadsList();
             await loadChatMessages();
