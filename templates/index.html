@@ -922,6 +922,9 @@
                 <div class="nav-item" onclick="showTab('stats')" data-tab="stats">
                     📊 Statistics
                 </div>
+                <div class="nav-item" id="nav-users" onclick="showTab('users')" data-tab="users" style="display: none;">
+                    👥 Users
+                </div>
                 <div class="nav-item" onclick="showTab('settings')" data-tab="settings">
                     ⚙️ Settings
                 </div>
@@ -2322,8 +2325,191 @@
             if (isAuthenticated) {
                 // Load initial data only if authenticated
                 loadImports();
+                
+                // Load users if admin
+                if (currentUser && currentUser.is_admin) {
+                    loadUsers();
+                }
             }
         });
+        
+        // Load users management page
+        async function loadUsers() {
+            try {
+                const response = await fetch(`${API_BASE}/users/pending`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const pendingUsers = await response.json();
+                
+                let html = '<div class="card">';
+                html += '<h3>Pending User Approvals</h3>';
+                
+                if (pendingUsers.length === 0) {
+                    html += '<p style="color: var(--text-secondary);">No pending user approvals.</p>';
+                } else {
+                    html += '<table style="width: 100%; border-collapse: collapse; margin-top: 15px;">';
+                    html += '<thead><tr style="border-bottom: 2px solid var(--border-color);">';
+                    html += '<th style="text-align: left; padding: 10px;">Email</th>';
+                    html += '<th style="text-align: left; padding: 10px;">Registered</th>';
+                    html += '<th style="text-align: center; padding: 10px;">Actions</th>';
+                    html += '</tr></thead><tbody>';
+                    
+                    for (const user of pendingUsers) {
+                        const date = new Date(user.created_at);
+                        html += '<tr style="border-bottom: 1px solid var(--border-color);">';
+                        html += `<td style="padding: 10px;">${user.email}</td>`;
+                        html += `<td style="padding: 10px; color: var(--text-secondary);">${date.toLocaleString()}</td>`;
+                        html += '<td style="padding: 10px; text-align: center;">';
+                        html += `<button class="btn btn-success" onclick="approveUser(${user.id}, '${user.email}')" style="margin-right: 5px;">Approve</button>`;
+                        html += `<button class="btn btn-danger" onclick="declineUser(${user.id}, '${user.email}')">Decline</button>`;
+                        html += '</td></tr>';
+                    }
+                    
+                    html += '</tbody></table>';
+                }
+                
+                html += '</div>';
+                
+                // Add all users section
+                html += '<div class="card" style="margin-top: 20px;">';
+                html += '<h3>All Users</h3>';
+                html += '<div id="all-users-list">Loading...</div>';
+                html += '</div>';
+                
+                document.getElementById('users-content').innerHTML = html;
+                
+                // Load all users
+                loadAllUsers();
+            } catch (error) {
+                console.error('Error loading users:', error);
+                document.getElementById('users-content').innerHTML = `<p style="color: red;">Error loading users: ${error.message}</p>`;
+            }
+        }
+        
+        async function loadAllUsers() {
+            try {
+                const response = await fetch(`${API_BASE}/users`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const users = await response.json();
+                
+                let html = '<table style="width: 100%; border-collapse: collapse; margin-top: 15px;">';
+                html += '<thead><tr style="border-bottom: 2px solid var(--border-color);">';
+                html += '<th style="text-align: left; padding: 10px;">Email</th>';
+                html += '<th style="text-align: left; padding: 10px;">Role</th>';
+                html += '<th style="text-align: left; padding: 10px;">Status</th>';
+                html += '<th style="text-align: left; padding: 10px;">Registered</th>';
+                html += '<th style="text-align: center; padding: 10px;">Actions</th>';
+                html += '</tr></thead><tbody>';
+                
+                for (const user of users) {
+                    const date = new Date(user.created_at);
+                    const status = user.active ? '<span style="color: #27ae60;">✓ Active</span>' : '<span style="color: #e74c3c;">⏳ Pending</span>';
+                    const roleBadge = user.role === 'admin' ? '<span style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;">Admin</span>' : 'Regular';
+                    
+                    html += '<tr style="border-bottom: 1px solid var(--border-color);">';
+                    html += `<td style="padding: 10px;">${user.email}</td>`;
+                    html += `<td style="padding: 10px;">${roleBadge}</td>`;
+                    html += `<td style="padding: 10px;">${status}</td>`;
+                    html += `<td style="padding: 10px; color: var(--text-secondary);">${date.toLocaleString()}</td>`;
+                    html += '<td style="padding: 10px; text-align: center;">';
+                    
+                    if (!user.active) {
+                        html += `<button class="btn btn-success" onclick="approveUser(${user.id}, '${user.email}')" style="margin-right: 5px; font-size: 12px; padding: 5px 10px;">Approve</button>`;
+                        html += `<button class="btn btn-danger" onclick="declineUser(${user.id}, '${user.email}')" style="font-size: 12px; padding: 5px 10px;">Decline</button>`;
+                    } else if (user.role !== 'admin' && user.id !== currentUser.user_id) {
+                        html += `<button class="btn btn-secondary" onclick="deactivateUser(${user.id}, '${user.email}')" style="font-size: 12px; padding: 5px 10px;">Deactivate</button>`;
+                    }
+                    
+                    html += '</td></tr>';
+                }
+                
+                html += '</tbody></table>';
+                document.getElementById('all-users-list').innerHTML = html;
+            } catch (error) {
+                console.error('Error loading all users:', error);
+                document.getElementById('all-users-list').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+        
+        async function approveUser(userId, email) {
+            if (!confirm(`Approve user ${email}?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/users/${userId}/approve`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert(`✓ ${data.message}`);
+                    loadUsers();
+                } else {
+                    alert(`Error: ${data.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Error approving user:', error);
+                alert(`Error: ${error.message}`);
+            }
+        }
+        
+        async function declineUser(userId, email) {
+            if (!confirm(`Decline and delete user ${email}? This action cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/users/${userId}/decline`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert(`✓ ${data.message}`);
+                    loadUsers();
+                } else {
+                    alert(`Error: ${data.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Error declining user:', error);
+                alert(`Error: ${error.message}`);
+            }
+        }
+        
+        async function deactivateUser(userId, email) {
+            if (!confirm(`Deactivate user ${email}? They will not be able to log in until reactivated.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/users/${userId}/deactivate`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert(`✓ ${data.message}`);
+                    loadUsers();
+                } else {
+                    alert(`Error: ${data.error || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Error deactivating user:', error);
+                alert(`Error: ${error.message}`);
+            }
+        }
         
         // Initialize chat on page load
         window.addEventListener('DOMContentLoaded', function() {

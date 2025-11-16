@@ -16,8 +16,18 @@ class User(UserMixin, Base):
     id = Column(Integer, primary_key=True)
     email = Column(String(255), nullable=False, unique=True, index=True)
     password_hash = Column(String(255), nullable=False)
+    role = Column(String(20), nullable=False, default="regular")  # admin or regular
+    active = Column(Integer, nullable=False, default=0)  # 0 = inactive, 1 = active (for approval)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    def is_active(self):
+        """Check if user account is active (approved)."""
+        return self.active == 1
+    
+    def is_admin(self):
+        """Check if user is an admin."""
+        return self.role == "admin"
 
 
 class ImportLog(Base):

@@ -7,7 +7,7 @@ import config
 import secrets
 
 # Import route blueprints
-from routes import plugins, imports, chat, data, export, auth
+from routes import plugins, imports, chat, data, export, auth, users
 from database import User, SessionLocal
 
 logging.basicConfig(level=logging.INFO)
@@ -42,6 +42,7 @@ app.oauth_flows = oauth_flows
 
 # Register blueprints
 app.register_blueprint(auth.bp)
+app.register_blueprint(users.bp)
 app.register_blueprint(plugins.bp)
 app.register_blueprint(imports.bp)
 app.register_blueprint(chat.bp)

@@ -51,26 +51,27 @@ def register():
             if existing_user:
                 return jsonify({"error": "User with this email already exists"}), 400
             
-            # Create new user
+            # Create new user (regular user, inactive by default)
             password_hash = generate_password_hash(password)
             new_user = User(
                 email=email,
-                password_hash=password_hash
+                password_hash=password_hash,
+                role="regular",
+                active=0  # Inactive until admin approves
             )
             db.add(new_user)
             db.commit()
             db.refresh(new_user)
             
-            logger.info(f"New user registered: {email} (ID: {new_user.id})")
+            logger.info(f"New regular user registered (pending approval): {email} (ID: {new_user.id})")
             
-            # Automatically log in the new user
-            login_user(new_user, remember=True)
-            
+            # Don't automatically log in - user needs admin approval first
             return jsonify({
                 "success": True,
-                "message": "User registered successfully",
+                "message": "Registration successful! Your account is pending admin approval. You will be able to log in once an administrator approves your account.",
                 "user_id": new_user.id,
-                "email": new_user.email
+                "email": new_user.email,
+                "pending_approval": True
             })
         finally:
             db.close()
@@ -96,6 +97,10 @@ def login():
             
             if not user or not check_password_hash(user.password_hash, password):
                 return jsonify({"error": "Invalid email or password"}), 401
+            
+            # Check if user account is active (approved)
+            if not user.is_active():
+                return jsonify({"error": "Your account is pending admin approval. Please wait for an administrator to approve your account before logging in."}), 403
             
             # Log in the user
             login_user(user, remember=True)
@@ -134,7 +139,10 @@ def get_current_user():
     try:
         return jsonify({
             "user_id": current_user.id,
-            "email": current_user.email
+            "email": current_user.email,
+            "role": current_user.role,
+            "is_admin": current_user.is_admin(),
+            "active": current_user.is_active()
         })
     except Exception as e:
         logger.error(f"Error getting current user: {e}", exc_info=True)
