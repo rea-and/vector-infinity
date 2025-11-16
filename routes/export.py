@@ -1,5 +1,6 @@
 """Export-related routes."""
 from flask import Blueprint, send_file, Response, jsonify
+from flask_login import login_required, current_user
 import logging
 from io import StringIO
 from database import DataItem, SessionLocal
@@ -11,12 +12,14 @@ bp = Blueprint('export', __name__, url_prefix='/api/export')
 
 
 @bp.route("/emails", methods=["GET"])
+@login_required
 def export_emails():
     """Export all imported emails to a text file for ChatGPT knowledge upload."""
     db = SessionLocal()
     try:
-        # Query all emails from gmail_personal plugin
+        # Query all emails from gmail_personal plugin for this user
         emails = db.query(DataItem).filter(
+            DataItem.user_id == current_user.id,
             DataItem.plugin_name == "gmail_personal",
             DataItem.item_type == "email"
         ).order_by(DataItem.source_timestamp.desc()).all()
@@ -96,12 +99,14 @@ def export_emails():
 
 
 @bp.route("/whoop", methods=["GET"])
+@login_required
 def export_whoop():
     """Export all imported WHOOP health data to a text file for ChatGPT knowledge upload."""
     db = SessionLocal()
     try:
-        # Query all WHOOP data items
+        # Query all WHOOP data items for this user
         whoop_items = db.query(DataItem).filter(
+            DataItem.user_id == current_user.id,
             DataItem.plugin_name == "whoop"
         ).order_by(DataItem.source_timestamp.desc()).all()
         

@@ -156,7 +156,7 @@ class DataImporter:
                         # Only wait for processing on the last batch to ensure data is available
                         # This allows OpenAI to process files in parallel for better performance
                         wait_for_processing = (batch_num == total_batches)
-                        success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items, wait_for_processing=wait_for_processing)
+                        success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items, user_id=user_id, wait_for_processing=wait_for_processing)
                         if success:
                             total_uploaded += len(batch_items)
                             logger.info(f"Uploaded batch {batch_num}/{total_batches} to vector store ({batch_end}/{len(items_to_upload)} items)")
@@ -219,12 +219,12 @@ class DataImporter:
         
         return results
     
-    def import_from_plugin_async(self, plugin_name: str, log_id: int, uploaded_file_path: str = None):
+    def import_from_plugin_async(self, plugin_name: str, log_id: int, user_id: int, uploaded_file_path: str = None):
         """Run import in a background thread."""
         def run_import():
             db = SessionLocal()
             try:
-                log_entry = db.query(ImportLog).filter_by(id=log_id).first()
+                log_entry = db.query(ImportLog).filter_by(id=log_id, user_id=user_id).first()
                 if not log_entry:
                     return
                 
@@ -265,8 +265,9 @@ class DataImporter:
                     log_entry.progress_message = "Checking for new data..."
                     db.commit()
                     
-                    # Get the latest imported timestamp for this plugin to only fetch new items
+                    # Get the latest imported timestamp for this plugin to only fetch new items (user-specific)
                     latest_item = db.query(DataItem).filter_by(
+                        user_id=user_id,
                         plugin_name=plugin_name
                     ).order_by(DataItem.source_timestamp.desc()).first()
                     
@@ -297,6 +298,7 @@ class DataImporter:
                             db.commit()
                         
                         existing = db.query(DataItem).filter_by(
+                            user_id=user_id,
                             plugin_name=plugin_name,
                             source_id=item_data.get("source_id")
                         ).first()
@@ -306,6 +308,7 @@ class DataImporter:
                             continue
                         else:
                             new_item = DataItem(
+                                user_id=user_id,
                                 plugin_name=plugin_name,
                                 source_id=item_data.get("source_id"),
                                 item_type=item_data.get("item_type", "unknown"),
@@ -347,7 +350,7 @@ class DataImporter:
                                 # Only wait for processing on the last batch to ensure data is available
                                 # This allows OpenAI to process files in parallel for better performance
                                 wait_for_processing = (batch_num == total_batches)
-                                success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items, wait_for_processing=wait_for_processing)
+                                success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items, user_id=user_id, wait_for_processing=wait_for_processing)
                                 if success:
                                     total_uploaded += len(batch_items)
                                     logger.info(f"Uploaded batch {batch_num}/{total_batches} to vector store ({batch_end}/{len(items_to_upload)} items)")

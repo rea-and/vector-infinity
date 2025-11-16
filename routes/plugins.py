@@ -1,5 +1,6 @@
 """Plugin-related routes."""
 from flask import Blueprint, jsonify, request, render_template_string
+from flask_login import login_required, current_user
 from datetime import datetime, timezone
 import os
 import json
@@ -16,6 +17,7 @@ bp = Blueprint('plugins', __name__, url_prefix='/api/plugins')
 
 
 @bp.route("", methods=["GET"])
+@login_required
 def list_plugins():
     """List all available plugins."""
     db = SessionLocal()
@@ -50,8 +52,9 @@ def list_plugins():
             if plugin:
                 config_schema = plugin.get_config_schema()
             
-            # Get last import time for this plugin
+            # Get last import time for this plugin (user-specific)
             last_import = db.query(ImportLog).filter(
+                ImportLog.user_id == current_user.id,
                 ImportLog.plugin_name == name,
                 ImportLog.status == "success"
             ).order_by(ImportLog.completed_at.desc()).first()
@@ -132,6 +135,7 @@ def list_plugins():
 
 
 @bp.route("/<plugin_name>/auth/start", methods=["POST"])
+@login_required
 def start_plugin_auth(plugin_name):
     """Start OAuth flow for a plugin and return authorization URL."""
     plugin = plugin_loader.get_plugin(plugin_name)
@@ -180,6 +184,7 @@ def start_plugin_auth(plugin_name):
 
 
 @bp.route("/<plugin_name>/auth/callback", methods=["GET"])
+@login_required
 def plugin_auth_callback(plugin_name):
     """Handle OAuth callback."""
     code = request.args.get('code')

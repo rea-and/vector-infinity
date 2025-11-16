@@ -17,20 +17,23 @@ class AssistantService:
         self.client = OpenAI(api_key=api_key)
         self._unified_assistant_id = None  # Cache unified assistant ID
     
-    def get_or_create_unified_assistant(self, vector_store_id: str) -> Optional[str]:
+    def get_or_create_unified_assistant(self, vector_store_id: str, user_id: int = None) -> Optional[str]:
         """
-        Get or create a unified assistant for all plugins.
+        Get or create a unified assistant for all plugins (user-specific).
         
         Args:
             vector_store_id: Unified vector store ID
+            user_id: User ID for user-specific assistant
         
         Returns:
             Assistant ID or None
         """
-        if self._unified_assistant_id:
+        cache_key = f"user_{user_id}" if user_id else "default"
+        cached_id = getattr(self, f'_unified_assistant_id_{cache_key}', None)
+        if cached_id:
             # Verify assistant still exists and update vector store if needed
             try:
-                assistant = self.client.beta.assistants.retrieve(self._unified_assistant_id)
+                assistant = self.client.beta.assistants.retrieve(cached_id)
                 # Update vector store if it changed
                 current_vs_ids = []
                 if assistant.tool_resources and assistant.tool_resources.file_search:
@@ -57,8 +60,9 @@ class AssistantService:
         try:
             assistants = self.client.beta.assistants.list(limit=100)
             for assistant in assistants.data:
-                if assistant.name == "vector_infinity_unified":
-                    logger.info(f"Found existing unified assistant: {assistant.id}")
+                assistant_name = f"vector_infinity_unified_user_{user_id}" if user_id else "vector_infinity_unified"
+                if assistant.name == assistant_name:
+                    logger.info(f"Found existing unified assistant for user {user_id}: {assistant.id}")
                     # Update vector store
                     assistant = self.client.beta.assistants.update(
                         assistant.id,
@@ -68,7 +72,7 @@ class AssistantService:
                             }
                         }
                     )
-                    self._unified_assistant_id = assistant.id
+                    setattr(self, f'_unified_assistant_id_{cache_key}', assistant.id)
                     return assistant.id
         except Exception as e:
             logger.warning(f"Error listing assistants: {e}")
@@ -82,14 +86,14 @@ class AssistantService:
             }
             
             assistant = self.client.beta.assistants.create(
-                name="vector_infinity_unified",
+                name=assistant_name,
                 instructions="You are a helpful assistant that can answer questions about all imported data from various sources (Gmail, WhatsApp, WHOOP, etc.). Use the provided context from the vector store to answer questions accurately. When answering, mention the source of the information when relevant.",
                 model="gpt-4o-mini",  # Use gpt-4o-mini for cost efficiency
                 tools=[{"type": "file_search"}],
                 tool_resources=tool_resources
             )
-            logger.info(f"Created new unified assistant: {assistant.id}")
-            self._unified_assistant_id = assistant.id
+            logger.info(f"Created new unified assistant for user {user_id}: {assistant.id}")
+            setattr(self, f'_unified_assistant_id_{cache_key}', assistant.id)
             return assistant.id
         except Exception as e:
             logger.error(f"Error creating unified assistant: {e}")

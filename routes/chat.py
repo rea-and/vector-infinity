@@ -1,5 +1,6 @@
 """Chat-related routes."""
 from flask import Blueprint, jsonify, request
+from flask_login import login_required, current_user
 import logging
 from assistant_service import AssistantService
 from vector_store_service import VectorStoreService
@@ -10,6 +11,7 @@ bp = Blueprint('chat', __name__, url_prefix='/api/chat')
 
 
 @bp.route("/threads", methods=["POST"])
+@login_required
 def create_chat_thread():
     """Create a new chat thread."""
     try:
@@ -26,6 +28,7 @@ def create_chat_thread():
 
 
 @bp.route("/threads/<thread_id>/messages", methods=["POST"])
+@login_required
 def send_chat_message(thread_id):
     """Send a message in a chat thread."""
     try:
@@ -38,13 +41,13 @@ def send_chat_message(thread_id):
         assistant_service = AssistantService()
         vector_store_service = VectorStoreService()
         
-        # Get unified vector store ID
-        vector_store_id = vector_store_service.get_unified_vector_store_id()
+        # Get unified vector store ID (user-specific)
+        vector_store_id = vector_store_service.get_unified_vector_store_id(user_id=current_user.id)
         if not vector_store_id:
             return jsonify({"error": "No vector store found. Please run an import first."}), 404
         
-        # Get or create unified assistant with vector store
-        assistant_id = assistant_service.get_or_create_unified_assistant(vector_store_id)
+        # Get or create unified assistant with vector store (user-specific)
+        assistant_id = assistant_service.get_or_create_unified_assistant(vector_store_id, user_id=current_user.id)
         if not assistant_id:
             return jsonify({"error": "Failed to get or create assistant"}), 500
         
@@ -64,6 +67,7 @@ def send_chat_message(thread_id):
 
 
 @bp.route("/threads/<thread_id>/messages", methods=["GET"])
+@login_required
 def get_chat_messages(thread_id):
     """Get all messages from a chat thread."""
     try:

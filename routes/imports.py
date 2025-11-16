@@ -1,5 +1,6 @@
 """Import-related routes."""
 from flask import Blueprint, jsonify, request
+from flask_login import login_required, current_user
 from datetime import datetime, timezone
 import tempfile
 import secrets
@@ -7,6 +8,7 @@ import logging
 from pathlib import Path
 from database import ImportLog, SessionLocal
 from services import importer
+import config
 
 logger = logging.getLogger(__name__)
 
@@ -14,14 +16,15 @@ bp = Blueprint('imports', __name__, url_prefix='/api/imports')
 
 
 @bp.route("", methods=["GET"])
+@login_required
 def list_imports():
-    """List import logs."""
+    """List import logs for the current user."""
     db = SessionLocal()
     try:
         limit = request.args.get("limit", 50, type=int)
         plugin_name = request.args.get("plugin", None)
         
-        query = db.query(ImportLog)
+        query = db.query(ImportLog).filter(ImportLog.user_id == current_user.id)
         if plugin_name:
             query = query.filter(ImportLog.plugin_name == plugin_name)
         
@@ -53,6 +56,7 @@ def list_imports():
 
 
 @bp.route("/run", methods=["POST"])
+@login_required
 def run_import():
     """Run import for a specific plugin or all plugins (async)."""
     plugin_name = None
@@ -64,10 +68,10 @@ def run_import():
         if 'file' in request.files:
             file = request.files['file']
             if file.filename:
-                # Save uploaded file to temporary location
-                temp_dir = Path(tempfile.gettempdir()) / "vector_infinity_uploads"
-                temp_dir.mkdir(exist_ok=True)
-                uploaded_file_path = temp_dir / f"{plugin_name}_{secrets.token_hex(8)}_{file.filename}"
+                # Save uploaded file to user-specific temporary location
+                user_temp_dir = config.USER_DATA_DIR / str(current_user.id) / "uploads"
+                user_temp_dir.mkdir(parents=True, exist_ok=True)
+                uploaded_file_path = user_temp_dir / f"{plugin_name}_{secrets.token_hex(8)}_{file.filename}"
                 file.save(str(uploaded_file_path))
                 logger.info(f"Saved uploaded file to: {uploaded_file_path}")
     else:
@@ -80,6 +84,7 @@ def run_import():
         db = SessionLocal()
         try:
             log_entry = ImportLog(
+                user_id=current_user.id,
                 plugin_name=plugin_name,
                 status="running",
                 started_at=datetime.now(timezone.utc),
@@ -92,8 +97,8 @@ def run_import():
             db.close()
         
         # Start import in background thread
-        # Pass uploaded_file_path to the async function so it can set it on the plugin instance
-        importer.import_from_plugin_async(plugin_name, log_id, uploaded_file_path=str(uploaded_file_path) if uploaded_file_path else None)
+        # Pass uploaded_file_path and user_id to the async function
+        importer.import_from_plugin_async(plugin_name, log_id, user_id=current_user.id, uploaded_file_path=str(uploaded_file_path) if uploaded_file_path else None)
         
         return jsonify({
             "success": True,
@@ -119,11 +124,12 @@ def run_import():
 
 
 @bp.route("/<int:log_id>/status", methods=["GET"])
+@login_required
 def get_import_status(log_id):
     """Get the current status of an import."""
     db = SessionLocal()
     try:
-        log_entry = db.query(ImportLog).filter_by(id=log_id).first()
+        log_entry = db.query(ImportLog).filter_by(id=log_id, user_id=current_user.id).first()
         if not log_entry:
             return jsonify({"error": "Import log not found"}), 404
         

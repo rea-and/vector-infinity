@@ -31,8 +31,15 @@ DAILY_IMPORT_TIME = os.getenv("DAILY_IMPORT_TIME", "02:00")  # 2 AM
 # OpenAI Vector Store (optional)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
+# Secret key for session management
+SECRET_KEY = os.getenv("SECRET_KEY", "change-this-secret-key-in-production")
+
+# User-specific directories
+USER_DATA_DIR = BASE_DIR / "data" / "users"
+
 # Create necessary directories
 DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 PLUGINS_DIR.mkdir(parents=True, exist_ok=True)
+USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
 

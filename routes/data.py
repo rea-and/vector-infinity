@@ -1,5 +1,6 @@
 """Data management routes."""
 from flask import Blueprint, jsonify, request
+from flask_login import login_required, current_user
 import os
 import tempfile
 import logging
@@ -15,6 +16,7 @@ bp = Blueprint('data', __name__, url_prefix='/api')
 
 
 @bp.route("/data/clear", methods=["POST"])
+@login_required
 def clear_all_data():
     """Clear all imported data from the database."""
     db = SessionLocal()
@@ -26,11 +28,11 @@ def clear_all_data():
         if not confirm:
             return jsonify({"error": "Confirmation required. Set 'confirm': true in request body."}), 400
         
-        # Count items before deletion
-        total_items = db.query(DataItem).count()
+        # Count items before deletion (user-specific)
+        total_items = db.query(DataItem).filter(DataItem.user_id == current_user.id).count()
         
-        # Delete all data items
-        db.query(DataItem).delete()
+        # Delete all data items for this user
+        db.query(DataItem).filter(DataItem.user_id == current_user.id).delete()
         
         # Optionally clear import logs (commented out - uncomment if you want to clear logs too)
         # db.query(ImportLog).delete()
@@ -72,14 +74,14 @@ def factory_reset():
             "errors": []
         }
         
-        # 1. Clear all database data
+        # 1. Clear all database data for this user
         db = SessionLocal()
         try:
-            results["database_items_deleted"] = db.query(DataItem).count()
-            results["database_logs_deleted"] = db.query(ImportLog).count()
+            results["database_items_deleted"] = db.query(DataItem).filter(DataItem.user_id == current_user.id).count()
+            results["database_logs_deleted"] = db.query(ImportLog).filter(ImportLog.user_id == current_user.id).count()
             
-            db.query(DataItem).delete()
-            db.query(ImportLog).delete()
+            db.query(DataItem).filter(DataItem.user_id == current_user.id).delete()
+            db.query(ImportLog).filter(ImportLog.user_id == current_user.id).delete()
             db.commit()
             logger.info(f"Cleared {results['database_items_deleted']} data items and {results['database_logs_deleted']} import logs")
         except Exception as e:
@@ -217,15 +219,16 @@ def factory_reset():
 
 
 @bp.route("/stats", methods=["GET"])
+@login_required
 def get_stats():
-    """Get statistics about imported data."""
+    """Get statistics about imported data for the current user."""
     db = SessionLocal()
     try:
-        total_items = db.query(DataItem).count()
+        total_items = db.query(DataItem).filter(DataItem.user_id == current_user.id).count()
         items_by_plugin = {}
         items_by_type = {}
         
-        for item in db.query(DataItem).all():
+        for item in db.query(DataItem).filter(DataItem.user_id == current_user.id).all():
             items_by_plugin[item.plugin_name] = items_by_plugin.get(item.plugin_name, 0) + 1
             items_by_type[item.item_type] = items_by_type.get(item.item_type, 0) + 1
         
@@ -256,12 +259,13 @@ def get_stats():
 
 
 @bp.route("/vector-store/info", methods=["GET"])
+@login_required
 def get_vector_store_info():
     """Get information about the unified vector store."""
     try:
         vector_store_service = VectorStoreService()
         
-        info = vector_store_service.get_vector_store_info()
+        info = vector_store_service.get_vector_store_info(user_id=current_user.id)
         if not info:
             return jsonify({"error": "Vector store not found or not accessible"}), 404
         
@@ -272,6 +276,7 @@ def get_vector_store_info():
 
 
 @bp.route("/vector-store/reupload", methods=["POST"])
+@login_required
 def reupload_all_data_to_vector_store():
     """Re-upload all existing data from the database to the vector store."""
     try:
@@ -279,8 +284,8 @@ def reupload_all_data_to_vector_store():
         db = SessionLocal()
         
         try:
-            # Get all data items from database
-            all_items = db.query(DataItem).all()
+            # Get all data items from database for this user
+            all_items = db.query(DataItem).filter(DataItem.user_id == current_user.id).all()
             
             if not all_items:
                 return jsonify({"error": "No data items found in database"}), 404
@@ -319,7 +324,7 @@ def reupload_all_data_to_vector_store():
                     
                     # Only wait for processing on the last batch
                     wait_for_processing = (batch_num == total_batches)
-                    success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items, wait_for_processing=wait_for_processing)
+                    success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items, user_id=current_user.id, wait_for_processing=wait_for_processing)
                     if success:
                         plugin_uploaded += len(batch_items)
                         total_uploaded += len(batch_items)

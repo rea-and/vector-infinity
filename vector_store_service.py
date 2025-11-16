@@ -20,19 +20,23 @@ class VectorStoreService:
         self.client = OpenAI(api_key=api_key)
         self._unified_vector_store_id = None  # Cache unified vector store ID
     
-    def get_or_create_unified_vector_store(self) -> Optional[str]:
-        """Get or create a unified vector store for all plugins."""
-        if self._unified_vector_store_id:
-            return self._unified_vector_store_id
+    def get_or_create_unified_vector_store(self, user_id: int = None) -> Optional[str]:
+        """Get or create a unified vector store for all plugins (user-specific)."""
+        # Use user-specific cache key
+        cache_key = f"user_{user_id}" if user_id else "default"
+        if hasattr(self, f'_unified_vector_store_id_{cache_key}'):
+            return getattr(self, f'_unified_vector_store_id_{cache_key}')
+        
+        store_name = f"vector_infinity_unified_user_{user_id}" if user_id else "vector_infinity_unified"
         
         # Try to find existing unified vector store (by name)
         # Vector stores are accessed via client.vector_stores (not client.beta.vector_stores)
         try:
             vector_stores = self.client.vector_stores.list(limit=100)
             for vs in vector_stores.data:
-                if vs.name == "vector_infinity_unified":
-                    logger.info(f"Found existing unified vector store: {vs.id}")
-                    self._unified_vector_store_id = vs.id
+                if vs.name == store_name:
+                    logger.info(f"Found existing unified vector store for user {user_id}: {vs.id}")
+                    setattr(self, f'_unified_vector_store_id_{cache_key}', vs.id)
                     return vs.id
         except Exception as e:
             logger.warning(f"Error listing vector stores: {e}")
@@ -40,19 +44,19 @@ class VectorStoreService:
         # Create new unified vector store
         try:
             vector_store = self.client.vector_stores.create(
-                name="vector_infinity_unified",
-                description="Unified vector store for all Vector Infinity plugin data"
+                name=store_name,
+                description=f"Unified vector store for Vector Infinity plugin data (User ID: {user_id})"
             )
-            logger.info(f"Created new unified vector store: {vector_store.id}")
-            self._unified_vector_store_id = vector_store.id
+            logger.info(f"Created new unified vector store for user {user_id}: {vector_store.id}")
+            setattr(self, f'_unified_vector_store_id_{cache_key}', vector_store.id)
             return vector_store.id
         except Exception as e:
             logger.error(f"Error creating unified vector store: {e}")
             return None
     
-    def upload_data_to_vector_store(self, plugin_name: str, data_items: List[Dict[str, Any]], wait_for_processing: bool = False) -> bool:
+    def upload_data_to_vector_store(self, plugin_name: str, data_items: List[Dict[str, Any]], user_id: int = None, wait_for_processing: bool = False) -> bool:
         """
-        Upload data items to the unified vector store.
+        Upload data items to the unified vector store (user-specific).
         
         Args:
             plugin_name: Name of the plugin (for logging/formatting)
@@ -65,7 +69,7 @@ class VectorStoreService:
             logger.info(f"No data items to upload for {plugin_name}")
             return True
         
-        vector_store_id = self.get_or_create_unified_vector_store()
+        vector_store_id = self.get_or_create_unified_vector_store(user_id=user_id)
         if not vector_store_id:
             logger.error(f"Failed to get/create unified vector store")
             return False
@@ -173,13 +177,15 @@ class VectorStoreService:
             logger.error(f"Error uploading data to unified vector store for {plugin_name}: {e}", exc_info=True)
             return False
     
-    def get_unified_vector_store_id(self) -> Optional[str]:
-        """Get the unified vector store ID."""
-        return self._unified_vector_store_id or self.get_or_create_unified_vector_store()
+    def get_unified_vector_store_id(self, user_id: int = None) -> Optional[str]:
+        """Get the unified vector store ID (cached, user-specific)."""
+        cache_key = f"user_{user_id}" if user_id else "default"
+        cached_id = getattr(self, f'_unified_vector_store_id_{cache_key}', None)
+        return cached_id or self.get_or_create_unified_vector_store(user_id=user_id)
     
-    def get_vector_store_info(self) -> Optional[Dict[str, Any]]:
+    def get_vector_store_info(self, user_id: int = None) -> Optional[Dict[str, Any]]:
         """Get information about the unified vector store including file count and size."""
-        vector_store_id = self.get_unified_vector_store_id()
+        vector_store_id = self.get_unified_vector_store_id(user_id=user_id)
         if not vector_store_id:
             return None
         

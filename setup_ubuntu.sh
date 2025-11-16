@@ -48,7 +48,7 @@ pip install --upgrade pip
 # Use --only-binary to prefer pre-built wheels and avoid compilation where possible
 # Install in smaller batches to reduce memory pressure
 echo "Installing core dependencies first..."
-pip install --only-binary :all: flask flask-cors apscheduler python-dotenv gunicorn requests python-dateutil pytz sqlalchemy
+pip install --only-binary :all: flask flask-cors flask-login apscheduler python-dotenv gunicorn requests python-dateutil pytz sqlalchemy bcrypt
 
 echo "Installing Google API dependencies..."
 pip install --only-binary :all: google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
