@@ -174,7 +174,7 @@ class VectorStoreService:
         return self._unified_vector_store_id or self.get_or_create_unified_vector_store()
     
     def get_vector_store_info(self) -> Optional[Dict[str, Any]]:
-        """Get information about the unified vector store including file count."""
+        """Get information about the unified vector store including file count and size."""
         vector_store_id = self.get_unified_vector_store_id()
         if not vector_store_id:
             return None
@@ -187,11 +187,40 @@ class VectorStoreService:
             files = self.client.vector_stores.files.list(vector_store_id=vector_store_id, limit=100)
             file_count = len(files.data) if hasattr(files, 'data') else 0
             
+            # Calculate total size of files in vector store
+            total_size_bytes = 0
+            file_ids = []
+            if hasattr(files, 'data'):
+                for file_item in files.data:
+                    file_ids.append(file_item.id)
+            
+            # Get file sizes from OpenAI Files API
+            for file_id in file_ids:
+                try:
+                    file_info = self.client.files.retrieve(file_id)
+                    if hasattr(file_info, 'bytes') and file_info.bytes:
+                        total_size_bytes += file_info.bytes
+                except Exception as e:
+                    logger.warning(f"Could not get size for file {file_id}: {e}")
+            
+            # Convert to human-readable format
+            size = float(total_size_bytes)
+            size_human = "0 B"
+            for unit in ['B', 'KB', 'MB', 'GB']:
+                if size < 1024.0:
+                    size_human = f"{size:.2f} {unit}"
+                    break
+                size /= 1024.0
+            else:
+                size_human = f"{size:.2f} TB"
+            
             return {
                 "id": vector_store.id,
                 "name": vector_store.name,
                 "file_count": file_count,
-                "status": getattr(vector_store, 'status', 'unknown')
+                "status": getattr(vector_store, 'status', 'unknown'),
+                "total_size_bytes": total_size_bytes,
+                "total_size": size_human
             }
         except Exception as e:
             logger.error(f"Error getting vector store info: {e}", exc_info=True)
