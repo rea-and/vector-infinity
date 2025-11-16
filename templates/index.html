@@ -80,12 +80,58 @@
             border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
-            transition: background-color 0.3s ease, border-color 0.3s ease;
+            transition: transform 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
+            position: relative;
+            z-index: 1000;
+        }
+        
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+        
+        .sidebar-overlay.active {
+            display: block;
+        }
+        
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            width: 40px;
+            height: 40px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            z-index: 1001;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-primary);
+            font-size: 20px;
+            transition: background-color 0.2s ease;
+        }
+        
+        .menu-toggle:hover {
+            background: var(--bg-hover);
+        }
+        
+        .menu-toggle svg {
+            width: 24px;
+            height: 24px;
         }
         
         .sidebar-header {
             padding: 16px;
             border-bottom: 1px solid var(--border-color);
+            position: relative;
         }
         
         .sidebar-header h1 {
@@ -93,6 +139,34 @@
             font-weight: 600;
             color: var(--text-primary);
             margin-bottom: 12px;
+        }
+        
+        .sidebar-close {
+            display: none;
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 32px;
+            height: 32px;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 24px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+        }
+        
+        .sidebar-close:hover {
+            background: var(--bg-hover);
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar-close {
+                display: flex;
+            }
         }
         
         .theme-toggle {
@@ -715,8 +789,26 @@
         }
         
         @media (max-width: 768px) {
+            .menu-toggle {
+                display: flex;
+            }
+            
             .sidebar {
-                width: 200px;
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100vh;
+                transform: translateX(-100%);
+                z-index: 1000;
+                box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                width: 100%;
             }
             
             .container {
@@ -730,13 +822,35 @@
             th, td {
                 padding: 8px;
             }
+            
+            .chat-messages {
+                padding: 16px;
+            }
+            
+            .chat-input-container {
+                padding: 12px;
+            }
         }
     </style>
 </head>
 <body>
+    <button class="menu-toggle" onclick="toggleSidebar()" id="menu-toggle" aria-label="Toggle menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
     <div class="app-container">
-        <div class="sidebar">
+        <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
+                <button class="sidebar-close" onclick="closeSidebar()" aria-label="Close sidebar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
                 <h1>Vector Infinity</h1>
                 <button class="theme-toggle" onclick="toggleTheme()" id="theme-toggle">
                     <span id="theme-icon">🌙</span>
@@ -915,6 +1029,30 @@
             }
         }
         
+        // Sidebar toggle functions for mobile
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            const isOpen = sidebar.classList.contains('open');
+            
+            if (isOpen) {
+                closeSidebar();
+            } else {
+                sidebar.classList.add('open');
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden'; // Prevent body scroll when sidebar is open
+            }
+        }
+        
+        function closeSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+            document.body.style.overflow = ''; // Restore body scroll
+        }
+        
+        // Close sidebar when clicking on nav items on mobile
         function showTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
@@ -925,11 +1063,23 @@
             document.getElementById(tabName).classList.add('active');
             document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
             
+            // Close sidebar on mobile after selecting a tab
+            if (window.innerWidth <= 768) {
+                closeSidebar();
+            }
+            
             if (tabName === 'imports') loadImports();
             if (tabName === 'run') loadPlugins();
             if (tabName === 'chat') initChat();
             if (tabName === 'stats') loadStats();
         }
+        
+        // Handle window resize - close sidebar if screen becomes larger
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                closeSidebar();
+            }
+        });
         
         function handleChatInputKeydown(event) {
             if (event.key === 'Enter' && !event.shiftKey) {
