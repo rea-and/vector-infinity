@@ -1081,10 +1081,11 @@
             cursor: pointer;
             transition: background 0.3s;
             flex-shrink: 0;
+            border: 1px solid rgba(0, 0, 0, 0.1);
         }
         
         .toggle-switch.active {
-            background: var(--accent-color);
+            background: var(--accent-color, #667eea);
         }
         
         .toggle-switch::after {
@@ -1106,6 +1107,10 @@
         
         .plugin-toggle input[type="checkbox"] {
             display: none;
+        }
+        
+        .plugin-toggle label span {
+            user-select: none;
         }
         
         @media (max-width: 768px) {
