@@ -2003,8 +2003,8 @@
                             `;
                             }
                             
-                            // Special handling for github_context plugin (configuration)
-                            if (plugin.name === 'github_context') {
+                            // Special handling for github plugin (configuration)
+                            if (plugin.name === 'github') {
                                 const tokenConfigured = plugin.token_configured || false;
                                 const fileUrls = plugin.file_urls || [];
                                 const tokenStatus = tokenConfigured 

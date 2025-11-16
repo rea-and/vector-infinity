@@ -285,7 +285,7 @@ class DataImporter:
                     return
                 
                 # Load user-specific plugin configuration from database
-                if plugin_name == "github_context":
+                if plugin_name == "github":
                     if plugin_config_db and hasattr(plugin, 'set_user_config'):
                         plugin.set_user_config(plugin_config_db.config_data)
                         logger.info(f"Loaded user config for {plugin_name}: token_configured={bool(plugin_config_db.config_data.get('github_token'))}, file_urls={len(plugin_config_db.config_data.get('file_urls', []))}")
@@ -373,7 +373,7 @@ class DataImporter:
                         if existing:
                             # For GitHub files, check if content has changed (compare SHA from metadata)
                             should_update = False
-                            if plugin_name == "github_context":
+                            if plugin_name == "github":
                                 new_sha = item_data.get("metadata", {}).get("sha")
                                 existing_sha = existing.item_metadata.get("sha") if existing.item_metadata else None
                                 if new_sha and new_sha != existing_sha:

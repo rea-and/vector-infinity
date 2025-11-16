@@ -18,7 +18,7 @@ class Plugin(DataSourcePlugin):
     """GitHub Context data source plugin."""
     
     def __init__(self):
-        super().__init__("github_context")
+        super().__init__("github")
         self.github_token = None
         self._user_config = None  # Store user-specific config when provided
     

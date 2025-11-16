@@ -159,7 +159,7 @@ def list_plugins():
             }
             
             # Add GitHub-specific configuration data from database
-            if name == "github_context":
+            if name == "github":
                 plugin_config = db.query(PluginConfiguration).filter(
                     PluginConfiguration.user_id == current_user.id,
                     PluginConfiguration.plugin_name == name
@@ -246,14 +246,14 @@ def get_plugin_config(plugin_name):
         if plugin_config:
             config_data = plugin_config.config_data.copy()
             # For GitHub plugin, don't return the token itself, just indicate if it's configured
-            if plugin_name == "github_context" and "github_token" in config_data:
+            if plugin_name == "github" and "github_token" in config_data:
                 config_data["token_configured"] = bool(config_data.get("github_token"))
                 # Remove the actual token from response
                 config_data.pop("github_token", None)
             return jsonify(config_data)
         else:
             # Return default/empty configuration
-            if plugin_name == "github_context":
+            if plugin_name == "github":
                 return jsonify({
                     "file_urls": [],
                     "token_configured": False
@@ -390,7 +390,7 @@ def update_plugin_config(plugin_name):
         
         # Prepare response (don't include token in response)
         response_config = plugin_config.config_data.copy()
-        if plugin_name == "github_context" and "github_token" in response_config:
+        if plugin_name == "github" and "github_token" in response_config:
             response_config["token_configured"] = bool(response_config.get("github_token"))
             response_config.pop("github_token", None)
         
