@@ -1979,13 +1979,12 @@
                             <div class="plugin-card">
                                 <h3>${plugin.name}</h3>
                                 <div class="plugin-toggle">
-                                    <label>
-                                        <input type="checkbox" ${plugin.enabled ? 'checked' : ''} onchange="togglePlugin('${plugin.name}', this.checked)">
+                                    <label onclick="event.stopPropagation();">
+                                        <input type="checkbox" id="toggle-${plugin.name}" ${plugin.enabled ? 'checked' : ''} onchange="togglePlugin('${plugin.name}', this.checked)">
                                         <span style="margin-left: 10px;">Enable Plugin</span>
                                     </label>
-                                    <div class="toggle-switch ${plugin.enabled ? 'active' : ''}" onclick="document.querySelector('#toggle-${plugin.name}').click()">
+                                    <div class="toggle-switch ${plugin.enabled ? 'active' : ''}" onclick="const cb = document.querySelector('#toggle-${plugin.name}'); cb.checked = !cb.checked; togglePlugin('${plugin.name}', cb.checked);">
                                     </div>
-                                    <input type="checkbox" id="toggle-${plugin.name}" style="display: none;" ${plugin.enabled ? 'checked' : ''} onchange="togglePlugin('${plugin.name}', this.checked)">
                                 </div>
                                 ${lastImportHtml}
                                 ${authInfo || ''}
@@ -2400,6 +2399,46 @@
             } catch (error) {
                 console.error('Error saving GitHub configuration:', error);
                 alert(`Error saving configuration: ${error.message}`);
+            }
+        }
+        
+        async function togglePlugin(pluginName, enabled) {
+            try {
+                const response = await fetch(`${API_BASE}/plugins/${pluginName}/toggle`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'include',
+                    body: JSON.stringify({ enabled: enabled })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to toggle plugin');
+                }
+                
+                const result = await response.json();
+                
+                // Update the toggle switch visual state
+                const pluginCard = document.querySelector(`#toggle-${pluginName}`)?.closest('.plugin-card');
+                if (pluginCard) {
+                    const toggleSwitch = pluginCard.querySelector('.toggle-switch');
+                    if (toggleSwitch) {
+                        if (enabled) {
+                            toggleSwitch.classList.add('active');
+                        } else {
+                            toggleSwitch.classList.remove('active');
+                        }
+                    }
+                }
+                
+                // Reload plugins to update the UI (buttons, etc.)
+                loadPlugins();
+                
+            } catch (error) {
+                console.error('Error toggling plugin:', error);
+                alert(`Error: ${error.message}`);
+                // Reload to reset the toggle state
+                loadPlugins();
             }
         }
         
