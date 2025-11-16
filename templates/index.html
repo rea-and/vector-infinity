@@ -1006,7 +1006,7 @@
                 }
             }
             
-               const messagesDiv = document.getElementById('chat-messages');
+            const messagesDiv = document.getElementById('chat-messages');
             
             // Add user message to UI
             const userMessageDiv = document.createElement('div');
@@ -1035,13 +1035,13 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
             
             try {
-                   const response = await fetch(`${API_BASE}/chat/threads/${currentThreadId}/messages`, {
-                       method: 'POST',
-                       headers: {'Content-Type': 'application/json'},
-                       body: JSON.stringify({
-                           message: message
-                       })
-                   });
+                const response = await fetch(`${API_BASE}/chat/threads/${currentThreadId}/messages`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        message: message
+                    })
+                });
                 
                 if (!response.ok) {
                     const error = await response.json();
