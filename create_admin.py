@@ -3,13 +3,31 @@
 
 Usage:
     python3 create_admin.py <email> <password>
+    
+Note: Make sure to activate the virtual environment first:
+    source venv/bin/activate
+    python3 create_admin.py <email> <password>
 """
 
 import sys
+import os
 import logging
-from werkzeug.security import generate_password_hash
-from database import User, SessionLocal, init_db
-from datetime import datetime, timezone
+
+# Add the script's directory to the path so we can import modules
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, SCRIPT_DIR)
+
+try:
+    from werkzeug.security import generate_password_hash
+    from database import User, SessionLocal, init_db
+    from datetime import datetime, timezone
+except ImportError as e:
+    print(f"Error: Missing required dependencies. Please activate the virtual environment first:")
+    print(f"  source venv/bin/activate")
+    print(f"  python3 create_admin.py <email> <password>")
+    print(f"")
+    print(f"Import error: {e}")
+    sys.exit(1)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
