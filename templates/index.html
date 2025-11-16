@@ -640,14 +640,13 @@
             position: fixed;
             top: 16px;
             left: 64px; /* 40px hamburger + 8px gap + 16px */
-            right: 16px;
+            right: 80px; /* Leave space for New button */
             height: 40px;
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 0 8px;
+            padding: 0 12px;
             align-items: center;
-            gap: 8px;
             z-index: 1000;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
             overflow: hidden;
@@ -660,14 +659,30 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            flex: 1;
         }
         
-        .chat-title-mobile .btn-new-thread {
-            padding: 4px 8px;
-            font-size: 12px;
-            white-space: nowrap;
-            flex-shrink: 0;
+        .chat-title-mobile-new-btn {
+            display: none;
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            width: 40px;
+            height: 40px;
+            background: var(--accent-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            z-index: 1001;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            transition: background-color 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .chat-title-mobile-new-btn:hover {
+            background: var(--accent-hover);
         }
         
         .sidebar-threads {
@@ -729,6 +744,16 @@
             
             .chat-title-mobile {
                 display: none; /* Hidden by default */
+            }
+            
+            .chat-title-mobile-new-btn {
+                display: flex; /* Show on mobile */
+            }
+            
+            /* Hide mobile new button when sidebar is open */
+            .sidebar.open ~ .chat-title-mobile-new-btn,
+            body.sidebar-open .chat-title-mobile-new-btn {
+                display: none;
             }
             
             /* Show mobile title bar only when chat tab is active */
@@ -1163,8 +1188,8 @@
         <div class="main-content">
             <div class="chat-title-mobile">
                 <h2 id="chat-thread-title-mobile">New Conversation</h2>
-                <button class="btn btn-new-thread" onclick="newChatThread()">+ New</button>
             </div>
+            <button class="chat-title-mobile-new-btn" onclick="newChatThread()" aria-label="New conversation">+</button>
             <div id="chat" class="tab-content active">
                 <div class="chat-container">
                     <div class="chat-threads-sidebar">
