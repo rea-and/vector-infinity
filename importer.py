@@ -371,9 +371,34 @@ class DataImporter:
                         ).first()
                         
                         if existing:
-                            # Skip existing items - only import new ones
-                            logger.debug(f"Skipping existing item: {source_id} (already in database, ID: {existing.id})")
-                            continue
+                            # For GitHub files, check if content has changed (compare SHA from metadata)
+                            should_update = False
+                            if plugin_name == "github_context":
+                                new_sha = item_data.get("metadata", {}).get("sha")
+                                existing_sha = existing.item_metadata.get("sha") if existing.item_metadata else None
+                                if new_sha and new_sha != existing_sha:
+                                    logger.info(f"GitHub file content changed (SHA: {existing_sha} -> {new_sha}), updating: {source_id}")
+                                    should_update = True
+                                elif existing.content != item_data.get("content"):
+                                    # Fallback: compare content if SHA not available
+                                    logger.info(f"GitHub file content changed (content differs), updating: {source_id}")
+                                    should_update = True
+                            
+                            if should_update:
+                                # Update existing item
+                                existing.title = item_data.get("title")
+                                existing.content = item_data.get("content")
+                                existing.item_metadata = item_data.get("metadata", {})
+                                existing.source_timestamp = item_data.get("source_timestamp")
+                                existing.updated_at = datetime.now(timezone.utc)
+                                records_imported += 1
+                                # Re-upload to vector store since content changed
+                                items_to_upload.append(item_data)
+                                logger.debug(f"Updated existing item: {source_id} (ID: {existing.id})")
+                            else:
+                                # Skip existing items that haven't changed
+                                logger.debug(f"Skipping unchanged item: {source_id} (already in database, ID: {existing.id})")
+                                continue
                         else:
                             new_item = DataItem(
                                 user_id=user_id,
