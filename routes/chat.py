@@ -119,13 +119,14 @@ def send_chat_message(thread_id):
             return jsonify({"error": "Failed to get response from assistant"}), 500
         
         # Update thread title from first message if not set
-        if not chat_thread.title:
+        if not chat_thread.title or chat_thread.title.strip() == "":
             # Use first 50 characters of message as title
             title = message[:50].strip()
             if len(message) > 50:
                 title += "..."
             chat_thread.title = title
             db.commit()
+            logger.info(f"Set thread title to: {title} for thread {thread_id}")
         
         # Update thread's updated_at timestamp
         from datetime import datetime, timezone
