@@ -835,10 +835,12 @@
             
             .main-content {
                 width: 100%;
+                padding-top: 72px; /* Space for hamburger menu (40px button + 16px top + 16px spacing) */
             }
             
             .container {
                 padding: 10px;
+                padding-top: 0; /* Remove top padding since main-content already has it */
             }
             
             table {
@@ -851,6 +853,7 @@
             
             .chat-messages {
                 padding: 16px;
+                padding-top: 0; /* Remove top padding for chat since main-content already has it */
                 padding-bottom: 8px;
             }
             
