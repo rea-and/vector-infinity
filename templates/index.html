@@ -1181,6 +1181,7 @@
                     <div class="chat-main-area">
                         <div class="chat-header">
                             <h2 id="chat-thread-title">New Conversation</h2>
+                            <button class="btn btn-new-thread" onclick="newChatThread()">+ New</button>
                         </div>
                         <div class="chat-messages" id="chat-messages">
                             <div class="chat-empty-state">
@@ -2343,26 +2344,47 @@
         }
         
         function renderThreadsList() {
+            // Render in chat threads sidebar (left side)
             const threadsList = document.getElementById('chat-threads-list');
-            if (!threadsList) return;
-            
-            if (allThreads.length === 0) {
-                threadsList.innerHTML = '<div style="padding: 16px; color: var(--text-secondary); font-size: 13px; text-align: center;">No conversations yet</div>';
-                return;
+            if (threadsList) {
+                if (allThreads.length === 0) {
+                    threadsList.innerHTML = '<div style="padding: 16px; color: var(--text-secondary); font-size: 13px; text-align: center;">No conversations yet</div>';
+                } else {
+                    threadsList.innerHTML = allThreads.map(thread => {
+                        const isActive = thread.thread_id === currentThreadId;
+                        const date = thread.updated_at ? new Date(thread.updated_at) : new Date(thread.created_at);
+                        const timeStr = formatRelativeTime(date);
+                        
+                        return `
+                            <div class="chat-thread-item ${isActive ? 'active' : ''}" onclick="switchToThread('${thread.thread_id}')">
+                                <div class="chat-thread-title">${escapeHtml(thread.title || 'New Chat')}</div>
+                                <div class="chat-thread-time">${timeStr}</div>
+                            </div>
+                        `;
+                    }).join('');
+                }
             }
             
-            threadsList.innerHTML = allThreads.map(thread => {
-                const isActive = thread.thread_id === currentThreadId;
-                const date = thread.updated_at ? new Date(thread.updated_at) : new Date(thread.created_at);
-                const timeStr = formatRelativeTime(date);
-                
-                return `
-                    <div class="chat-thread-item ${isActive ? 'active' : ''}" onclick="switchToThread('${thread.thread_id}')">
-                        <div class="chat-thread-title">${escapeHtml(thread.title || 'New Chat')}</div>
-                        <div class="chat-thread-time">${timeStr}</div>
-                    </div>
-                `;
-            }).join('');
+            // Render in main sidebar (right side)
+            const sidebarThreadsList = document.getElementById('sidebar-threads-list');
+            if (sidebarThreadsList) {
+                if (allThreads.length === 0) {
+                    sidebarThreadsList.innerHTML = '<div style="padding: 8px 12px; color: var(--text-secondary); font-size: 12px; text-align: center;">No conversations yet</div>';
+                } else {
+                    sidebarThreadsList.innerHTML = allThreads.map(thread => {
+                        const isActive = thread.thread_id === currentThreadId;
+                        const date = thread.updated_at ? new Date(thread.updated_at) : new Date(thread.created_at);
+                        const timeStr = formatRelativeTime(date);
+                        
+                        return `
+                            <div class="sidebar-thread-item ${isActive ? 'active' : ''}" onclick="switchToThread('${thread.thread_id}'); showTab('chat');">
+                                <div class="sidebar-thread-title">${escapeHtml(thread.title || 'New Chat')}</div>
+                                <div class="sidebar-thread-time">${timeStr}</div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
         }
         
         function formatRelativeTime(date) {
