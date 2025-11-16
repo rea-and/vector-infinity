@@ -2361,6 +2361,19 @@
                 allThreads = data.threads || [];
                 console.log('Loaded threads:', allThreads.length, allThreads);
                 renderThreadsList();
+                
+                // Update thread title if we have a current thread
+                if (currentThreadId) {
+                    const thread = allThreads.find(t => t.thread_id === currentThreadId);
+                    if (thread) {
+                        const title = thread.title || 'New Conversation';
+                        document.getElementById('chat-thread-title').textContent = title;
+                        const mobileTitle = document.getElementById('chat-thread-title-mobile');
+                        if (mobileTitle) {
+                            mobileTitle.textContent = title;
+                        }
+                    }
+                }
             } catch (error) {
                 console.error('Error loading chat threads:', error);
                 allThreads = [];
