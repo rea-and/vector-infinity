@@ -252,13 +252,38 @@ class Plugin(DataSourcePlugin):
         
         try:
             # Fetch all tasks (both completed and open)
-            # TickTick API endpoint for getting tasks
-            response = self._make_authenticated_request("GET", "task", params={"status": "All"})
+            # TickTick API endpoint for getting tasks - use batch query endpoint
+            # First, get all projects to understand the structure
+            projects_response = self._make_authenticated_request("GET", "project")
+            if projects_response.status_code != 200:
+                logger.warning(f"Could not fetch projects: {projects_response.status_code}")
+            
+            # Fetch tasks using batch query
+            # TickTick uses a batch query endpoint that requires a query object
+            query_data = {
+                "queries": [
+                    {
+                        "query": "",
+                        "projectIds": [],
+                        "status": [0, 2]  # 0 = open, 2 = completed
+                    }
+                ]
+            }
+            
+            response = self._make_authenticated_request("POST", "batch/check/0", json=query_data)
             
             if response.status_code != 200:
-                raise Exception(f"TickTick API error: {response.status_code} - {response.text}")
+                # Fallback: try simpler endpoint
+                response = self._make_authenticated_request("GET", "task")
+                if response.status_code != 200:
+                    raise Exception(f"TickTick API error: {response.status_code} - {response.text}")
             
-            tasks = response.json()
+            result = response.json()
+            # The response structure may vary - handle both array and object responses
+            if isinstance(result, dict):
+                tasks = result.get("tasks", []) or result.get("data", []) or []
+            else:
+                tasks = result if isinstance(result, list) else []
             
             # Process each task
             for task in tasks:
