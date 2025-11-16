@@ -1177,6 +1177,10 @@
         
         // Load initial data
         loadImports();
+        // Initialize chat on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            initChat();
+        });
     </script>
 </body>
 </html>
