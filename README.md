@@ -344,15 +344,16 @@ Examples:
 
 ### How It Works
 
-1. **Import**: Plugins fetch data from various sources (Gmail, TODO apps, etc.) on a schedule
+1. **Import**: Plugins fetch data from various sources (Gmail, WhatsApp, WHOOP, etc.) on a schedule
 2. **Storage**: Data is stored in SQLite with metadata (title, content, timestamps, etc.)
 3. **Embeddings**: Vector embeddings are automatically generated during import for semantic search
 4. **API Access**: Each plugin exposes a semantic search endpoint:
    - `/api/plugins/{plugin_name}/semantic-search` - Semantic search using vector embeddings (Action)
-5. **Custom GPT**: Upload the plugin's `custom_gpt_schema.json` to ChatGPT Actions to enable the plugin
-6. **ChatGPT Integration**: ChatGPT automatically calls the semantic search endpoint when you ask questions about your data
+5. **Export**: Export endpoints allow downloading data as text files for ChatGPT knowledge upload
+6. **Custom GPT**: Upload the plugin's `custom_gpt_schema.json` to ChatGPT Actions to enable the plugin
+7. **ChatGPT Integration**: ChatGPT automatically calls the semantic search endpoint when you ask questions about your data
 
-This allows ChatGPT to access your personal data (emails, WhatsApp messages) as context when you're having conversations, using semantic search to find relevant information by meaning.
+This allows ChatGPT to access your personal data (emails, WhatsApp messages, WHOOP health data) as context when you're having conversations, using semantic search to find relevant information by meaning.
 
 ## Low RAM Optimization
 
