@@ -266,7 +266,7 @@ This application uses OpenAI's Assistant API with Vector Stores to provide intel
 - `POST /api/chat/threads` - Create a new chat thread
   - Returns: `{"thread_id": "thread_..."}`
 - `POST /api/chat/threads/<thread_id>/messages` - Send a message
-  - Body: `{"message": "your question", "plugin_name": "gmail_personal"}`
+  - Body: `{"message": "your question", "plugin_name": "gmail"}`
   - Returns: `{"response": "assistant response", "thread_id": "...", "assistant_id": "..."}`
 - `GET /api/chat/threads/<thread_id>/messages` - Get all messages from a thread
   - Returns: `{"messages": [{"role": "user|assistant", "content": "...", "created_at": "..."}]}`
@@ -351,7 +351,7 @@ python3 app.py
 **Both Google and WHOOP require HTTPS for OAuth redirects when using their APIs.**
 
 The redirect URIs you need to add will be:
-- **Gmail**: `https://your-domain.com/api/plugins/gmail_personal/auth/callback`
+- **Gmail**: `https://your-domain.com/api/plugins/gmail/auth/callback`
 - **WHOOP**: `https://your-domain.com/api/plugins/whoop/auth/callback`
 
 **Recommended: Nginx with Let's Encrypt (Production Setup)**
@@ -385,7 +385,7 @@ The setup script will prompt you for your domain name and configure Nginx automa
    If it shows `WEB_PORT=80`, change it to `WEB_PORT=5000` (Nginx handles 80/443)
 
 5. **Add redirect URIs to your OAuth providers:**
-   - **Google Cloud Console**: `https://your-domain.com/api/plugins/gmail_personal/auth/callback`
+   - **Google Cloud Console**: `https://your-domain.com/api/plugins/gmail/auth/callback`
    - **WHOOP Developer Dashboard**: `https://your-domain.com/api/plugins/whoop/auth/callback`
 
 6. **Restart the Flask app** (if running as a service):
