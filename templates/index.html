@@ -955,20 +955,36 @@
         <div class="main-content">
             <div id="chat" class="tab-content active">
                 <div class="chat-container">
-                    <div class="chat-messages" id="chat-messages">
-                        <div class="chat-empty-state">
-                            <h2>How can I help you today?</h2>
-                            <p>Ask questions about your imported data from Gmail, WhatsApp, WHOOP, and more.</p>
+                    <div class="chat-threads-sidebar">
+                        <div class="chat-threads-header">
+                            <h3>Conversations</h3>
+                            <button class="btn" onclick="newChatThread()" style="width: 100%; padding: 8px; font-size: 13px;">
+                                + New Conversation
+                            </button>
+                        </div>
+                        <div class="chat-threads-list" id="chat-threads-list">
+                            <!-- Threads will be loaded here -->
                         </div>
                     </div>
-                    <div class="chat-input-container">
-                        <div class="chat-input-wrapper">
-                            <textarea id="chat-input" class="chat-input" placeholder="Message Vector Infinity..." rows="1" onkeydown="handleChatInputKeydown(event)"></textarea>
-                            <button class="chat-send-button" onclick="sendChatMessage()" id="chat-send-btn">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M.5 1.163A1 1 0 0 1 1.97.28l12.868 6.837a1 1 0 0 1 0 1.766L1.969 15.72A1 1 0 0 1 .5 14.836V10.33a1 1 0 0 1 .816-.983L8.5 8 1.316 6.653A1 1 0 0 1 .5 5.67V1.163Z" fill="currentColor"/>
-                                </svg>
-                            </button>
+                    <div class="chat-main-area">
+                        <div class="chat-header">
+                            <h2 id="chat-thread-title">New Conversation</h2>
+                        </div>
+                        <div class="chat-messages" id="chat-messages">
+                            <div class="chat-empty-state">
+                                <h2>How can I help you today?</h2>
+                                <p>Ask questions about your imported data from Gmail, WhatsApp, WHOOP, and more.</p>
+                            </div>
+                        </div>
+                        <div class="chat-input-container">
+                            <div class="chat-input-wrapper">
+                                <textarea id="chat-input" class="chat-input" placeholder="Message Vector Infinity..." rows="1" onkeydown="handleChatInputKeydown(event)"></textarea>
+                                <button class="chat-send-button" onclick="sendChatMessage()" id="chat-send-btn">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M.5 1.163A1 1 0 0 1 1.97.28l12.868 6.837a1 1 0 0 1 0 1.766L1.969 15.72A1 1 0 0 1 .5 14.836V10.33a1 1 0 0 1 .816-.983L8.5 8 1.316 6.653A1 1 0 0 1 .5 5.67V1.163Z" fill="currentColor"/>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2072,15 +2088,94 @@
         }
         
         let currentThreadId = null;
+        let allThreads = [];
         
         async function initChat() {
-            // Initialize chat - create a new thread if none exists
-            if (!currentThreadId) {
-                await newChatThread();
+            // Load all threads
+            await loadChatThreads();
+            
+            // Try to restore last thread from localStorage
+            const savedThreadId = localStorage.getItem('currentThreadId');
+            if (savedThreadId && allThreads.find(t => t.thread_id === savedThreadId)) {
+                await switchToThread(savedThreadId);
+            } else if (allThreads.length > 0) {
+                // Load most recent thread
+                await switchToThread(allThreads[0].thread_id);
             } else {
-                // Load existing messages
-                await loadChatMessages();
+                // Create new thread if none exist
+                await newChatThread();
             }
+        }
+        
+        async function loadChatThreads() {
+            try {
+                const response = await fetch(`${API_BASE}/chat/threads`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                allThreads = data.threads || [];
+                renderThreadsList();
+            } catch (error) {
+                console.error('Error loading chat threads:', error);
+            }
+        }
+        
+        function renderThreadsList() {
+            const threadsList = document.getElementById('chat-threads-list');
+            if (!threadsList) return;
+            
+            if (allThreads.length === 0) {
+                threadsList.innerHTML = '<div style="padding: 16px; color: var(--text-secondary); font-size: 13px; text-align: center;">No conversations yet</div>';
+                return;
+            }
+            
+            threadsList.innerHTML = allThreads.map(thread => {
+                const isActive = thread.thread_id === currentThreadId;
+                const date = thread.updated_at ? new Date(thread.updated_at) : new Date(thread.created_at);
+                const timeStr = formatRelativeTime(date);
+                
+                return `
+                    <div class="chat-thread-item ${isActive ? 'active' : ''}" onclick="switchToThread('${thread.thread_id}')">
+                        <div class="chat-thread-title">${escapeHtml(thread.title || 'New Chat')}</div>
+                        <div class="chat-thread-time">${timeStr}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function formatRelativeTime(date) {
+            const now = new Date();
+            const diffMs = now.getTime() - date.getTime();
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffMins < 1) return 'just now';
+            if (diffMins < 60) return `${diffMins}m ago`;
+            if (diffHours < 24) return `${diffHours}h ago`;
+            if (diffDays < 7) return `${diffDays}d ago`;
+            return date.toLocaleDateString();
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        async function switchToThread(threadId) {
+            currentThreadId = threadId;
+            localStorage.setItem('currentThreadId', threadId);
+            
+            // Update UI
+            const thread = allThreads.find(t => t.thread_id === threadId);
+            if (thread) {
+                document.getElementById('chat-thread-title').textContent = thread.title || 'New Conversation';
+            }
+            
+            renderThreadsList();
+            await loadChatMessages();
         }
         
         async function newChatThread() {
@@ -2095,15 +2190,13 @@
                 
                 const data = await response.json();
                 currentThreadId = data.thread_id;
+                localStorage.setItem('currentThreadId', currentThreadId);
                 
-                // Clear chat messages and show empty state
-                const messagesDiv = document.getElementById('chat-messages');
-                messagesDiv.innerHTML = `
-                    <div class="chat-empty-state">
-                        <h2>How can I help you today?</h2>
-                        <p>Ask questions about your imported data from Gmail, WhatsApp, WHOOP, and more.</p>
-                    </div>
-                `;
+                // Reload threads list
+                await loadChatThreads();
+                
+                // Switch to new thread
+                await switchToThread(currentThreadId);
                 
                 return currentThreadId;
             } catch (error) {
@@ -2246,6 +2339,7 @@
                 
                 const data = await response.json();
                 const messagesDiv = document.getElementById('chat-messages');
+                messagesDiv.innerHTML = ''; // Clear existing messages
                 
                 if (data.messages.length === 0) {
                     messagesDiv.innerHTML = `

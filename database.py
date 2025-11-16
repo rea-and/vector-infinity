@@ -71,6 +71,18 @@ class DataItem(Base):
     )
 
 
+class ChatThread(Base):
+    """Chat thread model for persisting conversations."""
+    __tablename__ = "chat_threads"
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    thread_id = Column(String(255), nullable=False, unique=True, index=True)  # OpenAI thread ID
+    title = Column(String(500), nullable=True)  # Optional title (first message or user-defined)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
 # Database engine and session
 engine = create_engine(f"sqlite:///{config.DATABASE_PATH}", echo=False, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
