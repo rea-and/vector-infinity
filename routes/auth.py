@@ -103,7 +103,8 @@ def login():
                 return jsonify({"error": "Your account is pending admin approval. Please wait for an administrator to approve your account before logging in."}), 403
             
             # Log in the user
-            login_user(user, remember=True)
+            remember = data.get('remember', False)
+            login_user(user, remember=remember)
             
             logger.info(f"User logged in: {email} (ID: {user.id})")
             
