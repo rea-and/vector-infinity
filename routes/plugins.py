@@ -126,7 +126,7 @@ def list_plugins():
             else:
                 auth_status = "not_authenticated"
             
-            result.append({
+            plugin_data = {
                 "name": name,
                 "enabled": enabled,
                 "config_schema": config_schema,
@@ -134,7 +134,23 @@ def list_plugins():
                 "last_import_records": last_import_records,
                 "auth_status": auth_status,
                 "last_auth_time": last_auth_time
-            })
+            }
+            
+            # Add GitHub-specific configuration data
+            if name == "github_context":
+                plugin_data["token_configured"] = False
+                plugin_data["file_urls"] = []
+                if plugin and hasattr(plugin, 'github_token'):
+                    plugin_data["token_configured"] = plugin.github_token is not None
+                if config_path.exists():
+                    try:
+                        with open(config_path, 'r') as f:
+                            plugin_config = json.load(f)
+                            plugin_data["file_urls"] = plugin_config.get("file_urls", [])
+                    except:
+                        pass
+            
+            result.append(plugin_data)
         
         # Sort plugins: enabled first (alphabetical), then disabled (alphabetical)
         result.sort(key=lambda x: (not x["enabled"], x["name"].lower()))
@@ -190,6 +206,64 @@ def start_plugin_auth(plugin_name):
         })
     except Exception as e:
         logger.error(f"Error starting OAuth flow: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/<plugin_name>/config", methods=["GET"])
+@login_required
+def get_plugin_config(plugin_name):
+    """Get plugin configuration."""
+    plugin = plugin_loader.get_plugin(plugin_name)
+    if not plugin:
+        return jsonify({"error": f"Plugin {plugin_name} not found"}), 404
+    
+    try:
+        config_data = plugin.config.copy()
+        
+        # For GitHub plugin, check if token is set (but don't return the token itself)
+        if plugin_name == "github_context" and hasattr(plugin, 'github_token'):
+            config_data["token_configured"] = plugin.github_token is not None
+        
+        return jsonify(config_data)
+    except Exception as e:
+        logger.error(f"Error getting plugin config: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/<plugin_name>/config", methods=["POST"])
+@login_required
+def update_plugin_config(plugin_name):
+    """Update plugin configuration."""
+    plugin = plugin_loader.get_plugin(plugin_name)
+    if not plugin:
+        return jsonify({"error": f"Plugin {plugin_name} not found"}), 404
+    
+    try:
+        data = request.get_json() or {}
+        
+        # Handle GitHub token separately (if provided)
+        if plugin_name == "github_context" and "github_token" in data:
+            token = data.pop("github_token", "").strip()
+            if token:
+                if hasattr(plugin, 'save_token'):
+                    plugin.save_token(token)
+                else:
+                    return jsonify({"error": "Plugin does not support token configuration"}), 400
+        
+        # Update config.json with remaining data
+        current_config = plugin.config.copy()
+        current_config.update(data)
+        plugin.save_config(current_config)
+        
+        logger.info(f"Updated configuration for plugin {plugin_name}")
+        
+        return jsonify({
+            "success": True,
+            "message": "Configuration updated successfully",
+            "config": current_config
+        })
+    except Exception as e:
+        logger.error(f"Error updating plugin config: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 

@@ -1880,6 +1880,37 @@
                             `;
                             }
                             
+                            // Special handling for github_context plugin (configuration)
+                            if (plugin.name === 'github_context') {
+                                const tokenConfigured = plugin.token_configured || false;
+                                const fileUrls = plugin.file_urls || [];
+                                const tokenStatus = tokenConfigured 
+                                    ? '<span style="color: #28a745;">✓ Token configured</span>' 
+                                    : '<span style="color: #dc3545;">✗ Token not configured</span>';
+                                const fileCount = fileUrls.length;
+                                
+                                return `
+                                <div class="plugin-card">
+                                    <h3>${plugin.name}</h3>
+                                    <p>Status: ${plugin.enabled ? 'Enabled' : 'Disabled'}</p>
+                                    ${lastImportHtml}
+                                    <div style="margin: 10px 0; padding: 8px; background: var(--bg-tertiary); border-radius: 4px;">
+                                        <p style="margin: 0; font-size: 12px; color: var(--text-secondary);">
+                                            ${tokenStatus}<br>
+                                            <strong style="color: var(--text-primary);">Files configured:</strong> ${fileCount}
+                                        </p>
+                                    </div>
+                                    ${progressHtml}
+                                    <button class="btn" onclick="configureGitHubPlugin('${plugin.name}')" style="margin-top: 5px; width: 100%;">
+                                        ⚙️ Configure
+                                    </button>
+                                    <button class="btn" id="btn-${plugin.name}" onclick="runImport('${plugin.name}')" ${!plugin.enabled || hasRunningImport || !tokenConfigured || fileCount === 0 ? 'disabled' : ''} style="margin-top: 5px; width: 100%;">
+                                        ${hasRunningImport ? '<span class="loading"></span> Importing...' : 'Run Import'}
+                                    </button>
+                                </div>
+                            `;
+                            }
+                            
                             return `
                             <div class="plugin-card">
                                 <h3>${plugin.name}</h3>
@@ -2128,6 +2159,162 @@
                 console.error('Failed to copy:', err);
                 alert('Failed to copy to clipboard');
             });
+        }
+        
+        async function configureGitHubPlugin(pluginName) {
+            try {
+                // Fetch current configuration
+                const configResponse = await fetch(`${API_BASE}/plugins/${pluginName}/config`);
+                if (!configResponse.ok) {
+                    throw new Error('Failed to load plugin configuration');
+                }
+                const config = await configResponse.json();
+                
+                // Create modal dialog
+                const modal = document.createElement('div');
+                modal.id = 'github-config-modal';
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.7);
+                    z-index: 10000;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 20px;
+                `;
+                
+                const fileUrls = config.file_urls || [];
+                const fileUrlsText = fileUrls.join('\n');
+                
+                modal.innerHTML = `
+                    <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 24px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                        <h2 style="margin-top: 0; color: var(--text-primary);">Configure GitHub Context Plugin</h2>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary);">
+                                GitHub Personal Access Token:
+                            </label>
+                            <input 
+                                type="password" 
+                                id="github-token-input" 
+                                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                                style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-primary); font-family: monospace;"
+                            />
+                            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 5px;">
+                                Create a token at <a href="https://github.com/settings/tokens" target="_blank" style="color: var(--accent-color);">github.com/settings/tokens</a> with <code>repo</code> scope
+                            </p>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary);">
+                                File URLs (one per line):
+                            </label>
+                            <textarea 
+                                id="github-urls-input" 
+                                placeholder="https://github.com/owner/repo/blob/branch/path/file.txt&#10;https://github.com/owner/repo/blob/main/another/file.txt"
+                                style="width: 100%; min-height: 200px; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-primary); font-family: monospace; font-size: 12px; resize: vertical;"
+                            >${fileUrlsText}</textarea>
+                            <p style="font-size: 12px; color: var(--text-secondary); margin-top: 5px;">
+                                Enter GitHub file URLs, one per line. Format: <code>https://github.com/owner/repo/blob/branch/path/file.txt</code>
+                            </p>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                            <button class="btn btn-secondary" onclick="closeGitHubConfigModal()" style="padding: 10px 20px;">
+                                Cancel
+                            </button>
+                            <button class="btn btn-primary" onclick="saveGitHubConfig('${pluginName}')" style="padding: 10px 20px;">
+                                Save Configuration
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Close on outside click
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        closeGitHubConfigModal();
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Error opening GitHub configuration:', error);
+                alert(`Error: ${error.message}`);
+            }
+        }
+        
+        function closeGitHubConfigModal() {
+            const modal = document.getElementById('github-config-modal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
+        async function saveGitHubConfig(pluginName) {
+            try {
+                const tokenInput = document.getElementById('github-token-input');
+                const urlsInput = document.getElementById('github-urls-input');
+                
+                if (!tokenInput || !urlsInput) {
+                    throw new Error('Configuration form not found');
+                }
+                
+                const token = tokenInput.value.trim();
+                const urlsText = urlsInput.value.trim();
+                
+                // Parse URLs (split by newline, filter empty lines)
+                const fileUrls = urlsText.split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0);
+                
+                // Validate URLs
+                const urlPattern = /^https:\/\/github\.com\/[^\/]+\/[^\/]+\/blob\/[^\/]+\/.+$/;
+                const invalidUrls = fileUrls.filter(url => !urlPattern.test(url));
+                if (invalidUrls.length > 0) {
+                    alert(`Invalid URL format:\n${invalidUrls.join('\n')}\n\nExpected format: https://github.com/owner/repo/blob/branch/path/file.txt`);
+                    return;
+                }
+                
+                // Prepare config data
+                const configData = {
+                    file_urls: fileUrls
+                };
+                
+                // Add token if provided
+                if (token) {
+                    configData.github_token = token;
+                }
+                
+                // Save configuration
+                const response = await fetch(`${API_BASE}/plugins/${pluginName}/config`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(configData)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to save configuration');
+                }
+                
+                const result = await response.json();
+                
+                // Close modal and reload plugins
+                closeGitHubConfigModal();
+                loadPlugins();
+                
+                alert('Configuration saved successfully!');
+                
+            } catch (error) {
+                console.error('Error saving GitHub configuration:', error);
+                alert(`Error saving configuration: ${error.message}`);
+            }
         }
         
         async function authenticatePlugin(pluginName) {
