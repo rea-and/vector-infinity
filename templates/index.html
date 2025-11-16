@@ -2362,6 +2362,9 @@
                 
                 const data = await response.json();
                 
+                // Reload threads to update timestamp
+                await loadChatThreads();
+                
                 // Remove loading indicator
                 loadingDiv.remove();
                 
