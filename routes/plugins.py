@@ -602,3 +602,60 @@ def plugin_auth_callback(plugin_name):
             </html>
         """, error=str(e))
 
+
+@bp.route("/<plugin_name>/reset", methods=["POST"])
+@login_required
+def reset_plugin(plugin_name):
+    """Reset a specific plugin: delete all data items and import logs for this plugin (user-specific)."""
+    db = SessionLocal()
+    try:
+        # Get confirmation from request
+        data = request.get_json() or {}
+        confirm = data.get("confirm", False)
+        
+        if not confirm:
+            return jsonify({"error": "Confirmation required. Set 'confirm': true in request body."}), 400
+        
+        # Count items before deletion (user-specific, plugin-specific)
+        items_count = db.query(DataItem).filter(
+            DataItem.user_id == current_user.id,
+            DataItem.plugin_name == plugin_name
+        ).count()
+        
+        logs_count = db.query(ImportLog).filter(
+            ImportLog.user_id == current_user.id,
+            ImportLog.plugin_name == plugin_name
+        ).count()
+        
+        # Delete all data items for this plugin and user
+        db.query(DataItem).filter(
+            DataItem.user_id == current_user.id,
+            DataItem.plugin_name == plugin_name
+        ).delete(synchronize_session=False)
+        
+        # Delete all import logs for this plugin and user
+        db.query(ImportLog).filter(
+            ImportLog.user_id == current_user.id,
+            ImportLog.plugin_name == plugin_name
+        ).delete(synchronize_session=False)
+        
+        db.commit()
+        
+        logger.info(f"Reset plugin {plugin_name} for user {current_user.id}: deleted {items_count} data items and {logs_count} import logs")
+        
+        # Note: Vector store cleanup would require re-uploading all remaining data
+        # For now, we'll just delete from the database. The user can re-upload if needed.
+        
+        return jsonify({
+            "success": True,
+            "message": f"Successfully reset plugin {plugin_name}",
+            "items_deleted": items_count,
+            "logs_deleted": logs_count
+        })
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error resetting plugin {plugin_name}: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+

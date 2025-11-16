@@ -1953,6 +1953,9 @@
                                         <button class="btn" id="btn-${plugin.name}" onclick="runImportWithFile('${plugin.name}')" ${!plugin.enabled || hasRunningImport ? 'disabled' : ''} style="margin-top: 5px; width: 100%;">
                                             ${hasRunningImport ? '<span class="loading"></span> Importing...' : 'Upload & Import'}
                                         </button>
+                                        <button class="btn btn-secondary" onclick="resetPlugin('${plugin.name}')" style="margin-top: 5px; width: 100%; background: #dc3545; color: white;">
+                                            🔄 Reset Plugin
+                                        </button>
                                     </div>
                                 </div>
                             `;
@@ -3071,6 +3074,38 @@
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
             } catch (error) {
                 console.error('Error loading messages:', error);
+            }
+        }
+        
+        async function resetPlugin(pluginName) {
+            // Confirmation
+            const confirmed = confirm(`⚠️ WARNING: This will delete ALL data for the "${pluginName}" plugin.\n\nThis includes:\n- All imported data items\n- All import logs\n\nThis action CANNOT be undone.\n\nAre you sure you want to reset this plugin?`);
+            if (!confirmed) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/plugins/${pluginName}/reset`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'include',
+                    body: JSON.stringify({confirm: true})
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert(`✓ Success! Reset plugin "${pluginName}".\n\nDeleted:\n- ${data.items_deleted} data items\n- ${data.logs_deleted} import logs`);
+                    // Refresh plugins, stats, and imports
+                    loadPlugins();
+                    loadStats();
+                    loadImports();
+                } else {
+                    alert(`✗ Error: ${data.error || 'Failed to reset plugin'}`);
+                }
+            } catch (error) {
+                console.error('Error resetting plugin:', error);
+                alert('✗ Error: Failed to reset plugin. Please try again.');
             }
         }
         
