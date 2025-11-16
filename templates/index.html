@@ -119,6 +119,7 @@
             color: var(--text-primary);
             font-size: 20px;
             transition: background-color 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
         
         .menu-toggle:hover {
@@ -835,7 +836,11 @@
             
             .main-content {
                 width: 100%;
-                padding-top: 72px; /* Space for hamburger menu (40px button + 16px top + 16px spacing) */
+                padding-top: 80px; /* Space for hamburger menu (40px button + 16px top + 24px spacing) */
+            }
+            
+            .main-content .card h2 {
+                margin-top: 0; /* Ensure no extra top margin on page titles */
             }
             
             .container {
