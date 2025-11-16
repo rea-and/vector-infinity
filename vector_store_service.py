@@ -50,7 +50,7 @@ class VectorStoreService:
             logger.error(f"Error creating unified vector store: {e}")
             return None
     
-    def upload_data_to_vector_store(self, plugin_name: str, data_items: List[Dict[str, Any]]) -> bool:
+    def upload_data_to_vector_store(self, plugin_name: str, data_items: List[Dict[str, Any]], wait_for_processing: bool = False) -> bool:
         """
         Upload data items to the unified vector store.
         
@@ -137,26 +137,30 @@ class VectorStoreService:
                 
                 logger.info(f"Added file {uploaded_file.id} to unified vector store {vector_store_id}")
                 
-                # Wait for vector store to process the file
-                import time
-                max_wait = 300  # 5 minutes max
-                wait_time = 0
-                while wait_time < max_wait:
-                    file_status = self.client.vector_stores.files.retrieve(
-                        vector_store_id=vector_store_id,
-                        file_id=uploaded_file.id
-                    )
-                    if file_status.status == 'completed':
-                        logger.info(f"Unified vector store file processing completed for {plugin_name}")
-                        return True
-                    elif file_status.status == 'failed':
-                        logger.error(f"Unified vector store file processing failed for {plugin_name}")
-                        return False
-                    time.sleep(2)
-                    wait_time += 2
+                # Optionally wait for vector store to process the file
+                # For large imports, it's faster to upload all files first and let OpenAI process in parallel
+                if wait_for_processing:
+                    import time
+                    max_wait = 60  # Reduced to 1 minute for faster batching
+                    wait_time = 0
+                    while wait_time < max_wait:
+                        file_status = self.client.vector_stores.files.retrieve(
+                            vector_store_id=vector_store_id,
+                            file_id=uploaded_file.id
+                        )
+                        if file_status.status == 'completed':
+                            logger.info(f"Unified vector store file processing completed for {plugin_name}")
+                            return True
+                        elif file_status.status == 'failed':
+                            logger.error(f"Unified vector store file processing failed for {plugin_name}")
+                            return False
+                        time.sleep(2)
+                        wait_time += 2
+                    
+                    logger.warning(f"Unified vector store file processing timeout for {plugin_name} (still uploaded)")
                 
-                logger.warning(f"Unified vector store file processing timeout for {plugin_name}")
-                return True  # Still return True as file was uploaded
+                # File is uploaded and will be processed by OpenAI in the background
+                return True
                 
             finally:
                 # Clean up temp file

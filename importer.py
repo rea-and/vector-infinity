@@ -140,22 +140,28 @@ class DataImporter:
                     db.commit()
                     
                     # Upload in batches to avoid overwhelming the API
-                    batch_size = 100
+                    # Increased batch size for better performance
+                    batch_size = 500  # Increased from 100 to 500 for faster uploads
                     total_uploaded = 0
+                    total_batches = (len(items_to_upload) + batch_size - 1) // batch_size
                     
                     for batch_start in range(0, len(items_to_upload), batch_size):
                         batch_end = min(batch_start + batch_size, len(items_to_upload))
                         batch_items = items_to_upload[batch_start:batch_end]
+                        batch_num = batch_start // batch_size + 1
                         
-                        log_entry.progress_message = f"Uploading to vector store: {batch_end}/{len(items_to_upload)} items..."
+                        log_entry.progress_message = f"Uploading to vector store: batch {batch_num}/{total_batches} ({batch_end}/{len(items_to_upload)} items)..."
                         db.commit()
                         
-                        success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items)
+                        # Only wait for processing on the last batch to ensure data is available
+                        # This allows OpenAI to process files in parallel for better performance
+                        wait_for_processing = (batch_num == total_batches)
+                        success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items, wait_for_processing=wait_for_processing)
                         if success:
                             total_uploaded += len(batch_items)
-                            logger.info(f"Uploaded batch {batch_start//batch_size + 1} to vector store ({batch_end}/{len(items_to_upload)} items)")
+                            logger.info(f"Uploaded batch {batch_num}/{total_batches} to vector store ({batch_end}/{len(items_to_upload)} items)")
                         else:
-                            logger.warning(f"Failed to upload batch {batch_start//batch_size + 1} to vector store")
+                            logger.warning(f"Failed to upload batch {batch_num}/{total_batches} to vector store")
                     
                     logger.info(f"Uploaded {total_uploaded} items to vector store for {plugin_name}")
                     log_entry.progress_message = f"Successfully uploaded {total_uploaded} items to vector store"
@@ -325,22 +331,28 @@ class DataImporter:
                             db.commit()
                             
                             # Upload in batches to avoid overwhelming the API
-                            batch_size = 100
+                            # Increased batch size for better performance
+                            batch_size = 500  # Increased from 100 to 500 for faster uploads
                             total_uploaded = 0
+                            total_batches = (len(items_to_upload) + batch_size - 1) // batch_size
                             
                             for batch_start in range(0, len(items_to_upload), batch_size):
                                 batch_end = min(batch_start + batch_size, len(items_to_upload))
                                 batch_items = items_to_upload[batch_start:batch_end]
+                                batch_num = batch_start // batch_size + 1
                                 
-                                log_entry.progress_message = f"Uploading to vector store: {batch_end}/{len(items_to_upload)} items..."
+                                log_entry.progress_message = f"Uploading to vector store: batch {batch_num}/{total_batches} ({batch_end}/{len(items_to_upload)} items)..."
                                 db.commit()
                                 
-                                success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items)
+                                # Only wait for processing on the last batch to ensure data is available
+                                # This allows OpenAI to process files in parallel for better performance
+                                wait_for_processing = (batch_num == total_batches)
+                                success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items, wait_for_processing=wait_for_processing)
                                 if success:
                                     total_uploaded += len(batch_items)
-                                    logger.info(f"Uploaded batch {batch_start//batch_size + 1} to vector store ({batch_end}/{len(items_to_upload)} items)")
+                                    logger.info(f"Uploaded batch {batch_num}/{total_batches} to vector store ({batch_end}/{len(items_to_upload)} items)")
                                 else:
-                                    logger.warning(f"Failed to upload batch {batch_start//batch_size + 1} to vector store")
+                                    logger.warning(f"Failed to upload batch {batch_num}/{total_batches} to vector store")
                             
                             logger.info(f"Uploaded {total_uploaded} items to vector store for {plugin_name}")
                             log_entry.progress_message = f"Successfully uploaded {total_uploaded} items to vector store"

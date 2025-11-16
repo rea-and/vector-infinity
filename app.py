@@ -414,15 +414,19 @@ def reupload_all_data_to_vector_store():
             for plugin_name, items in items_by_plugin.items():
                 logger.info(f"Re-uploading {len(items)} items from {plugin_name} to vector store")
                 
-                # Upload in batches
-                batch_size = 100
+                # Upload in batches (optimized - don't wait for processing on each batch)
+                batch_size = 500  # Increased batch size for better performance
                 plugin_uploaded = 0
+                total_batches = (len(items) + batch_size - 1) // batch_size
                 
                 for batch_start in range(0, len(items), batch_size):
                     batch_end = min(batch_start + batch_size, len(items))
                     batch_items = items[batch_start:batch_end]
+                    batch_num = batch_start // batch_size + 1
                     
-                    success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items)
+                    # Only wait for processing on the last batch
+                    wait_for_processing = (batch_num == total_batches)
+                    success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items, wait_for_processing=wait_for_processing)
                     if success:
                         plugin_uploaded += len(batch_items)
                         total_uploaded += len(batch_items)
