@@ -21,6 +21,8 @@ def list_chat_threads():
             ChatThread.user_id == current_user.id
         ).order_by(ChatThread.updated_at.desc()).all()
         
+        logger.info(f"Found {len(threads)} threads for user {current_user.id}")
+        
         result = []
         for thread in threads:
             result.append({
@@ -60,6 +62,8 @@ def create_chat_thread():
         db.add(chat_thread)
         db.commit()
         db.refresh(chat_thread)
+        
+        logger.info(f"Created chat thread {thread_id} for user {current_user.id}, DB ID: {chat_thread.id}")
         
         return jsonify({
             "thread_id": thread_id,
