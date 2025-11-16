@@ -332,6 +332,9 @@
                 <button class="btn btn-success" onclick="exportEmails()" style="margin-left: 10px;">
                     📥 Export All Emails
                 </button>
+                <button class="btn btn-success" onclick="exportWhoop()" style="margin-left: 10px;">
+                    📥 Export WHOOP Data
+                </button>
                 <div id="stats-content"></div>
             </div>
         </div>
@@ -1189,6 +1192,43 @@
             } catch (error) {
                 console.error('Error exporting emails:', error);
                 alert(`❌ Error exporting emails: ${error.message}`);
+            }
+        }
+        
+        async function exportWhoop() {
+            try {
+                const response = await fetch(`${API_BASE}/export/whoop`);
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+                }
+                
+                // Get filename from Content-Disposition header or use default
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'whoop_export.txt';
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+                    if (filenameMatch) {
+                        filename = filenameMatch[1];
+                    }
+                }
+                
+                // Create blob and download
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                // Show success message
+                alert(`✅ Successfully exported WHOOP data to ${filename}`);
+            } catch (error) {
+                console.error('Error exporting WHOOP data:', error);
+                alert(`❌ Error exporting WHOOP data: ${error.message}`);
             }
         }
         
