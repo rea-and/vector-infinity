@@ -64,9 +64,10 @@ class AssistantService:
                 assistant_name = f"vector_infinity_unified_user_{user_id}" if user_id else "vector_infinity_unified"
                 if assistant.name == assistant_name:
                     logger.info(f"Found existing unified assistant for user {user_id}: {assistant.id}")
-                    # Update vector store
+                    # Update vector store and instructions
                     assistant = self.client.beta.assistants.update(
                         assistant.id,
+                        instructions="You are a helpful assistant that can answer questions using both your general knowledge and any relevant context from imported data (Gmail, WhatsApp, WHOOP, etc.). Answer questions naturally and directly. If you find relevant information in the imported data, mention the source when helpful. If the question is about general topics not covered in the imported data, answer using your general knowledge without mentioning that the information wasn't found in the files. Be concise and helpful.",
                         tool_resources={
                             "file_search": {
                                 "vector_store_ids": [vector_store_id]
