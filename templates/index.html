@@ -1490,12 +1490,58 @@
                                 `;
                             }
                             
+                            // Format last import information
+                            let lastImportHtml = '';
+                            if (plugin.last_import_time) {
+                                const importDate = new Date(plugin.last_import_time);
+                                const now = new Date();
+                                const diffMs = now - importDate;
+                                const diffMins = Math.floor(diffMs / 60000);
+                                const diffHours = Math.floor(diffMs / 3600000);
+                                const diffDays = Math.floor(diffMs / 86400000);
+                                
+                                let timeAgo = '';
+                                if (diffMins < 1) {
+                                    timeAgo = 'just now';
+                                } else if (diffMins < 60) {
+                                    timeAgo = `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+                                } else if (diffHours < 24) {
+                                    timeAgo = `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+                                } else {
+                                    timeAgo = `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+                                }
+                                
+                                const formattedDate = importDate.toLocaleString();
+                                const recordsText = plugin.last_import_records !== null && plugin.last_import_records !== undefined
+                                    ? `${plugin.last_import_records} record${plugin.last_import_records !== 1 ? 's' : ''}`
+                                    : 'N/A';
+                                
+                                lastImportHtml = `
+                                    <div style="margin: 10px 0; padding: 8px; background: var(--bg-tertiary); border-radius: 4px; border-left: 3px solid var(--accent-color);">
+                                        <p style="margin: 0; font-size: 12px; color: var(--text-secondary);">
+                                            <strong style="color: var(--text-primary);">Last Import:</strong><br>
+                                            ${formattedDate} (${timeAgo})<br>
+                                            <strong style="color: var(--text-primary);">Records:</strong> ${recordsText}
+                                        </p>
+                                    </div>
+                                `;
+                            } else {
+                                lastImportHtml = `
+                                    <div style="margin: 10px 0; padding: 8px; background: var(--bg-tertiary); border-radius: 4px; border-left: 3px solid #6c757d;">
+                                        <p style="margin: 0; font-size: 12px; color: var(--text-secondary);">
+                                            <strong style="color: var(--text-primary);">Last Import:</strong> Never
+                                        </p>
+                                    </div>
+                                `;
+                            }
+                            
                             // Special handling for whatsapp_angel plugin (file upload)
                             if (plugin.name === 'whatsapp_angel') {
                                 return `
                                 <div class="plugin-card">
                                     <h3>${plugin.name}</h3>
                                     <p>Status: ${plugin.enabled ? 'Enabled' : 'Disabled'}</p>
+                                    ${lastImportHtml}
                                     ${progressHtml}
                                     <div style="margin-top: 10px;">
                                         <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 600;">
@@ -1514,6 +1560,7 @@
                             <div class="plugin-card">
                                 <h3>${plugin.name}</h3>
                                 <p>Status: ${plugin.enabled ? 'Enabled' : 'Disabled'}</p>
+                                ${lastImportHtml}
                                 ${authInfo || ''}
                                 ${progressHtml}
                                 <button class="btn" onclick="authenticatePlugin('${plugin.name}')" style="margin-top: 5px;">
