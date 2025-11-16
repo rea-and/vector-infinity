@@ -2176,18 +2176,24 @@
         let allThreads = [];
         
         async function initChat() {
-            // Load all threads
-            await loadChatThreads();
-            
-            // Try to restore last thread from localStorage
-            const savedThreadId = localStorage.getItem('currentThreadId');
-            if (savedThreadId && allThreads.find(t => t.thread_id === savedThreadId)) {
-                await switchToThread(savedThreadId);
-            } else if (allThreads.length > 0) {
-                // Load most recent thread
-                await switchToThread(allThreads[0].thread_id);
-            } else {
-                // Create new thread if none exist
+            try {
+                // Load all threads
+                await loadChatThreads();
+                
+                // Try to restore last thread from localStorage
+                const savedThreadId = localStorage.getItem('currentThreadId');
+                if (savedThreadId && allThreads.find(t => t.thread_id === savedThreadId)) {
+                    await switchToThread(savedThreadId);
+                } else if (allThreads.length > 0) {
+                    // Load most recent thread
+                    await switchToThread(allThreads[0].thread_id);
+                } else {
+                    // Create new thread if none exist
+                    await newChatThread();
+                }
+            } catch (error) {
+                console.error('Error initializing chat:', error);
+                // If initialization fails, try to create a new thread
                 await newChatThread();
             }
         }
@@ -2200,9 +2206,12 @@
                 }
                 const data = await response.json();
                 allThreads = data.threads || [];
+                console.log('Loaded threads:', allThreads.length, allThreads);
                 renderThreadsList();
             } catch (error) {
                 console.error('Error loading chat threads:', error);
+                allThreads = [];
+                renderThreadsList();
             }
         }
         
@@ -2422,6 +2431,14 @@
                 const response = await fetch(`${API_BASE}/chat/threads/${currentThreadId}/messages`);
                 
                 if (!response.ok) {
+                    if (response.status === 404) {
+                        // Thread not found, clear it and create a new one
+                        console.warn('Thread not found, creating new thread');
+                        currentThreadId = null;
+                        localStorage.removeItem('currentThreadId');
+                        await newChatThread();
+                        return;
+                    }
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 

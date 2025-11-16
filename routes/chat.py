@@ -145,7 +145,17 @@ def send_chat_message(thread_id):
 @login_required
 def get_chat_messages(thread_id):
     """Get all messages from a chat thread."""
+    db = SessionLocal()
     try:
+        # Verify thread belongs to user
+        chat_thread = db.query(ChatThread).filter(
+            ChatThread.thread_id == thread_id,
+            ChatThread.user_id == current_user.id
+        ).first()
+        
+        if not chat_thread:
+            return jsonify({"error": "Thread not found or access denied"}), 404
+        
         assistant_service = AssistantService()
         
         messages = assistant_service.get_thread_messages(thread_id)
@@ -153,4 +163,6 @@ def get_chat_messages(thread_id):
     except Exception as e:
         logger.error(f"Error getting messages: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
 
