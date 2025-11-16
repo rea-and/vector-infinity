@@ -105,6 +105,20 @@ class VectorStoreService:
                         doc_parts.append(f"Date: {source_timestamp.strftime('%Y-%m-%d')}")
                     if content:
                         doc_parts.append(content)
+                elif item_type == "github_file":
+                    doc_parts.append("Type: GitHub File")
+                    if title:
+                        doc_parts.append(f"File: {title}")
+                    if metadata.get("github_url"):
+                        doc_parts.append(f"URL: {metadata['github_url']}")
+                    if metadata.get("repo"):
+                        doc_parts.append(f"Repository: {metadata['repo']}")
+                    if metadata.get("path"):
+                        doc_parts.append(f"Path: {metadata['path']}")
+                    if source_timestamp:
+                        doc_parts.append(f"Date: {source_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+                    if content:
+                        doc_parts.append(content)
                 else:  # email and other types
                     doc_parts.append("Type: Email")
                     if title:

@@ -390,12 +390,15 @@ class DataImporter:
                     
                     db.commit()
                     
+                    logger.info(f"Saved {records_imported} new items to database for {plugin_name} (user {user_id})")
+                    
                     # Upload new items to vector store
                     if items_to_upload:
                         try:
                             from vector_store_service import VectorStoreService
                             vector_store_service = VectorStoreService()
                             
+                            logger.info(f"Preparing to upload {len(items_to_upload)} items to vector store for {plugin_name} (user {user_id})")
                             log_entry.progress_message = f"Uploading {len(items_to_upload)} items to vector store..."
                             db.commit()
                             
@@ -416,12 +419,13 @@ class DataImporter:
                                 # Only wait for processing on the last batch to ensure data is available
                                 # This allows OpenAI to process files in parallel for better performance
                                 wait_for_processing = (batch_num == total_batches)
+                                logger.info(f"Uploading batch {batch_num}/{total_batches} to vector store for {plugin_name} (user {user_id}): {len(batch_items)} items")
                                 success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items, user_id=user_id, wait_for_processing=wait_for_processing)
                                 if success:
                                     total_uploaded += len(batch_items)
-                                    logger.info(f"Uploaded batch {batch_num}/{total_batches} to vector store ({batch_end}/{len(items_to_upload)} items)")
+                                    logger.info(f"Successfully uploaded batch {batch_num}/{total_batches} to vector store ({batch_end}/{len(items_to_upload)} items) for user {user_id}")
                                 else:
-                                    logger.warning(f"Failed to upload batch {batch_num}/{total_batches} to vector store")
+                                    logger.warning(f"Failed to upload batch {batch_num}/{total_batches} to vector store for user {user_id}")
                             
                             logger.info(f"Uploaded {total_uploaded} items to vector store for {plugin_name}")
                             log_entry.progress_message = f"Successfully uploaded {total_uploaded} items to vector store"
