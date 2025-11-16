@@ -3078,34 +3078,55 @@
         }
         
         async function resetPlugin(pluginName) {
+            console.log('resetPlugin called for:', pluginName);
+            
             // Confirmation
             const confirmed = confirm(`⚠️ WARNING: This will delete ALL data for the "${pluginName}" plugin.\n\nThis includes:\n- All imported data items\n- All import logs\n\nThis action CANNOT be undone.\n\nAre you sure you want to reset this plugin?`);
             if (!confirmed) {
+                console.log('Reset cancelled by user');
                 return;
             }
             
+            console.log('User confirmed reset, sending request...');
+            
             try {
-                const response = await fetch(`${API_BASE}/plugins/${pluginName}/reset`, {
+                const url = `${API_BASE}/plugins/${pluginName}/reset`;
+                console.log('Calling:', url);
+                
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'include',
                     body: JSON.stringify({confirm: true})
                 });
                 
-                const data = await response.json();
+                console.log('Response status:', response.status);
+                
+                let data;
+                try {
+                    data = await response.json();
+                    console.log('Response data:', data);
+                } catch (jsonError) {
+                    const text = await response.text();
+                    console.error('Error parsing JSON response:', jsonError, 'Response text:', text);
+                    alert(`✗ Error: Server returned invalid response (${response.status}). Check console for details.`);
+                    return;
+                }
                 
                 if (response.ok) {
                     alert(`✓ Success! Reset plugin "${pluginName}".\n\nDeleted:\n- ${data.items_deleted} data items\n- ${data.logs_deleted} import logs`);
                     // Refresh plugins, stats, and imports
+                    console.log('Refreshing plugins, stats, and imports...');
                     loadPlugins();
                     loadStats();
                     loadImports();
                 } else {
+                    console.error('Reset failed:', data);
                     alert(`✗ Error: ${data.error || 'Failed to reset plugin'}`);
                 }
             } catch (error) {
                 console.error('Error resetting plugin:', error);
-                alert('✗ Error: Failed to reset plugin. Please try again.');
+                alert(`✗ Error: Failed to reset plugin. ${error.message}\n\nCheck browser console for details.`);
             }
         }
         
