@@ -338,7 +338,7 @@ class DataImporter:
                                 success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items)
                                 if success:
                                     total_uploaded += len(batch_items)
-                                    logger.info(f"Uploaded batch {batch_start//batch_size + 1} to vector store ({batch_end}/{len(items_to_embed)} items)")
+                                    logger.info(f"Uploaded batch {batch_start//batch_size + 1} to vector store ({batch_end}/{len(items_to_upload)} items)")
                                 else:
                                     logger.warning(f"Failed to upload batch {batch_start//batch_size + 1} to vector store")
                             
