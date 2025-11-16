@@ -128,8 +128,8 @@ class VectorStoreService:
                 
                 logger.info(f"Uploaded file {uploaded_file.id} for {plugin_name} to unified vector store")
                 
-                # Add file to vector store
-                vector_store_file = self.client.beta.vector_stores.files.create(
+                # Add file to vector store (using client.vector_stores, not client.beta.vector_stores)
+                vector_store_file = self.client.vector_stores.files.create(
                     vector_store_id=vector_store_id,
                     file_id=uploaded_file.id
                 )
@@ -141,7 +141,7 @@ class VectorStoreService:
                 max_wait = 300  # 5 minutes max
                 wait_time = 0
                 while wait_time < max_wait:
-                    file_status = self.client.beta.vector_stores.files.retrieve(
+                    file_status = self.client.vector_stores.files.retrieve(
                         vector_store_id=vector_store_id,
                         file_id=uploaded_file.id
                     )
