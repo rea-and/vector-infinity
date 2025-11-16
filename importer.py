@@ -282,7 +282,7 @@ class DataImporter:
                     db.commit()
                     
                     records_imported = 0
-                    items_to_embed = []
+                    items_to_upload = []
                     
                     for idx, item_data in enumerate(data_items):
                         if idx % 10 == 0 or idx == len(data_items) - 1:
@@ -311,28 +311,28 @@ class DataImporter:
                             db.add(new_item)
                             records_imported += 1
                             # Collect items for vector store upload
-                            items_to_embed.append(item_data)
+                            items_to_upload.append(item_data)
                     
                     db.commit()
                     
                     # Upload new items to vector store
-                    if items_to_embed:
+                    if items_to_upload:
                         try:
                             from vector_store_service import VectorStoreService
                             vector_store_service = VectorStoreService()
                             
-                            log_entry.progress_message = f"Uploading {len(items_to_embed)} items to vector store..."
+                            log_entry.progress_message = f"Uploading {len(items_to_upload)} items to vector store..."
                             db.commit()
                             
                             # Upload in batches to avoid overwhelming the API
                             batch_size = 100
                             total_uploaded = 0
                             
-                            for batch_start in range(0, len(items_to_embed), batch_size):
-                                batch_end = min(batch_start + batch_size, len(items_to_embed))
-                                batch_items = items_to_embed[batch_start:batch_end]
+                            for batch_start in range(0, len(items_to_upload), batch_size):
+                                batch_end = min(batch_start + batch_size, len(items_to_upload))
+                                batch_items = items_to_upload[batch_start:batch_end]
                                 
-                                log_entry.progress_message = f"Uploading to vector store: {batch_end}/{len(items_to_embed)} items..."
+                                log_entry.progress_message = f"Uploading to vector store: {batch_end}/{len(items_to_upload)} items..."
                                 db.commit()
                                 
                                 success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items)
