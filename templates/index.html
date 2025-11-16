@@ -1183,6 +1183,7 @@
             if (tabName === 'run') loadPlugins();
             if (tabName === 'chat') initChat();
             if (tabName === 'stats') loadStats();
+            if (tabName === 'users' && currentUser && currentUser.is_admin) loadUsers();
         }
         
         // Handle window resize - close sidebar if screen becomes larger
