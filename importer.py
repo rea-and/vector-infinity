@@ -95,7 +95,7 @@ class DataImporter:
             db.commit()
             
             records_imported = 0
-            items_to_embed = []  # Collect items for embedding generation
+            items_to_upload = []  # Collect items for vector store upload
             
             for idx, item_data in enumerate(data_items):
                 # Update progress every 10 items or on last item
@@ -126,48 +126,43 @@ class DataImporter:
                     db.add(new_item)
                     records_imported += 1
                     # Collect items for vector store upload
-                    items_to_embed.append(item_data)
-                
-                # Collect item for vector store sync
+                    items_to_upload.append(item_data)
             
             db.commit()
             
-            # Generate embeddings for items in smaller batches to avoid token limits
-            if items_to_embed:
-                log_entry.progress_message = f"Generating embeddings for {len(items_to_embed)} items..."
-                db.commit()
+            # Upload new items to vector store
+            if items_to_upload:
                 try:
-                    from embedding_service import EmbeddingService
-                    embedding_service = EmbeddingService()
+                    from vector_store_service import VectorStoreService
+                    vector_store_service = VectorStoreService()
                     
-                    # Process in smaller batches to avoid token limits (max ~300k tokens per request)
-                    # Estimate: ~1000 tokens per item on average, so batch size of 200 should be safe
-                    batch_size = 200
-                    total_embeddings_generated = 0
+                    log_entry.progress_message = f"Uploading {len(items_to_upload)} items to vector store..."
+                    db.commit()
                     
-                    for batch_start in range(0, len(items_to_embed), batch_size):
-                        batch_end = min(batch_start + batch_size, len(items_to_embed))
-                        batch_items = items_to_embed[batch_start:batch_end]
+                    # Upload in batches to avoid overwhelming the API
+                    batch_size = 100
+                    total_uploaded = 0
+                    
+                    for batch_start in range(0, len(items_to_upload), batch_size):
+                        batch_end = min(batch_start + batch_size, len(items_to_upload))
+                        batch_items = items_to_upload[batch_start:batch_end]
                         
-                        log_entry.progress_message = f"Generating embeddings: {batch_end}/{len(items_to_embed)} items..."
+                        log_entry.progress_message = f"Uploading to vector store: {batch_end}/{len(items_to_upload)} items..."
                         db.commit()
                         
-                        texts = [text for _, text in batch_items]
-                        embeddings = embedding_service.generate_embeddings_batch(texts)
-                        
-                        # Store embeddings
-                        for (item, _), embedding in zip(batch_items, embeddings):
-                            if embedding:
-                                item.embedding = embedding_service.embedding_to_bytes(embedding)
-                                total_embeddings_generated += 1
-                        
-                        db.commit()
-                        logger.info(f"Generated embeddings for batch {batch_start//batch_size + 1} ({batch_end}/{len(items_to_embed)} items)")
+                        success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items)
+                        if success:
+                            total_uploaded += len(batch_items)
+                            logger.info(f"Uploaded batch {batch_start//batch_size + 1} to vector store ({batch_end}/{len(items_to_upload)} items)")
+                        else:
+                            logger.warning(f"Failed to upload batch {batch_start//batch_size + 1} to vector store")
                     
-                    logger.info(f"Generated {total_embeddings_generated} embeddings for {plugin_name}")
+                    logger.info(f"Uploaded {total_uploaded} items to vector store for {plugin_name}")
+                    log_entry.progress_message = f"Successfully uploaded {total_uploaded} items to vector store"
+                    db.commit()
                 except Exception as e:
-                    logger.error(f"Failed to generate embeddings: {e}", exc_info=True)
-                    log_entry.progress_message = f"Warning: Embedding generation failed: {str(e)[:200]}"
+                    logger.error(f"Failed to upload to vector store: {e}", exc_info=True)
+                    log_entry.progress_message = f"Warning: Vector store upload failed: {str(e)[:200]}"
                     db.commit()
             
             db.commit()

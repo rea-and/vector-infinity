@@ -1,19 +1,19 @@
 # Vector Infinity
 
-A personal data aggregation system that imports data from multiple sources (Gmail, WhatsApp, WHOOP, etc.) and provides it as context for ChatGPT Custom GPTs via REST API endpoints.
+A personal data aggregation system that imports data from multiple sources (Gmail, WhatsApp, WHOOP, etc.) and provides it as context via OpenAI's Assistant API with Vector Stores. Chat directly with your data through the web UI.
 
 ## Features
 
 - **Plugin Architecture**: Easily extensible plugin system for adding new data sources
 - **Automated Daily Imports**: Scheduled daily imports from all configured sources
 - **Local Database**: All data stored locally in SQLite (lightweight, low RAM usage)
-- **Custom GPT Integration**: Each plugin exposes REST API endpoints for ChatGPT Custom GPTs
+- **OpenAI Assistant API**: Uses OpenAI's Assistant API with Vector Stores for intelligent chat
 - **Web UI Control Plane**: Responsive web interface for:
   - Viewing import logs
   - Manually triggering imports
+  - Chatting with your data
   - Viewing statistics
-  - API endpoint documentation
-- **OpenAPI Schemas**: Each plugin includes a JSON schema ready to upload to ChatGPT Custom GPT configuration
+  - Exporting data
 
 ## Requirements
 
@@ -75,7 +75,13 @@ Edit the `.env` file:
 nano .env
 ```
 
-**Note**: For semantic search functionality, you'll need to set `OPENAI_API_KEY` in your `.env` file. This is used to generate embeddings for semantic search. See the [Semantic Search Integration](#semantic-search-integration-recommended) section for details.
+**Note**: You'll need to set `OPENAI_API_KEY` in your `.env` file. This is required for:
+- Uploading data to OpenAI Vector Stores
+- Using the Assistant API for chat functionality
+
+```bash
+OPENAI_API_KEY=sk-your-api-key-here
+```
 
 The default port is 80. If you have an existing `.env` file with `WEB_PORT=5000`, update it to `WEB_PORT=80` or delete the line to use the default.
 
@@ -202,112 +208,50 @@ To create a new plugin:
 
 4. Enable the plugin by setting `"enabled": true` in `config.json`
 
-## Semantic Search Integration (Recommended)
+## Chat with Your Data
 
-**For handling large amounts of context (1000+ emails), use semantic search with vector embeddings.**
-
-Semantic search uses vector embeddings to find emails by meaning, not just keywords. This allows ChatGPT to find relevant emails even when they don't contain the exact words you're searching for.
-
-**Example:** Searching for "vacation plans" will find emails about "trip to Italy", "holiday booking", "travel arrangements", etc.
+This application uses OpenAI's Assistant API with Vector Stores to provide intelligent chat functionality directly in the web UI.
 
 ### How It Works
 
-1. **Import**: When you import data, embeddings are automatically generated for each email
-2. **Storage**: Embeddings are stored in your local SQLite database
-3. **Search**: When ChatGPT needs to search, it calls the semantic search endpoint
-4. **Results**: The endpoint finds the most similar emails using cosine similarity
+1. **Import**: When you import data, it's automatically uploaded to OpenAI Vector Stores (one per plugin)
+2. **Vector Stores**: OpenAI handles embeddings and vector search automatically
+3. **Assistant API**: Each plugin has an Assistant that uses its Vector Store for context
+4. **Chat**: Use the "Chat" tab in the web UI to ask questions about your data
 
 ### Prerequisites
 
-1. **OpenAI API Key**: Required for generating embeddings
+1. **OpenAI API Key**: Required for Vector Stores and Assistant API
 2. **Set in `.env` file**:
    ```
    OPENAI_API_KEY=sk-your-api-key-here
    ```
 
-### Setup Steps
+### Using the Chat Interface
 
-#### 1. Install Dependencies
+1. **Import Your Data**:
+   - Go to the "Run Imports" tab
+   - Click "Run Import" for the plugin you want to use
+   - Wait for the import to complete (data will be uploaded to Vector Stores)
 
-The setup script should have already installed the required packages. If not:
-```bash
-source venv/bin/activate
-pip install openai>=1.12.0 numpy>=1.24.0
-```
-
-#### 2. Import Your Data
-
-1. Go to the web UI: `https://your-domain.com`
-2. Navigate to the "Run Imports" tab
-3. Click "Run Import" for the `gmail_personal` plugin
-4. Wait for the import to complete
-   - **Embeddings are generated automatically during import**
-   - You'll see progress: "Generating embeddings for X items..."
-
-#### 3. Configure ChatGPT Custom GPT
-
-1. **Download the schema**: In the Vector Infinity web UI, click "Download Schema" for your plugin
-   - Or manually get: `plugins/gmail_personal/custom_gpt_schema.json`
-
-2. **Update the server URL**: Open the schema file and replace `https://vectorinfinity.com/` with your actual server URL
-
-3. **Add as Action in ChatGPT**:
-   - Go to [ChatGPT Custom GPTs](https://chat.openai.com/gpts)
-   - Create a new GPT or edit an existing one
-   - Go to "Configure" tab
-   - Scroll to "Actions" section
-   - Click "Create new action"
-   - Click "Import from URL" or paste the JSON schema content
-   - Paste the contents of `custom_gpt_schema.json`
-   - Add authentication if needed (API key, bearer token, etc.)
-   - Save the GPT
-
-#### 4. Use Your GPT
-
-Now when you chat with your Custom GPT, it will automatically:
-- Use the `semanticSearchGmailPersonal` action when you ask questions about emails
-- Find semantically similar emails (by meaning, not just keywords)
-- Include relevant context in responses
+2. **Start Chatting**:
+   - Go to the "Chat" tab
+   - Select the plugin you want to chat about (Gmail, WhatsApp, WHOOP)
+   - Type your question and press Enter
+   - The Assistant will use your imported data to answer
 
 **Example queries:**
-- "Find emails about my vacation" - will find emails about trips, holidays, travel, etc.
-- "What did I discuss with John about the project?" - will find relevant project emails
-- "Show me emails related to invoices" - will find billing, payment, receipt emails
+- "What emails did I receive about vacation plans?"
+- "Show me my recovery scores from last week"
+- "What did Angel and I discuss about dinner?"
 
 ### Benefits
 
-- **Semantic Understanding**: Finds emails by meaning, not just exact words
-- **Full Control**: Your data stays in your database
-- **No Quotas**: Uses your own embeddings, not OpenAI Vector Store quotas
-- **Fast**: Embeddings are pre-computed during import
-- **Scalable**: Can handle thousands of emails efficiently
-
-### Troubleshooting
-
-#### "No items with embeddings found"
-
-- Make sure you've run an import after setting `OPENAI_API_KEY`
-- Check the import logs to see if embedding generation succeeded
-- Re-run the import to generate embeddings
-
-#### Embedding generation fails
-
-- Check that `OPENAI_API_KEY` is set correctly in `.env`
-- Verify your API key has access to the embeddings API
-- Check the logs for detailed error messages
-
-#### Search returns no results
-
-- Make sure embeddings were generated (check import logs)
-- Try a different query - semantic search works best with descriptive queries
-- Check that you have emails imported for the plugin
-
-### Technical Details
-
-- **Embedding Model**: `text-embedding-3-small` (OpenAI)
-- **Similarity Metric**: Cosine similarity
-- **Storage**: Embeddings stored as BLOB in SQLite
-- **Batch Processing**: Embeddings generated in batches during import for efficiency
+- **Native Chat Experience**: Chat directly in the web UI, no external tools needed
+- **Semantic Understanding**: OpenAI's Vector Stores provide semantic search automatically
+- **No Manual Embedding Management**: OpenAI handles all embedding generation and storage
+- **Scalable**: Can handle large amounts of data efficiently
+- **Multi-Plugin Support**: Switch between different data sources easily
 
 
 ## API Endpoints
@@ -318,16 +262,14 @@ Now when you chat with your Custom GPT, it will automatically:
 - `POST /api/imports/run` - Run imports (optionally for specific plugin)
 - `GET /api/stats` - Get statistics
 
-### Plugin Context Endpoints (for Custom GPT)
-- `POST /api/plugins/{plugin_name}/semantic-search` - Semantic search using vector embeddings (Action)
-  - Body: `{"query": "search text", "top_k": 5}`
-  - Returns: Results sorted by similarity score
-  - This is the recommended endpoint for Custom GPT Actions
-
-Examples:
-- `POST /api/plugins/gmail_personal/semantic-search` with body `{"query": "vacation plans", "top_k": 5}`
-- `POST /api/plugins/whoop/semantic-search` with body `{"query": "recovery score", "top_k": 5}`
-- `POST /api/plugins/whatsapp_angel/semantic-search` with body `{"query": "dinner plans", "top_k": 5}`
+### Chat Endpoints
+- `POST /api/chat/threads` - Create a new chat thread
+  - Returns: `{"thread_id": "thread_..."}`
+- `POST /api/chat/threads/<thread_id>/messages` - Send a message
+  - Body: `{"message": "your question", "plugin_name": "gmail_personal"}`
+  - Returns: `{"response": "assistant response", "thread_id": "...", "assistant_id": "..."}`
+- `GET /api/chat/threads/<thread_id>/messages` - Get all messages from a thread
+  - Returns: `{"messages": [{"role": "user|assistant", "content": "...", "created_at": "..."}]}`
 
 ### Export Endpoints
 - `GET /api/export/emails` - Export all imported emails to a text file for ChatGPT knowledge upload
@@ -335,25 +277,23 @@ Examples:
 
 ## Architecture
 
-- **Database**: SQLite (lightweight, no separate server) for structured data and vector embeddings
+- **Database**: SQLite (lightweight, no separate server) for structured data storage
 - **Backend**: Flask (lightweight web framework) with REST API endpoints
 - **Scheduler**: APScheduler (background task scheduling)
-- **Frontend**: Vanilla HTML/CSS/JS (responsive, mobile-friendly) - Control plane only
-- **Embedding Service**: Generates and stores vector embeddings for semantic search
-- **Custom GPT Integration**: Each plugin exposes endpoints that ChatGPT can call via Actions
+- **Frontend**: Vanilla HTML/CSS/JS (responsive, mobile-friendly) with integrated chat interface
+- **Vector Stores**: OpenAI Vector Stores (one per plugin) for semantic search
+- **Assistant API**: OpenAI Assistants with Vector Store integration for chat
 
 ### How It Works
 
 1. **Import**: Plugins fetch data from various sources (Gmail, WhatsApp, WHOOP, etc.) on a schedule
 2. **Storage**: Data is stored in SQLite with metadata (title, content, timestamps, etc.)
-3. **Embeddings**: Vector embeddings are automatically generated during import for semantic search
-4. **API Access**: Each plugin exposes a semantic search endpoint:
-   - `/api/plugins/{plugin_name}/semantic-search` - Semantic search using vector embeddings (Action)
-5. **Export**: Export endpoints allow downloading data as text files for ChatGPT knowledge upload
-6. **Custom GPT**: Upload the plugin's `custom_gpt_schema.json` to ChatGPT Actions to enable the plugin
-7. **ChatGPT Integration**: ChatGPT automatically calls the semantic search endpoint when you ask questions about your data
+3. **Vector Store Upload**: Data is automatically uploaded to OpenAI Vector Stores during import
+4. **Assistant Creation**: Each plugin gets an Assistant that uses its Vector Store for context
+5. **Chat**: Users can chat directly in the web UI, and the Assistant uses Vector Store data to answer questions
+6. **Export**: Export endpoints allow downloading data as text files for external use
 
-This allows ChatGPT to access your personal data (emails, WhatsApp messages, WHOOP health data) as context when you're having conversations, using semantic search to find relevant information by meaning.
+This provides a seamless chat experience where you can ask questions about your personal data (emails, WhatsApp messages, WHOOP health data) and get intelligent answers using OpenAI's Assistant API with Vector Stores.
 
 ## Low RAM Optimization
 
@@ -362,8 +302,8 @@ The system is optimized for low RAM usage:
 - Lightweight Flask framework
 - Minimal dependencies
 - Efficient data storage
-- Embeddings stored in SQLite (no separate vector database needed)
-- Batch processing of embeddings during import to minimize memory usage
+- Vector Stores managed by OpenAI (no local vector database needed)
+- Batch processing during import to minimize memory usage
 
 ## Troubleshooting
 
