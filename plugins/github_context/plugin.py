@@ -116,7 +116,19 @@ class Plugin(DataSourcePlugin):
             raise Exception(f"GitHub API error ({response.status_code}): {error_details}")
         
         # Get file content (raw)
-        content = response.text
+        # Ensure proper encoding - GitHub API returns UTF-8
+        try:
+            content = response.text
+            if not content:
+                logger.warning(f"File {url_parts['path']} appears to be empty")
+        except UnicodeDecodeError as e:
+            logger.error(f"Error decoding file content for {url_parts['path']}: {e}")
+            # Try to decode with different encoding
+            try:
+                content = response.content.decode('utf-8', errors='replace')
+                logger.warning(f"Decoded file with error replacement for {url_parts['path']}")
+            except Exception as decode_error:
+                raise Exception(f"Unable to decode file content: {decode_error}")
         
         # Also get file metadata
         metadata_url = f"{GITHUB_API_BASE}/repos/{url_parts['owner']}/{url_parts['repo']}/contents/{url_parts['path']}"
@@ -184,9 +196,18 @@ class Plugin(DataSourcePlugin):
                 
                 file_data = self._fetch_file_from_github(url)
                 
+                # Validate that we got content
+                if not file_data.get('content'):
+                    logger.warning(f"File {file_data.get('path', url)} appears to be empty, skipping")
+                    continue
+                
                 # Create a data item
+                # Clean up the source_id to be filesystem-safe
+                safe_path = file_data['path'].replace('/', '_').replace('\\', '_')
+                source_id = f"github_{file_data['owner']}_{file_data['repo']}_{safe_path}"
+                
                 data_item = {
-                    "source_id": f"github_{file_data['owner']}_{file_data['repo']}_{file_data['path'].replace('/', '_')}",
+                    "source_id": source_id,
                     "item_type": "github_file",
                     "title": f"{file_data['filename']} ({file_data['repo']})",
                     "content": f"Source: GitHub - {file_data['owner']}/{file_data['repo']}\n"
@@ -207,7 +228,8 @@ class Plugin(DataSourcePlugin):
                 }
                 
                 data_items.append(data_item)
-                logger.info(f"Successfully fetched file: {file_data['filename']}")
+                content_length = len(file_data.get('content', ''))
+                logger.info(f"Successfully fetched file: {file_data['filename']} ({content_length} characters)")
                 
             except Exception as e:
                 logger.error(f"Error fetching file {url}: {e}", exc_info=True)
