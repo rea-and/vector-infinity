@@ -197,24 +197,31 @@ class Plugin(DataSourcePlugin):
                 file_data = self._fetch_file_from_github(url)
                 
                 # Validate that we got content
-                if not file_data.get('content'):
+                content = file_data.get('content', '').strip()
+                if not content:
                     logger.warning(f"File {file_data.get('path', url)} appears to be empty, skipping")
                     continue
                 
                 # Create a data item
                 # Clean up the source_id to be filesystem-safe
-                safe_path = file_data['path'].replace('/', '_').replace('\\', '_')
+                safe_path = file_data['path'].replace('/', '_').replace('\\', '_').replace(' ', '_')
+                # Remove any other potentially problematic characters
+                safe_path = ''.join(c if c.isalnum() or c in ('_', '-', '.') else '_' for c in safe_path)
                 source_id = f"github_{file_data['owner']}_{file_data['repo']}_{safe_path}"
+                
+                # Format content with proper structure
+                # Preserve the original content exactly as it appears in the file
+                formatted_content = f"Source: GitHub - {file_data['owner']}/{file_data['repo']}\n"
+                formatted_content += f"File: {file_data['path']}\n"
+                formatted_content += f"Branch: {file_data['branch']}\n"
+                formatted_content += f"URL: {file_data['url']}\n\n"
+                formatted_content += f"Content:\n{file_data['content']}"
                 
                 data_item = {
                     "source_id": source_id,
                     "item_type": "github_file",
                     "title": f"{file_data['filename']} ({file_data['repo']})",
-                    "content": f"Source: GitHub - {file_data['owner']}/{file_data['repo']}\n"
-                              f"File: {file_data['path']}\n"
-                              f"Branch: {file_data['branch']}\n"
-                              f"URL: {file_data['url']}\n\n"
-                              f"Content:\n{file_data['content']}",
+                    "content": formatted_content,
                     "metadata": {
                         "github_url": file_data['url'],
                         "owner": file_data['owner'],
