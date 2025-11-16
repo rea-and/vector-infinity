@@ -644,6 +644,12 @@
             overflow: hidden;
         }
         
+        /* Only show mobile title when chat tab is active */
+        #chat.tab-content.active ~ .chat-title-mobile,
+        body:has(#chat.tab-content.active) .chat-title-mobile {
+            /* Will be shown via media query */
+        }
+        
         .chat-title-mobile h2 {
             font-size: 14px;
             margin: 0;
@@ -663,7 +669,13 @@
             }
             
             .chat-title-mobile {
-                display: flex; /* Show mobile title bar */
+                display: none; /* Hidden by default */
+            }
+            
+            /* Show mobile title bar only when chat tab is active */
+            #chat.tab-content.active ~ .chat-title-mobile,
+            .main-content:has(#chat.tab-content.active) .chat-title-mobile {
+                display: flex;
             }
             
             .chat-messages {
@@ -1084,6 +1096,9 @@
         </div>
         
         <div class="main-content">
+            <div class="chat-title-mobile">
+                <h2 id="chat-thread-title-mobile">New Conversation</h2>
+            </div>
             <div id="chat" class="tab-content active">
                 <div class="chat-container">
                     <div class="chat-threads-sidebar">
