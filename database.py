@@ -1,6 +1,6 @@
 """Database models and connection."""
 from datetime import datetime, timezone
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, JSON, LargeBinary, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, JSON, LargeBinary, ForeignKey, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from flask_login import UserMixin
@@ -107,6 +107,7 @@ class PluginConfiguration(Base):
     
     # Unique constraint on user_id + plugin_name
     __table_args__ = (
+        UniqueConstraint('user_id', 'plugin_name', name='uq_plugin_config_user_plugin'),
         {'sqlite_autoincrement': True},
     )
 

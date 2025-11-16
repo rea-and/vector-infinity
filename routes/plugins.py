@@ -273,8 +273,29 @@ def update_plugin_config(plugin_name):
             )
             db.add(plugin_config)
         
-        db.commit()
-        db.refresh(plugin_config)
+        try:
+            db.commit()
+            db.refresh(plugin_config)
+        except Exception as commit_error:
+            db.rollback()
+            # Check if it's a unique constraint violation
+            if "UNIQUE constraint failed" in str(commit_error) or "unique constraint" in str(commit_error).lower():
+                # Try to get the existing config and update it
+                plugin_config = db.query(PluginConfiguration).filter(
+                    PluginConfiguration.user_id == current_user.id,
+                    PluginConfiguration.plugin_name == plugin_name
+                ).first()
+                if plugin_config:
+                    current_config = plugin_config.config_data.copy()
+                    current_config.update(data)
+                    plugin_config.config_data = current_config
+                    plugin_config.updated_at = datetime.now(timezone.utc)
+                    db.commit()
+                    db.refresh(plugin_config)
+                else:
+                    raise commit_error
+            else:
+                raise commit_error
         
         # Prepare response (don't include token in response)
         response_config = plugin_config.config_data.copy()

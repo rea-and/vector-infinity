@@ -2295,12 +2295,26 @@
                 const response = await fetch(`${API_BASE}/plugins/${pluginName}/config`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
+                    credentials: 'include',
                     body: JSON.stringify(configData)
                 });
                 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to save configuration');
+                    // Try to parse as JSON, but handle HTML error pages
+                    let errorMessage = 'Failed to save configuration';
+                    try {
+                        const contentType = response.headers.get('content-type');
+                        if (contentType && contentType.includes('application/json')) {
+                            const error = await response.json();
+                            errorMessage = error.error || errorMessage;
+                        } else {
+                            const text = await response.text();
+                            errorMessage = `Server error (${response.status}): ${text.substring(0, 200)}`;
+                        }
+                    } catch (e) {
+                        errorMessage = `HTTP error ${response.status}: ${response.statusText}`;
+                    }
+                    throw new Error(errorMessage);
                 }
                 
                 const result = await response.json();
