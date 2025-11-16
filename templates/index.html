@@ -821,6 +821,12 @@
                 display: flex;
             }
             
+            /* Hide hamburger menu when sidebar is open */
+            .sidebar.open ~ .menu-toggle,
+            body.sidebar-open .menu-toggle {
+                display: none;
+            }
+            
             .sidebar {
                 position: fixed;
                 top: 0;
@@ -1167,6 +1173,7 @@
             } else {
                 sidebar.classList.add('open');
                 overlay.classList.add('active');
+                document.body.classList.add('sidebar-open');
                 document.body.style.overflow = 'hidden'; // Prevent body scroll when sidebar is open
             }
         }
@@ -1176,6 +1183,7 @@
             const overlay = document.getElementById('sidebar-overlay');
             sidebar.classList.remove('open');
             overlay.classList.remove('active');
+            document.body.classList.remove('sidebar-open');
             document.body.style.overflow = ''; // Restore body scroll
         }
         
