@@ -26,8 +26,9 @@ class VectorStoreService:
             return self._unified_vector_store_id
         
         # Try to find existing unified vector store (by name)
+        # Vector stores are accessed via client.vector_stores (not client.beta.vector_stores)
         try:
-            vector_stores = self.client.beta.vector_stores.list(limit=100)
+            vector_stores = self.client.vector_stores.list(limit=100)
             for vs in vector_stores.data:
                 if vs.name == "vector_infinity_unified":
                     logger.info(f"Found existing unified vector store: {vs.id}")
@@ -38,7 +39,7 @@ class VectorStoreService:
         
         # Create new unified vector store
         try:
-            vector_store = self.client.beta.vector_stores.create(
+            vector_store = self.client.vector_stores.create(
                 name="vector_infinity_unified",
                 description="Unified vector store for all Vector Infinity plugin data"
             )
