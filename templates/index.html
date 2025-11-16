@@ -1425,6 +1425,21 @@
     <script>
         const API_BASE = '/api';
         
+        // Event delegation for reset buttons (works with dynamically generated content)
+        document.addEventListener('click', function(e) {
+            if (e.target && e.target.hasAttribute('data-reset-plugin')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const pluginName = e.target.getAttribute('data-reset-plugin');
+                console.log('Reset button clicked for plugin:', pluginName);
+                if (typeof resetPlugin === 'function') {
+                    resetPlugin(pluginName);
+                } else {
+                    console.error('resetPlugin function not found!');
+                }
+            }
+        });
+        
         // Configure marked.js for markdown rendering (after libraries load)
         function configureMarkdown() {
             if (typeof marked !== 'undefined') {
