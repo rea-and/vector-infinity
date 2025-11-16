@@ -7,7 +7,7 @@ import json
 import importlib.util
 import secrets
 import logging
-from database import ImportLog, SessionLocal, PluginConfiguration
+from database import ImportLog, SessionLocal, PluginConfiguration, DataItem
 import config
 from services import plugin_loader, oauth_flows
 
@@ -74,6 +74,12 @@ def list_plugins():
                 last_import_time = dt.isoformat()
                 last_import_records = last_import.records_imported
             
+            # Get total number of records for this plugin (user-specific)
+            total_records = db.query(DataItem).filter(
+                DataItem.user_id == current_user.id,
+                DataItem.plugin_name == name
+            ).count()
+            
             # Check authentication status and last auth time
             auth_status = None
             last_auth_time = None
@@ -135,6 +141,7 @@ def list_plugins():
                 "config_schema": config_schema,
                 "last_import_time": last_import_time,
                 "last_import_records": last_import_records,
+                "total_records": total_records,
                 "auth_status": auth_status,
                 "last_auth_time": last_auth_time
             }
