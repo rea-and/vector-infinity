@@ -135,6 +135,10 @@ def list_plugins():
                 "auth_status": auth_status,
                 "last_auth_time": last_auth_time
             })
+        
+        # Sort plugins: enabled first (alphabetical), then disabled (alphabetical)
+        result.sort(key=lambda x: (not x["enabled"], x["name"].lower()))
+        
         return jsonify(result)
     finally:
         db.close()
