@@ -945,9 +945,14 @@
                 display: flex;
             }
             
-            /* Hide hamburger menu when sidebar is open */
+            /* Hide hamburger menu and title bar when sidebar is open */
             .sidebar.open ~ .menu-toggle,
             body.sidebar-open .menu-toggle {
+                display: none;
+            }
+            
+            .sidebar.open ~ .chat-title-mobile,
+            body.sidebar-open .chat-title-mobile {
                 display: none;
             }
             
