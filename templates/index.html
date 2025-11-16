@@ -329,6 +329,9 @@
                 <button class="btn" onclick="clearAllData()" style="background: #dc3545; margin-left: 10px;">
                     Clear All Data
                 </button>
+                <button class="btn btn-success" onclick="exportEmails()" style="margin-left: 10px;">
+                    📥 Export All Emails
+                </button>
                 <div id="stats-content"></div>
             </div>
         </div>
@@ -1149,6 +1152,43 @@
             } catch (error) {
                 console.error('Error loading stats:', error);
                 document.getElementById('stats-content').innerHTML = `<p style="color: red;">Error loading stats: ${error.message}</p>`;
+            }
+        }
+        
+        async function exportEmails() {
+            try {
+                const response = await fetch(`${API_BASE}/export/emails`);
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+                }
+                
+                // Get filename from Content-Disposition header or use default
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'emails_export.txt';
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+                    if (filenameMatch) {
+                        filename = filenameMatch[1];
+                    }
+                }
+                
+                // Create blob and download
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                // Show success message
+                alert(`✅ Successfully exported emails to ${filename}`);
+            } catch (error) {
+                console.error('Error exporting emails:', error);
+                alert(`❌ Error exporting emails: ${error.message}`);
             }
         }
         

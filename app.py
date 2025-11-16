@@ -1,5 +1,5 @@
 """Main Flask application."""
-from flask import Flask, jsonify, request, render_template_string, send_file, redirect, url_for
+from flask import Flask, jsonify, request, render_template_string, send_file, redirect, url_for, Response
 import tempfile
 import os
 from flask_cors import CORS
@@ -427,7 +427,6 @@ def get_unified_schema():
                 continue
     
     # Return as downloadable JSON file
-    from flask import Response
     import json as json_module
     
     response = Response(
@@ -848,6 +847,91 @@ def get_stats():
             "by_plugin": items_by_plugin,
             "by_type": items_by_type
         })
+    finally:
+        db.close()
+
+
+@app.route("/api/export/emails", methods=["GET"])
+def export_emails():
+    """Export all imported emails to a text file for ChatGPT knowledge upload."""
+    db = SessionLocal()
+    try:
+        # Query all emails from gmail_personal plugin
+        emails = db.query(DataItem).filter(
+            DataItem.plugin_name == "gmail_personal",
+            DataItem.item_type == "email"
+        ).order_by(DataItem.source_timestamp.desc()).all()
+        
+        if not emails:
+            return jsonify({"error": "No emails found to export"}), 404
+        
+        # Format emails for ChatGPT knowledge upload
+        lines = []
+        lines.append("=" * 80)
+        lines.append("EMAIL EXPORT FOR CHATGPT KNOWLEDGE")
+        lines.append(f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
+        lines.append(f"Total Emails: {len(emails)}")
+        lines.append("=" * 80)
+        lines.append("")
+        
+        for idx, email in enumerate(emails, 1):
+            lines.append(f"EMAIL #{idx}")
+            lines.append("-" * 80)
+            
+            # Subject
+            if email.title:
+                lines.append(f"Subject: {email.title}")
+            
+            # Metadata
+            if email.item_metadata:
+                metadata = email.item_metadata
+                if metadata.get("from"):
+                    lines.append(f"From: {metadata['from']}")
+                if metadata.get("to"):
+                    lines.append(f"To: {metadata['to']}")
+                if metadata.get("date"):
+                    lines.append(f"Date: {metadata['date']}")
+            
+            # Source timestamp
+            if email.source_timestamp:
+                lines.append(f"Timestamp: {email.source_timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+            
+            # Content
+            lines.append("")
+            if email.content:
+                # Remove "From: ..." prefix if it's already in metadata
+                content = email.content
+                if content.startswith("From:") and email.item_metadata and email.item_metadata.get("from"):
+                    # Skip the "From: ..." line if it's redundant
+                    lines_split = content.split("\n", 1)
+                    if len(lines_split) > 1:
+                        content = lines_split[1].strip()
+                    else:
+                        content = content
+                
+                lines.append("Content:")
+                lines.append(content)
+            
+            lines.append("")
+            lines.append("=" * 80)
+            lines.append("")
+        
+        # Create text file content
+        text_content = "\n".join(lines)
+        
+        # Return as downloadable text file
+        response = Response(
+            text_content,
+            mimetype='text/plain',
+            headers={
+                'Content-Disposition': f'attachment; filename=emails_export_{datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")}.txt'
+            }
+        )
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error exporting emails: {e}", exc_info=True)
+        return jsonify({"error": f"Error exporting emails: {str(e)}"}), 500
     finally:
         db.close()
 
