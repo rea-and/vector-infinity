@@ -789,7 +789,7 @@
             }
             
             .chat-messages {
-                padding-top: 72px; /* Space for hamburger + title bar (40px + 16px gap + 16px) */
+                padding-top: 88px !important; /* Space for hamburger (16px top + 40px height + 16px gap) + title bar (40px height + 16px gap) */
             }
         }
         
@@ -798,6 +798,11 @@
             overflow-y: auto;
             padding: 24px;
             background: var(--bg-primary);
+        }
+        
+        /* Ensure chat messages start below the chat header on desktop */
+        .chat-main-area .chat-messages {
+            padding-top: 0; /* Chat header is in normal flow, no extra padding needed */
         }
         
         .chat-message {
@@ -1189,7 +1194,7 @@
             
             .chat-messages {
                 padding: 16px;
-                padding-top: 0; /* Remove top padding for chat since main-content already has it */
+                padding-top: 88px !important; /* Space for hamburger + title bar on mobile */
                 padding-bottom: 8px;
             }
             
