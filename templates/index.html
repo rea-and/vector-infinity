@@ -352,6 +352,9 @@
                 <button class="btn btn-success" onclick="exportWhoop()" style="margin-left: 10px;">
                     📥 Export WHOOP Data
                 </button>
+                <button class="btn" onclick="reuploadToVectorStore()" style="margin-left: 10px; background: #17a2b8; color: white;">
+                    🔄 Re-upload All Data to Vector Store
+                </button>
                 <div id="stats-content"></div>
             </div>
         </div>
@@ -840,6 +843,45 @@
             } catch (error) {
                 console.error('Error starting authentication:', error);
                 alert(`Error: ${error.message}`);
+            }
+        }
+        
+        async function reuploadToVectorStore() {
+            if (!confirm('This will re-upload all data from your database to the vector store. This may take a while. Continue?')) {
+                return;
+            }
+            
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> Re-uploading...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/vector-store/reupload`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert(`✓ Success! Re-uploaded ${data.total_uploaded} items to vector store.\n\nResults:\n${Object.entries(data.results).map(([plugin, info]) => `- ${plugin}: ${info.uploaded}/${info.total_items} items`).join('\n')}`);
+                    btn.innerHTML = '✓ Complete';
+                    btn.style.background = '#28a745';
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.innerHTML = originalText;
+                        btn.style.background = '#17a2b8';
+                    }, 3000);
+                } else {
+                    alert(`❌ Error: ${data.error}`);
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            } catch (error) {
+                console.error('Error re-uploading to vector store:', error);
+                alert(`❌ Error: ${error.message}`);
+                btn.disabled = false;
+                btn.innerHTML = originalText;
             }
         }
         

@@ -358,6 +358,93 @@ def get_chat_messages(thread_id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/vector-store/info", methods=["GET"])
+def get_vector_store_info():
+    """Get information about the unified vector store."""
+    try:
+        from vector_store_service import VectorStoreService
+        vector_store_service = VectorStoreService()
+        
+        info = vector_store_service.get_vector_store_info()
+        if not info:
+            return jsonify({"error": "Vector store not found or not accessible"}), 404
+        
+        return jsonify(info)
+    except Exception as e:
+        logger.error(f"Error getting vector store info: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/vector-store/reupload", methods=["POST"])
+def reupload_all_data_to_vector_store():
+    """Re-upload all existing data from the database to the vector store."""
+    try:
+        from vector_store_service import VectorStoreService
+        from database import DataItem, SessionLocal
+        
+        vector_store_service = VectorStoreService()
+        db = SessionLocal()
+        
+        try:
+            # Get all data items from database
+            all_items = db.query(DataItem).all()
+            
+            if not all_items:
+                return jsonify({"error": "No data items found in database"}), 404
+            
+            # Group by plugin
+            items_by_plugin = {}
+            for item in all_items:
+                if item.plugin_name not in items_by_plugin:
+                    items_by_plugin[item.plugin_name] = []
+                
+                items_by_plugin[item.plugin_name].append({
+                    "source_id": item.source_id,
+                    "item_type": item.item_type,
+                    "title": item.title,
+                    "content": item.content,
+                    "metadata": item.item_metadata or {},
+                    "source_timestamp": item.source_timestamp
+                })
+            
+            # Upload each plugin's data
+            total_uploaded = 0
+            results = {}
+            
+            for plugin_name, items in items_by_plugin.items():
+                logger.info(f"Re-uploading {len(items)} items from {plugin_name} to vector store")
+                
+                # Upload in batches
+                batch_size = 100
+                plugin_uploaded = 0
+                
+                for batch_start in range(0, len(items), batch_size):
+                    batch_end = min(batch_start + batch_size, len(items))
+                    batch_items = items[batch_start:batch_end]
+                    
+                    success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items)
+                    if success:
+                        plugin_uploaded += len(batch_items)
+                        total_uploaded += len(batch_items)
+                
+                results[plugin_name] = {
+                    "total_items": len(items),
+                    "uploaded": plugin_uploaded
+                }
+            
+            return jsonify({
+                "success": True,
+                "total_items": len(all_items),
+                "total_uploaded": total_uploaded,
+                "results": results
+            })
+        finally:
+            db.close()
+    except Exception as e:
+        logger.error(f"Error re-uploading data to vector store: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/plugins/<plugin_name>/auth/start", methods=["POST"])
 def start_plugin_auth(plugin_name):
     """Start OAuth flow for a plugin and return authorization URL."""

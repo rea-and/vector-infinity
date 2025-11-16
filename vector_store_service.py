@@ -172,4 +172,28 @@ class VectorStoreService:
     def get_unified_vector_store_id(self) -> Optional[str]:
         """Get the unified vector store ID."""
         return self._unified_vector_store_id or self.get_or_create_unified_vector_store()
+    
+    def get_vector_store_info(self) -> Optional[Dict[str, Any]]:
+        """Get information about the unified vector store including file count."""
+        vector_store_id = self.get_unified_vector_store_id()
+        if not vector_store_id:
+            return None
+        
+        try:
+            # Get vector store details
+            vector_store = self.client.vector_stores.retrieve(vector_store_id)
+            
+            # List files in the vector store
+            files = self.client.vector_stores.files.list(vector_store_id=vector_store_id, limit=100)
+            file_count = len(files.data) if hasattr(files, 'data') else 0
+            
+            return {
+                "id": vector_store.id,
+                "name": vector_store.name,
+                "file_count": file_count,
+                "status": getattr(vector_store, 'status', 'unknown')
+            }
+        except Exception as e:
+            logger.error(f"Error getting vector store info: {e}", exc_info=True)
+            return None
 
