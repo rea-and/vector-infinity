@@ -202,43 +202,56 @@ class Plugin(DataSourcePlugin):
                     logger.warning(f"File {file_data.get('path', url)} appears to be empty, skipping")
                     continue
                 
-                # Create a data item
-                # Clean up the source_id to be filesystem-safe
-                # Use the path as-is but replace slashes and spaces
+                # Clean up the path for source_id generation
                 safe_path = file_data['path'].replace('/', '_').replace('\\', '_').replace(' ', '_')
-                # Remove any other potentially problematic characters
                 safe_path = ''.join(c if c.isalnum() or c in ('_', '-', '.') else '_' for c in safe_path)
-                source_id = f"github_{file_data['owner']}_{file_data['repo']}_{safe_path}"
-                logger.debug(f"Generated source_id: {source_id} for path: {file_data['path']}")
                 
-                # Format content with proper structure
-                # Preserve the original content exactly as it appears in the file
-                formatted_content = f"Source: GitHub - {file_data['owner']}/{file_data['repo']}\n"
-                formatted_content += f"File: {file_data['path']}\n"
-                formatted_content += f"Branch: {file_data['branch']}\n"
-                formatted_content += f"URL: {file_data['url']}\n\n"
-                formatted_content += f"Content:\n{file_data['content']}"
+                # Split file content into lines and create a record for each non-empty line
+                lines = content.split('\n')
+                non_empty_lines = [line.strip() for line in lines if line.strip()]
                 
-                data_item = {
-                    "source_id": source_id,
-                    "item_type": "github_file",
-                    "title": f"{file_data['filename']} ({file_data['repo']})",
-                    "content": formatted_content,
-                    "metadata": {
-                        "github_url": file_data['url'],
-                        "owner": file_data['owner'],
-                        "repo": file_data['repo'],
-                        "branch": file_data['branch'],
-                        "path": file_data['path'],
-                        "filename": file_data['filename'],
-                        **file_data['metadata']
-                    },
-                    "source_timestamp": datetime.now(timezone.utc)  # Use current time as we don't have file modification time easily
-                }
+                if not non_empty_lines:
+                    logger.warning(f"File {file_data.get('path', url)} has no non-empty lines, skipping")
+                    continue
                 
-                data_items.append(data_item)
+                logger.info(f"Processing {len(non_empty_lines)} lines from file: {file_data['filename']}")
+                
+                # Create a data item for each line
+                for line_num, line_content in enumerate(non_empty_lines, start=1):
+                    # Create unique source_id for each line
+                    source_id = f"github_{file_data['owner']}_{file_data['repo']}_{safe_path}_line_{line_num}"
+                    
+                    # Format content with proper structure
+                    formatted_content = f"Source: GitHub - {file_data['owner']}/{file_data['repo']}\n"
+                    formatted_content += f"File: {file_data['path']}\n"
+                    formatted_content += f"Branch: {file_data['branch']}\n"
+                    formatted_content += f"URL: {file_data['url']}\n"
+                    formatted_content += f"Line: {line_num}\n\n"
+                    formatted_content += f"Content:\n{line_content}"
+                    
+                    data_item = {
+                        "source_id": source_id,
+                        "item_type": "github_file",
+                        "title": f"{file_data['filename']} - Line {line_num} ({file_data['repo']})",
+                        "content": formatted_content,
+                        "metadata": {
+                            "github_url": file_data['url'],
+                            "owner": file_data['owner'],
+                            "repo": file_data['repo'],
+                            "branch": file_data['branch'],
+                            "path": file_data['path'],
+                            "filename": file_data['filename'],
+                            "line_number": line_num,
+                            "total_lines": len(non_empty_lines),
+                            **file_data['metadata']
+                        },
+                        "source_timestamp": datetime.now(timezone.utc)
+                    }
+                    
+                    data_items.append(data_item)
+                
                 content_length = len(file_data.get('content', ''))
-                logger.info(f"Successfully fetched file: {file_data['filename']} ({content_length} characters)")
+                logger.info(f"Successfully processed file: {file_data['filename']} ({content_length} characters, {len(non_empty_lines)} records created)")
                 
             except Exception as e:
                 logger.error(f"Error fetching file {url}: {e}", exc_info=True)
