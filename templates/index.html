@@ -911,13 +911,16 @@
                     💬 Chat
                 </div>
                 <div class="nav-item" onclick="showTab('run')" data-tab="run">
-                    ⚡ Run Imports
+                    ⚡ Plugins
                 </div>
                 <div class="nav-item" onclick="showTab('imports')" data-tab="imports">
                     📋 Import Logs
                 </div>
                 <div class="nav-item" onclick="showTab('stats')" data-tab="stats">
                     📊 Statistics
+                </div>
+                <div class="nav-item" onclick="showTab('settings')" data-tab="settings">
+                    ⚙️ Settings
                 </div>
             </div>
         </div>
@@ -957,7 +960,7 @@
             <div id="run" class="tab-content">
                 <div class="container">
                     <div class="card">
-                        <h2>Run Imports</h2>
+                        <h2>Plugins</h2>
                         <button class="btn btn-success" onclick="runAllImports()">Run All Imports</button>
                         <div id="plugins-list"></div>
                     </div>
@@ -969,9 +972,6 @@
                     <div class="card">
                         <h2>Statistics</h2>
                         <button class="btn" onclick="loadStats()">Refresh</button>
-                        <button class="btn btn-danger" onclick="clearAllData()">
-                            Clear All Data
-                        </button>
                         <button class="btn btn-success" onclick="exportEmails()">
                             📥 Export All Emails
                         </button>
@@ -982,6 +982,23 @@
                             🔄 Re-upload All Data to Vector Store
                         </button>
                         <div id="stats-content"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="settings" class="tab-content">
+                <div class="container">
+                    <div class="card">
+                        <h2>Settings</h2>
+                        <div style="margin-top: 20px;">
+                            <h3>Data Management</h3>
+                            <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                                Clear all imported data from the database. This action cannot be undone.
+                            </p>
+                            <button class="btn btn-danger" onclick="clearAllData()">
+                                Clear All Data
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
