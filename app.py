@@ -29,8 +29,12 @@ def load_user(user_id):
     """Load user from database."""
     db = SessionLocal()
     try:
-        return db.query(User).get(int(user_id))
-    except:
+        user = db.query(User).get(int(user_id))
+        if user:
+            logger.debug(f"Loaded user: {user.email} (ID: {user.id})")
+        return user
+    except Exception as e:
+        logger.error(f"Error loading user {user_id}: {e}", exc_info=True)
         return None
     finally:
         db.close()

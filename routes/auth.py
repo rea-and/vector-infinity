@@ -118,7 +118,14 @@ def login():
             db.close()
     except Exception as e:
         logger.error(f"Error logging in user: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        # Return a more user-friendly error message
+        error_msg = str(e)
+        # Don't expose internal errors to users, but log them
+        if "check_password_hash" in error_msg or "password_hash" in error_msg:
+            return jsonify({"error": "Authentication error. Please contact support."}), 500
+        return jsonify({"error": f"Login error: {error_msg}"}), 500
 
 
 @bp.route("/logout", methods=["POST"])

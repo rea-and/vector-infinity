@@ -338,7 +338,17 @@
                     body: JSON.stringify(formData)
                 });
 
-                const data = await response.json();
+                let data;
+                try {
+                    data = await response.json();
+                } catch (jsonError) {
+                    console.error('Error parsing JSON response:', jsonError);
+                    const text = await response.text();
+                    console.error('Response text:', text);
+                    showError(`Server error (${response.status}): ${response.statusText}. Please check the server logs.`);
+                    form.classList.remove('loading');
+                    return;
+                }
 
                 if (response.ok && data.success) {
                     showSuccess('Login successful! Redirecting...');
@@ -346,14 +356,20 @@
                         window.location.href = '/';
                     }, 500);
                 } else {
-                    const errorMsg = data.error || 'Login failed. Please check your credentials.';
+                    const errorMsg = data.error || `Login failed (${response.status}). Please check your credentials.`;
+                    console.error('Login failed:', data);
                     showError(errorMsg);
                     form.classList.remove('loading');
                 }
             } catch (error) {
-                showError('An error occurred. Please try again.');
-                form.classList.remove('loading');
                 console.error('Login error:', error);
+                // Try to get error message from response if available
+                let errorMsg = 'An error occurred. Please try again.';
+                if (error.message) {
+                    errorMsg = error.message;
+                }
+                showError(errorMsg);
+                form.classList.remove('loading');
             }
         }
 
