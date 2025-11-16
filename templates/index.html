@@ -2032,17 +2032,6 @@
                 `;
                 document.getElementById('plugins-list').innerHTML = html;
                 
-                // Attach event listeners to reset buttons (delegated event handling)
-                document.querySelectorAll('[data-reset-plugin]').forEach(button => {
-                    button.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const pluginName = this.getAttribute('data-reset-plugin');
-                        console.log('Reset button clicked for plugin:', pluginName);
-                        resetPlugin(pluginName);
-                    });
-                });
-                
                 // Start polling for running imports
                 Object.entries(runningImports).forEach(([pluginName, importData]) => {
                     if (importData.status === 'running') {
