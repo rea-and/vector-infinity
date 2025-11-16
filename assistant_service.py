@@ -3,8 +3,11 @@ import os
 import logging
 from typing import Optional, List, Dict, Any
 from openai import OpenAI
+from database import UserSettings, SessionLocal
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_INSTRUCTIONS = "You are a helpful assistant that can answer questions using both your general knowledge and any relevant context from imported data (Gmail, WhatsApp, WHOOP, etc.). Answer questions naturally and directly. If you find relevant information in the imported data, mention the source when helpful. If the question is about general topics not covered in the imported data, answer using your general knowledge without mentioning that the information wasn't found in the files. Be concise and helpful."
 
 
 class AssistantService:
@@ -17,6 +20,20 @@ class AssistantService:
         self.client = OpenAI(api_key=api_key)
         self._unified_assistant_id = None  # Cache unified assistant ID
     
+    def _get_instructions(self, user_id: int = None) -> str:
+        """Get assistant instructions for a user (custom or default)."""
+        if user_id is None:
+            return DEFAULT_INSTRUCTIONS
+        
+        db = SessionLocal()
+        try:
+            settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).first()
+            if settings and settings.assistant_instructions:
+                return settings.assistant_instructions
+            return DEFAULT_INSTRUCTIONS
+        finally:
+            db.close()
+    
     def get_or_create_unified_assistant(self, vector_store_id: str, user_id: int = None) -> Optional[str]:
         """
         Get or create a unified assistant for all plugins (user-specific).
@@ -28,29 +45,32 @@ class AssistantService:
         Returns:
             Assistant ID or None
         """
+        instructions = self._get_instructions(user_id)
         cache_key = f"user_{user_id}" if user_id else "default"
         cached_id = getattr(self, f'_unified_assistant_id_{cache_key}', None)
+        assistant_name = f"vector_infinity_unified_user_{user_id}" if user_id else "vector_infinity_unified"
+        
         if cached_id:
             # Verify assistant still exists and update vector store if needed
             try:
                 assistant = self.client.beta.assistants.retrieve(cached_id)
-                # Update vector store if it changed
+                # Update vector store if it changed, or instructions if they changed
                 current_vs_ids = []
                 if assistant.tool_resources and assistant.tool_resources.file_search:
                     current_vs_ids = assistant.tool_resources.file_search.vector_store_ids or []
                 
-                if [vector_store_id] != current_vs_ids:
+                if [vector_store_id] != current_vs_ids or assistant.instructions != instructions:
                     # Update assistant with new vector store and instructions
                     assistant = self.client.beta.assistants.update(
                         assistant.id,
-                        instructions="You are a helpful assistant that can answer questions using both your general knowledge and any relevant context from imported data (Gmail, WhatsApp, WHOOP, etc.). Answer questions naturally and directly. If you find relevant information in the imported data, mention the source when helpful. If the question is about general topics not covered in the imported data, answer using your general knowledge without mentioning that the information wasn't found in the files. Be concise and helpful.",
+                        instructions=instructions,
                         tool_resources={
                             "file_search": {
                                 "vector_store_ids": [vector_store_id]
                             }
                         }
                     )
-                    logger.info(f"Updated unified assistant {assistant.id} with new vector store")
+                    logger.info(f"Updated unified assistant {assistant.id} with new vector store and/or instructions")
                 
                 return assistant.id
             except Exception as e:
@@ -61,13 +81,12 @@ class AssistantService:
         try:
             assistants = self.client.beta.assistants.list(limit=100)
             for assistant in assistants.data:
-                assistant_name = f"vector_infinity_unified_user_{user_id}" if user_id else "vector_infinity_unified"
                 if assistant.name == assistant_name:
                     logger.info(f"Found existing unified assistant for user {user_id}: {assistant.id}")
                     # Update vector store and instructions
                     assistant = self.client.beta.assistants.update(
                         assistant.id,
-                        instructions="You are a helpful assistant that can answer questions using both your general knowledge and any relevant context from imported data (Gmail, WhatsApp, WHOOP, etc.). Answer questions naturally and directly. If you find relevant information in the imported data, mention the source when helpful. If the question is about general topics not covered in the imported data, answer using your general knowledge without mentioning that the information wasn't found in the files. Be concise and helpful.",
+                        instructions=instructions,
                         tool_resources={
                             "file_search": {
                                 "vector_store_ids": [vector_store_id]
@@ -89,7 +108,7 @@ class AssistantService:
             
             assistant = self.client.beta.assistants.create(
                 name=assistant_name,
-                instructions="You are a helpful assistant that can answer questions using both your general knowledge and any relevant context from imported data (Gmail, WhatsApp, WHOOP, etc.). Answer questions naturally and directly. If you find relevant information in the imported data, mention the source when helpful. If the question is about general topics not covered in the imported data, answer using your general knowledge without mentioning that the information wasn't found in the files. Be concise and helpful.",
+                instructions=instructions,
                 model="gpt-4o-mini",  # Use gpt-4o-mini for cost efficiency
                 tools=[{"type": "file_search"}],
                 tool_resources=tool_resources

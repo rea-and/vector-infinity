@@ -6,7 +6,7 @@ import tempfile
 import logging
 from pathlib import Path
 from datetime import datetime, timezone
-from database import ImportLog, DataItem, SessionLocal, engine, Base
+from database import ImportLog, DataItem, SessionLocal, engine, Base, UserSettings
 from vector_store_service import VectorStoreService
 import config
 
@@ -345,4 +345,66 @@ def reupload_all_data_to_vector_store():
     except Exception as e:
         logger.error(f"Error re-uploading data to vector store: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/settings/assistant-instructions", methods=["GET"])
+@login_required
+def get_assistant_instructions():
+    """Get the current assistant instructions for the user."""
+    db = SessionLocal()
+    try:
+        settings = db.query(UserSettings).filter(UserSettings.user_id == current_user.id).first()
+        
+        default_instructions = "You are a helpful assistant that can answer questions using both your general knowledge and any relevant context from imported data (Gmail, WhatsApp, WHOOP, etc.). Answer questions naturally and directly. If you find relevant information in the imported data, mention the source when helpful. If the question is about general topics not covered in the imported data, answer using your general knowledge without mentioning that the information wasn't found in the files. Be concise and helpful."
+        
+        instructions = default_instructions
+        if settings and settings.assistant_instructions:
+            instructions = settings.assistant_instructions
+        
+        return jsonify({
+            "instructions": instructions,
+            "is_custom": settings is not None and settings.assistant_instructions is not None
+        })
+    finally:
+        db.close()
+
+
+@bp.route("/settings/assistant-instructions", methods=["POST"])
+@login_required
+def update_assistant_instructions():
+    """Update the assistant instructions for the user."""
+    db = SessionLocal()
+    try:
+        data = request.get_json() or {}
+        instructions = data.get("instructions", "").strip()
+        
+        if not instructions:
+            return jsonify({"error": "Instructions cannot be empty"}), 400
+        
+        # Get or create user settings
+        settings = db.query(UserSettings).filter(UserSettings.user_id == current_user.id).first()
+        
+        if not settings:
+            settings = UserSettings(user_id=current_user.id, assistant_instructions=instructions)
+            db.add(settings)
+        else:
+            settings.assistant_instructions = instructions
+            settings.updated_at = datetime.now(timezone.utc)
+        
+        db.commit()
+        db.refresh(settings)
+        
+        logger.info(f"Updated assistant instructions for user {current_user.id}")
+        
+        return jsonify({
+            "success": True,
+            "message": "Assistant instructions updated successfully",
+            "instructions": settings.assistant_instructions
+        })
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating assistant instructions: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
 
