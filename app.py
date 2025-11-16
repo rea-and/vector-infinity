@@ -286,121 +286,77 @@ def get_import_status(log_id):
         db.close()
 
 
-@app.route("/api/plugins/<plugin_name>/semantic-search", methods=["POST"])
-def semantic_search(plugin_name):
-    """Semantic search endpoint for vector database (Action for Custom GPT)."""
-    db = SessionLocal()
+@app.route("/api/chat/threads", methods=["POST"])
+def create_chat_thread():
+    """Create a new chat thread."""
+    try:
+        from assistant_service import AssistantService
+        assistant_service = AssistantService()
+        
+        thread_id = assistant_service.create_thread()
+        if not thread_id:
+            return jsonify({"error": "Failed to create thread"}), 500
+        
+        return jsonify({"thread_id": thread_id})
+    except Exception as e:
+        logger.error(f"Error creating thread: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/chat/threads/<thread_id>/messages", methods=["POST"])
+def send_chat_message(thread_id):
+    """Send a message in a chat thread."""
     try:
         data = request.get_json() or {}
-        query = data.get("query", "")
-        top_k = data.get("top_k", 5)
+        message = data.get("message", "")
+        plugin_name = data.get("plugin_name", "gmail_personal")  # Default to gmail_personal
         
-        if not query:
-            return jsonify({"error": "query parameter is required"}), 400
+        if not message:
+            return jsonify({"error": "message parameter is required"}), 400
         
-        # Generate embedding for the query
-        try:
-            from embedding_service import EmbeddingService
-            embedding_service = EmbeddingService()
-            query_embedding = embedding_service.generate_embedding(query)
-            
-            if not query_embedding:
-                return jsonify({"error": "Failed to generate query embedding"}), 500
-        except Exception as e:
-            logger.error(f"Error initializing embedding service: {e}")
-            return jsonify({"error": "Embedding service not available. Set OPENAI_API_KEY in .env"}), 503
+        from assistant_service import AssistantService
+        from vector_store_service import VectorStoreService
         
-        # Get all items for this plugin with embeddings
-        items = db.query(DataItem).filter(
-            DataItem.plugin_name == plugin_name,
-            DataItem.embedding.isnot(None)
-        ).all()
+        assistant_service = AssistantService()
+        vector_store_service = VectorStoreService()
         
-        if not items:
-            return jsonify({
-                "results": [],
-                "message": "No items with embeddings found. Run an import to generate embeddings."
-            })
+        # Get vector store ID for the plugin
+        vector_store_id = vector_store_service.get_vector_store_id(plugin_name)
+        if not vector_store_id:
+            return jsonify({"error": f"No vector store found for plugin {plugin_name}. Please run an import first."}), 404
         
-        # Calculate similarity scores
-        scored_items = []
-        for item in items:
-            try:
-                item_embedding = embedding_service.bytes_to_embedding(item.embedding)
-                similarity = embedding_service.cosine_similarity(query_embedding, item_embedding)
-                
-                # Format the text for return (different formats for different item types)
-                text_parts = []
-                
-                if item.item_type == "whatsapp_message":
-                    # Format for WhatsApp messages
-                    if item.item_metadata and item.item_metadata.get("sender"):
-                        text_parts.append(f"From: {item.item_metadata['sender']}")
-                    if item.source_timestamp:
-                        text_parts.append(f"Date: {item.source_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
-                    if item.content:
-                        text_parts.append(item.content)
-                elif item.item_type in ["whoop_recovery", "whoop_sleep", "whoop_workout"]:
-                    # Format for WHOOP health data
-                    if item.title:
-                        text_parts.append(item.title)
-                    if item.source_timestamp:
-                        text_parts.append(f"Date: {item.source_timestamp.strftime('%Y-%m-%d')}")
-                    if item.content:
-                        text_parts.append(item.content)
-                    if item.item_metadata:
-                        # Add key metrics from metadata
-                        metadata = item.item_metadata
-                        if item.item_type == "whoop_recovery" and metadata.get("recovery_score"):
-                            text_parts.append(f"Recovery Score: {metadata['recovery_score']}")
-                        elif item.item_type == "whoop_sleep" and metadata.get("sleep_score"):
-                            text_parts.append(f"Sleep Score: {metadata['sleep_score']}")
-                        elif item.item_type == "whoop_workout" and metadata.get("strain_score"):
-                            text_parts.append(f"Strain Score: {metadata['strain_score']}")
-                else:
-                    # Format for emails and other items
-                    if item.title:
-                        text_parts.append(f"Subject: {item.title}")
-                    if item.item_metadata and item.item_metadata.get("from"):
-                        text_parts.append(f"From: {item.item_metadata['from']}")
-                    if item.source_timestamp:
-                        text_parts.append(f"Date: {item.source_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
-                    if item.content:
-                        text_parts.append(item.content)
-                
-                text = "\n".join(text_parts)
-                
-                scored_items.append({
-                    "text": text,
-                    "score": float(similarity),
-                    "metadata": {
-                        "id": item.id,
-                        "title": item.title,
-                        "source_id": item.source_id,
-                        "item_type": item.item_type,
-                        "source_timestamp": item.source_timestamp.isoformat() if item.source_timestamp else None,
-                        **(item.item_metadata or {})
-                    }
-                })
-            except Exception as e:
-                logger.warning(f"Error processing item {item.id}: {e}")
-                continue
+        # Get or create assistant with vector store
+        assistant_id = assistant_service.get_or_create_assistant(plugin_name, [vector_store_id])
+        if not assistant_id:
+            return jsonify({"error": "Failed to get or create assistant"}), 500
         
-        # Sort by similarity (descending) and take top_k
-        scored_items.sort(key=lambda x: x["score"], reverse=True)
-        results = scored_items[:top_k]
+        # Send message and get response
+        response = assistant_service.send_message(thread_id, assistant_id, message)
+        if response is None:
+            return jsonify({"error": "Failed to get response from assistant"}), 500
         
         return jsonify({
-            "results": results,
-            "query": query,
-            "total_found": len(scored_items),
-            "returned": len(results)
+            "response": response,
+            "thread_id": thread_id,
+            "assistant_id": assistant_id
         })
     except Exception as e:
-        logger.error(f"Error in semantic search: {e}", exc_info=True)
+        logger.error(f"Error sending message: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
-    finally:
-        db.close()
+
+
+@app.route("/api/chat/threads/<thread_id>/messages", methods=["GET"])
+def get_chat_messages(thread_id):
+    """Get all messages from a chat thread."""
+    try:
+        from assistant_service import AssistantService
+        assistant_service = AssistantService()
+        
+        messages = assistant_service.get_thread_messages(thread_id)
+        return jsonify({"messages": messages})
+    except Exception as e:
+        logger.error(f"Error getting messages: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/schema", methods=["GET"])
@@ -726,86 +682,6 @@ def plugin_auth_callback(plugin_name):
                 </body>
             </html>
         """, error=str(e))
-
-
-@app.route("/api/plugins/<plugin_name>/regenerate-embeddings", methods=["POST"])
-def regenerate_embeddings(plugin_name):
-    """Regenerate embeddings for all items in a plugin that don't have embeddings."""
-    db = SessionLocal()
-    try:
-        # Get all items without embeddings
-        items_without_embeddings = db.query(DataItem).filter(
-            DataItem.plugin_name == plugin_name,
-            (DataItem.embedding.is_(None)) | (DataItem.embedding == b'')
-        ).all()
-        
-        if not items_without_embeddings:
-            return jsonify({
-                "success": True,
-                "message": "All items already have embeddings",
-                "items_processed": 0
-            })
-        
-        try:
-            from embedding_service import EmbeddingService
-            embedding_service = EmbeddingService()
-        except Exception as e:
-            return jsonify({"error": f"Embedding service not available: {str(e)}"}), 503
-        
-        # Process in batches
-        batch_size = 200
-        total_processed = 0
-        
-        for batch_start in range(0, len(items_without_embeddings), batch_size):
-            batch_end = min(batch_start + batch_size, len(items_without_embeddings))
-            batch_items = items_without_embeddings[batch_start:batch_end]
-            
-            # Prepare texts for embedding
-            items_to_embed = []
-            for item in batch_items:
-                text_parts = []
-                if item.item_type == "whatsapp_message":
-                    if item.item_metadata and item.item_metadata.get("sender"):
-                        text_parts.append(f"From: {item.item_metadata['sender']}")
-                    if item.content:
-                        text_parts.append(item.content)
-                else:
-                    if item.title:
-                        text_parts.append(f"Subject: {item.title}")
-                    if item.item_metadata and item.item_metadata.get("from"):
-                        text_parts.append(f"From: {item.item_metadata['from']}")
-                    if item.content:
-                        text_parts.append(item.content)
-                
-                text_for_embedding = "\n".join(text_parts)
-                if text_for_embedding:
-                    items_to_embed.append((item, text_for_embedding))
-            
-            if items_to_embed:
-                texts = [text for _, text in items_to_embed]
-                embeddings = embedding_service.generate_embeddings_batch(texts)
-                
-                # Store embeddings
-                for (item, _), embedding in zip(items_to_embed, embeddings):
-                    if embedding:
-                        item.embedding = embedding_service.embedding_to_bytes(embedding)
-                        total_processed += 1
-            
-            db.commit()
-            logger.info(f"Processed embedding batch {batch_start//batch_size + 1} ({batch_end}/{len(items_without_embeddings)} items)")
-        
-        return jsonify({
-            "success": True,
-            "message": f"Generated embeddings for {total_processed} items",
-            "items_processed": total_processed,
-            "total_items": len(items_without_embeddings)
-        })
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Error regenerating embeddings: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db.close()
 
 
 @app.route("/api/data/clear", methods=["POST"])

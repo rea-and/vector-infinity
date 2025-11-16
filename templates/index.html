@@ -302,6 +302,7 @@
         <div class="tabs">
             <button class="tab active" onclick="showTab('imports')">Import Logs</button>
             <button class="tab" onclick="showTab('run')">Run Imports</button>
+            <button class="tab" onclick="showTab('chat')">Chat</button>
             <button class="tab" onclick="showTab('stats')">Statistics</button>
             <button class="tab" onclick="showTab('api')">API Endpoints</button>
         </div>
@@ -319,6 +320,28 @@
                 <h2>Run Imports</h2>
                 <button class="btn btn-success" onclick="runAllImports()">Run All Imports</button>
                 <div id="plugins-list"></div>
+            </div>
+        </div>
+        
+        <div id="chat" class="tab-content">
+            <div class="card" style="height: calc(100vh - 200px); display: flex; flex-direction: column;">
+                <h2>Chat with Your Data</h2>
+                <div style="margin-bottom: 15px;">
+                    <label for="chat-plugin-select">Plugin: </label>
+                    <select id="chat-plugin-select" style="padding: 5px 10px; margin-left: 10px;">
+                        <option value="gmail_personal">Gmail Personal</option>
+                        <option value="whatsapp_angel">WhatsApp Angel</option>
+                        <option value="whoop">WHOOP</option>
+                    </select>
+                    <button class="btn" onclick="newChatThread()" style="margin-left: 10px;">New Chat</button>
+                </div>
+                <div id="chat-messages" style="flex: 1; overflow-y: auto; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; background: #f9f9f9; border-radius: 4px;">
+                    <p style="color: #666; text-align: center;">Start a new chat to begin asking questions about your data.</p>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="chat-input" placeholder="Ask a question about your data..." style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;" onkeypress="if(event.key === 'Enter') sendChatMessage()">
+                    <button class="btn btn-success" onclick="sendChatMessage()">Send</button>
+                </div>
             </div>
         </div>
         
@@ -517,9 +540,6 @@
                                     <button class="btn btn-success" onclick="downloadSchema('${plugin.name}')" style="margin-top: 5px; width: 100%;">
                                         Download Schema
                                     </button>
-                                    <button class="btn" onclick="regenerateEmbeddings('${plugin.name}')" style="margin-top: 5px; width: 100%; background: #ffc107; color: #000;">
-                                        Regenerate Embeddings
-                                    </button>
                                 </div>
                             `;
                             }
@@ -537,9 +557,6 @@
                                 </button>
                                 <button class="btn btn-success" onclick="downloadSchema('${plugin.name}')" style="margin-top: 5px;">
                                     Download Schema
-                                </button>
-                                <button class="btn" onclick="regenerateEmbeddings('${plugin.name}')" style="margin-top: 5px; background: #ffc107; color: #000;">
-                                    Regenerate Embeddings
                                 </button>
                             </div>
                         `;
@@ -1229,6 +1246,179 @@
             } catch (error) {
                 console.error('Error exporting WHOOP data:', error);
                 alert(`❌ Error exporting WHOOP data: ${error.message}`);
+            }
+        }
+        
+        let currentThreadId = null;
+        
+        async function initChat() {
+            // Initialize chat - create a new thread if none exists
+            if (!currentThreadId) {
+                await newChatThread();
+            } else {
+                // Load existing messages
+                await loadChatMessages();
+            }
+        }
+        
+        async function newChatThread() {
+            try {
+                const response = await fetch(`${API_BASE}/chat/threads`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                currentThreadId = data.thread_id;
+                
+                // Clear chat messages
+                document.getElementById('chat-messages').innerHTML = '<p style="color: #666; text-align: center;">New chat started. Ask a question about your data.</p>';
+                
+                return currentThreadId;
+            } catch (error) {
+                console.error('Error creating chat thread:', error);
+                alert(`Error creating chat thread: ${error.message}`);
+                return null;
+            }
+        }
+        
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (!message) {
+                return;
+            }
+            
+            if (!currentThreadId) {
+                await newChatThread();
+                if (!currentThreadId) {
+                    return;
+                }
+            }
+            
+            const pluginName = document.getElementById('chat-plugin-select').value;
+            const messagesDiv = document.getElementById('chat-messages');
+            
+            // Add user message to UI
+            const userMessageDiv = document.createElement('div');
+            userMessageDiv.style.cssText = 'margin-bottom: 15px; text-align: right;';
+            userMessageDiv.innerHTML = `
+                <div style="display: inline-block; background: #3498db; color: white; padding: 10px 15px; border-radius: 10px; max-width: 70%; text-align: left;">
+                    ${message.replace(/\n/g, '<br>')}
+                </div>
+            `;
+            messagesDiv.appendChild(userMessageDiv);
+            
+            // Clear input
+            input.value = '';
+            input.disabled = true;
+            
+            // Add loading indicator
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'chat-loading';
+            loadingDiv.style.cssText = 'margin-bottom: 15px; text-align: left;';
+            loadingDiv.innerHTML = `
+                <div style="display: inline-block; background: #ecf0f1; padding: 10px 15px; border-radius: 10px; max-width: 70%;">
+                    <em>Thinking...</em>
+                </div>
+            `;
+            messagesDiv.appendChild(loadingDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            
+            try {
+                const response = await fetch(`${API_BASE}/chat/threads/${currentThreadId}/messages`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        message: message,
+                        plugin_name: pluginName
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Remove loading indicator
+                loadingDiv.remove();
+                
+                // Add assistant response
+                const assistantMessageDiv = document.createElement('div');
+                assistantMessageDiv.style.cssText = 'margin-bottom: 15px; text-align: left;';
+                assistantMessageDiv.innerHTML = `
+                    <div style="display: inline-block; background: #ecf0f1; padding: 10px 15px; border-radius: 10px; max-width: 70%;">
+                        ${data.response.replace(/\n/g, '<br>')}
+                    </div>
+                `;
+                messagesDiv.appendChild(assistantMessageDiv);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                
+            } catch (error) {
+                console.error('Error sending message:', error);
+                loadingDiv.remove();
+                const errorDiv = document.createElement('div');
+                errorDiv.style.cssText = 'margin-bottom: 15px; text-align: left; color: red;';
+                errorDiv.innerHTML = `
+                    <div style="display: inline-block; background: #fee; padding: 10px 15px; border-radius: 10px; max-width: 70%; border: 1px solid #fcc;">
+                        Error: ${error.message}
+                    </div>
+                `;
+                messagesDiv.appendChild(errorDiv);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            } finally {
+                input.disabled = false;
+                input.focus();
+            }
+        }
+        
+        async function loadChatMessages() {
+            if (!currentThreadId) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/chat/threads/${currentThreadId}/messages`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const messagesDiv = document.getElementById('chat-messages');
+                
+                if (data.messages.length === 0) {
+                    messagesDiv.innerHTML = '<p style="color: #666; text-align: center;">No messages yet. Start a conversation!</p>';
+                    return;
+                }
+                
+                messagesDiv.innerHTML = '';
+                data.messages.forEach(msg => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.style.cssText = msg.role === 'user' 
+                        ? 'margin-bottom: 15px; text-align: right;'
+                        : 'margin-bottom: 15px; text-align: left;';
+                    
+                    const bgColor = msg.role === 'user' ? '#3498db' : '#ecf0f1';
+                    const textColor = msg.role === 'user' ? 'white' : 'black';
+                    
+                    messageDiv.innerHTML = `
+                        <div style="display: inline-block; background: ${bgColor}; color: ${textColor}; padding: 10px 15px; border-radius: 10px; max-width: 70%; text-align: left;">
+                            ${msg.content.replace(/\n/g, '<br>')}
+                        </div>
+                    `;
+                    messagesDiv.appendChild(messageDiv);
+                });
+                
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            } catch (error) {
+                console.error('Error loading messages:', error);
             }
         }
         
