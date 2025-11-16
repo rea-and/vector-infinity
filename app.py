@@ -175,6 +175,10 @@ def list_imports():
         
         result = []
         for log in logs:
+            progress_percent = 0
+            if log.progress_total and log.progress_total > 0:
+                progress_percent = int((log.progress_current / log.progress_total) * 100)
+            
             result.append({
                 "id": log.id,
                 "plugin_name": log.plugin_name,
@@ -182,7 +186,11 @@ def list_imports():
                 "started_at": log.started_at.isoformat() if log.started_at else None,
                 "completed_at": log.completed_at.isoformat() if log.completed_at else None,
                 "records_imported": log.records_imported,
-                "error_message": log.error_message
+                "error_message": log.error_message,
+                "progress_current": log.progress_current or 0,
+                "progress_total": log.progress_total or 0,
+                "progress_percent": progress_percent,
+                "progress_message": log.progress_message or ""
             })
         
         return jsonify(result)
