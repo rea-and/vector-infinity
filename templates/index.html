@@ -2435,7 +2435,7 @@
                     if (!user.active) {
                         html += `<button class="btn btn-success" onclick="approveUser(${user.id}, '${user.email}')" style="margin-right: 5px; font-size: 12px; padding: 5px 10px;">Approve</button>`;
                         html += `<button class="btn btn-danger" onclick="declineUser(${user.id}, '${user.email}')" style="font-size: 12px; padding: 5px 10px;">Decline</button>`;
-                    } else if (user.role !== 'admin' && user.id !== currentUser.user_id) {
+                    } else if (user.role !== 'admin' && user.id !== currentUser.id) {
                         html += `<button class="btn btn-secondary" onclick="deactivateUser(${user.id}, '${user.email}')" style="font-size: 12px; padding: 5px 10px;">Deactivate</button>`;
                     }
                     
