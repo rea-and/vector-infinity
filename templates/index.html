@@ -1644,6 +1644,7 @@
                 const html = `
                     <div style="margin-top: 20px;">
                         <h3>Total Items: ${stats.total_items || 0}</h3>
+                        <h3 style="margin-top: 20px;">Database Size: ${stats.database_size || '0 B'}</h3>
                         ${vectorStoreInfo ? `
                             <div style="margin-top: 20px; padding: 15px; background: ${vectorStoreInfo.file_count > 0 ? '#d4edda' : '#fff3cd'}; border-radius: 4px; border: 1px solid ${vectorStoreInfo.file_count > 0 ? '#c3e6cb' : '#ffc107'};">
                                 <h3 style="margin-top: 0;">Vector Store Status</h3>

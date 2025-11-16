@@ -738,6 +738,7 @@ def clear_all_data():
 @app.route("/api/stats", methods=["GET"])
 def get_stats():
     """Get statistics about imported data."""
+    import os
     db = SessionLocal()
     try:
         total_items = db.query(DataItem).count()
@@ -748,10 +749,27 @@ def get_stats():
             items_by_plugin[item.plugin_name] = items_by_plugin.get(item.plugin_name, 0) + 1
             items_by_type[item.item_type] = items_by_type.get(item.item_type, 0) + 1
         
+        # Get database file size
+        db_size_bytes = 0
+        db_size_human = "0 B"
+        if os.path.exists(config.DATABASE_PATH):
+            db_size_bytes = os.path.getsize(config.DATABASE_PATH)
+            # Convert to human-readable format
+            size = float(db_size_bytes)
+            for unit in ['B', 'KB', 'MB', 'GB']:
+                if size < 1024.0:
+                    db_size_human = f"{size:.2f} {unit}"
+                    break
+                size /= 1024.0
+            else:
+                db_size_human = f"{size:.2f} TB"
+        
         return jsonify({
             "total_items": total_items,
             "by_plugin": items_by_plugin,
-            "by_type": items_by_type
+            "by_type": items_by_type,
+            "database_size_bytes": db_size_bytes,
+            "database_size": db_size_human
         })
     finally:
         db.close()
