@@ -267,7 +267,8 @@
                         window.location.href = '/';
                     }, 500);
                 } else {
-                    showError(data.error || 'Login failed. Please check your credentials.');
+                    const errorMsg = data.error || 'Login failed. Please check your credentials.';
+                    showError(errorMsg);
                     form.classList.remove('loading');
                 }
             } catch (error) {
@@ -315,10 +316,19 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    showSuccess('Registration successful! Logging you in...');
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 500);
+                    if (data.pending_approval) {
+                        showSuccess(data.message || 'Registration successful! Your account is pending admin approval.');
+                        // Don't redirect - show message and allow user to go back to login
+                        setTimeout(() => {
+                            showLogin();
+                        }, 3000);
+                    } else {
+                        showSuccess('Registration successful! Logging you in...');
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 500);
+                    }
+                    form.classList.remove('loading');
                 } else {
                     showError(data.error || 'Registration failed. Please try again.');
                     form.classList.remove('loading');

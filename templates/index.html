@@ -1000,7 +1000,16 @@
                 </div>
             </div>
             
-                <div id="settings" class="tab-content">
+            <div id="users" class="tab-content">
+                <div class="container">
+                    <h2>User Management</h2>
+                    <div id="users-content">
+                        <p>Loading users...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="settings" class="tab-content">
                     <div class="container">
                         <div class="card">
                             <h2>Settings</h2>
@@ -2325,11 +2334,6 @@
             if (isAuthenticated) {
                 // Load initial data only if authenticated
                 loadImports();
-                
-                // Load users if admin
-                if (currentUser && currentUser.is_admin) {
-                    loadUsers();
-                }
             }
         });
         
