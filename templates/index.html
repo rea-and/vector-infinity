@@ -364,19 +364,19 @@
         
         <div id="api" class="tab-content">
             <div class="card">
-                <h2>API Endpoints for Custom GPT</h2>
-                <p>Use these endpoints to integrate with ChatGPT Custom GPTs.</p>
+                <h2>API Endpoints</h2>
+                <p>This application uses OpenAI's Assistant API with Vector Stores for chat functionality.</p>
                 <div style="margin: 20px 0; padding: 15px; background: #e7f3ff; border-radius: 4px; border-left: 3px solid #007bff;">
-                    <h3 style="margin-top: 0; color: #004085;">📥 Download Unified Schema (Recommended)</h3>
+                    <h3 style="margin-top: 0; color: #004085;">Chat Endpoints</h3>
+                    <ul style="color: #004085; margin: 10px 0; padding-left: 20px;">
+                        <li><code>POST /api/chat/threads</code> - Create a new chat thread</li>
+                        <li><code>POST /api/chat/threads/&lt;thread_id&gt;/messages</code> - Send a message (requires: <code>{"message": "your question", "plugin_name": "gmail_personal"}</code>)</li>
+                        <li><code>GET /api/chat/threads/&lt;thread_id&gt;/messages</code> - Get all messages from a thread</li>
+                    </ul>
                     <p style="color: #004085; margin: 10px 0;">
-                        <strong>Important:</strong> ChatGPT only allows one action per domain. Download the unified schema that includes all plugin endpoints in a single action.
+                        <strong>Note:</strong> The chat interface is available in the "Chat" tab. Data is automatically uploaded to OpenAI Vector Stores during import, and the Assistant API is used for all conversations.
                     </p>
-                    <button class="btn btn-success" onclick="downloadUnifiedSchema()" style="margin-top: 10px;">
-                        Download Unified Schema (All Plugins)
-                    </button>
                 </div>
-                <p style="margin-top: 20px;">Or download individual plugin schemas:</p>
-                <div id="api-endpoints"></div>
             </div>
         </div>
     </div>
@@ -538,9 +538,6 @@
                                             Upload & Import
                                         </button>
                                     </div>
-                                    <button class="btn btn-success" onclick="downloadSchema('${plugin.name}')" style="margin-top: 5px; width: 100%;">
-                                        Download Schema
-                                    </button>
                                 </div>
                             `;
                             }
@@ -555,9 +552,6 @@
                                 </button>
                                 <button class="btn" onclick="runImport('${plugin.name}')" ${!plugin.enabled ? 'disabled' : ''} style="margin-top: 5px;">
                                     Run Import
-                                </button>
-                                <button class="btn btn-success" onclick="downloadSchema('${plugin.name}')" style="margin-top: 5px;">
-                                    Download Schema
                                 </button>
                             </div>
                         `;
