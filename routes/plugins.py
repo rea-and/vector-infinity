@@ -8,6 +8,7 @@ import importlib.util
 import secrets
 import logging
 from database import ImportLog, SessionLocal, PluginConfiguration, DataItem
+from vector_store_service import VectorStoreService
 import config
 from services import plugin_loader, oauth_flows
 

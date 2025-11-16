@@ -1992,6 +1992,9 @@
                                     <button class="btn" id="btn-${plugin.name}" onclick="runImport('${plugin.name}')" ${!plugin.enabled || hasRunningImport || !tokenConfigured || fileCount === 0 ? 'disabled' : ''} style="margin-top: 5px; width: 100%;">
                                         ${hasRunningImport ? '<span class="loading"></span> Importing...' : 'Run Import'}
                                     </button>
+                                    <button class="btn btn-secondary" onclick="resetPlugin('${plugin.name}')" style="margin-top: 5px; width: 100%; background: #dc3545; color: white;">
+                                        🔄 Reset Plugin
+                                    </button>
                                 </div>
                             `;
                             }
@@ -2015,6 +2018,9 @@
                                 </button>
                                 <button class="btn" id="btn-${plugin.name}" onclick="runImport('${plugin.name}')" ${!plugin.enabled || hasRunningImport ? 'disabled' : ''} style="margin-top: 5px;">
                                     ${hasRunningImport ? '<span class="loading"></span> Importing...' : 'Run Import'}
+                                </button>
+                                <button class="btn btn-secondary" onclick="resetPlugin('${plugin.name}')" style="margin-top: 5px; background: #dc3545; color: white;">
+                                    🔄 Reset Plugin
                                 </button>
                             </div>
                         `;
