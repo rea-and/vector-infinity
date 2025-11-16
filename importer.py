@@ -252,11 +252,6 @@ class DataImporter:
                         log_entry.completed_at = datetime.now(timezone.utc)
                         db.commit()
                         return
-                    log_entry.status = "error"
-                    log_entry.error_message = f"Plugin {plugin_name} not found"
-                    log_entry.completed_at = datetime.now(timezone.utc)
-                    db.commit()
-                    return
                 
                 # Set file path for whatsapp_angel plugin if provided
                 if plugin_name == "whatsapp_angel" and uploaded_file_path:
