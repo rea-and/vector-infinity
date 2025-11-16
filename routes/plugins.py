@@ -62,7 +62,13 @@ def list_plugins():
             last_import_time = None
             last_import_records = None
             if last_import and last_import.completed_at:
-                last_import_time = last_import.completed_at.isoformat()
+                # Ensure timezone-aware datetime is converted to ISO with timezone
+                dt = last_import.completed_at
+                if dt.tzinfo is None:
+                    # If naive datetime, assume UTC
+                    from datetime import timezone
+                    dt = dt.replace(tzinfo=timezone.utc)
+                last_import_time = dt.isoformat()
                 last_import_records = last_import.records_imported
             
             # Check authentication status and last auth time
