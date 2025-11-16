@@ -40,9 +40,10 @@ class AssistantService:
                     current_vs_ids = assistant.tool_resources.file_search.vector_store_ids or []
                 
                 if [vector_store_id] != current_vs_ids:
-                    # Update assistant with new vector store
+                    # Update assistant with new vector store and instructions
                     assistant = self.client.beta.assistants.update(
                         assistant.id,
+                        instructions="You are a helpful assistant that can answer questions using both your general knowledge and any relevant context from imported data (Gmail, WhatsApp, WHOOP, etc.). Answer questions naturally and directly. If you find relevant information in the imported data, mention the source when helpful. If the question is about general topics not covered in the imported data, answer using your general knowledge without mentioning that the information wasn't found in the files. Be concise and helpful.",
                         tool_resources={
                             "file_search": {
                                 "vector_store_ids": [vector_store_id]
@@ -87,7 +88,7 @@ class AssistantService:
             
             assistant = self.client.beta.assistants.create(
                 name=assistant_name,
-                instructions="You are a helpful assistant that can answer questions about all imported data from various sources (Gmail, WhatsApp, WHOOP, etc.). Use the provided context from the vector store to answer questions accurately. When answering, mention the source of the information when relevant.",
+                instructions="You are a helpful assistant that can answer questions using both your general knowledge and any relevant context from imported data (Gmail, WhatsApp, WHOOP, etc.). Answer questions naturally and directly. If you find relevant information in the imported data, mention the source when helpful. If the question is about general topics not covered in the imported data, answer using your general knowledge without mentioning that the information wasn't found in the files. Be concise and helpful.",
                 model="gpt-4o-mini",  # Use gpt-4o-mini for cost efficiency
                 tools=[{"type": "file_search"}],
                 tool_resources=tool_resources
