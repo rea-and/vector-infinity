@@ -2285,6 +2285,8 @@
         }
         
         // Authentication functions
+        let currentUser = null;
+        
         async function checkAuth() {
             try {
                 const response = await fetch(`${API_BASE}/auth/me`, {
@@ -2294,7 +2296,14 @@
                 
                 if (response.ok) {
                     const user = await response.json();
+                    currentUser = user;
                     document.getElementById('user-email').textContent = user.email || 'User';
+                    
+                    // Show Users tab if admin
+                    if (user.is_admin) {
+                        document.getElementById('nav-users').style.display = 'block';
+                    }
+                    
                     return true;
                 } else {
                     // Not authenticated, redirect to login
