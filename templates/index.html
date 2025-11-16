@@ -1160,6 +1160,12 @@
             
             .main-content .card h2 {
                 margin-top: 0; /* Ensure no extra top margin on page titles */
+                padding-left: 72px; /* Space for hamburger menu (40px + 16px gap + 16px) */
+            }
+            
+            /* Also handle h2 in Users section that's not in a card */
+            #users .container > h2 {
+                padding-left: 72px; /* Space for hamburger menu */
             }
             
             .container {
