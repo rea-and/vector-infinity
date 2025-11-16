@@ -791,14 +791,6 @@
             }
         }
         
-        function downloadSchema(pluginName) {
-            window.location.href = `${API_BASE}/plugins/${pluginName}/schema`;
-        }
-        
-        function downloadUnifiedSchema() {
-            window.location.href = `${API_BASE}/schema`;
-        }
-        
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(() => {
                 // Show temporary feedback
@@ -971,122 +963,6 @@
                         <pre>${error.message}</pre>
                     </div>
                 `;
-            }
-        }
-        
-        async function loadAPIInfo() {
-            try {
-                const pluginsResponse = await fetch(`${API_BASE}/plugins`);
-                if (!pluginsResponse.ok) {
-                    throw new Error(`HTTP error! status: ${pluginsResponse.status}`);
-                }
-                const plugins = await pluginsResponse.json();
-                
-                if (!plugins || plugins.length === 0) {
-                    document.getElementById('api-endpoints').innerHTML = '<p>No plugins found.</p>';
-                    return;
-                }
-                
-                const baseUrl = window.location.origin;
-                
-                let html = '<div style="margin-top: 20px;">';
-                html += '<h3>Available Plugin Endpoints:</h3>';
-                
-                plugins.forEach(plugin => {
-                    // Format last import time
-                    let lastImportInfo = '';
-                    if (plugin.last_import_time) {
-                        const lastImportDate = new Date(plugin.last_import_time);
-                        const now = new Date();
-                        const diffMs = now - lastImportDate;
-                        const diffMins = Math.floor(diffMs / 60000);
-                        const diffHours = Math.floor(diffMs / 3600000);
-                        const diffDays = Math.floor(diffMs / 86400000);
-                        
-                        let timeAgo = '';
-                        if (diffMins < 1) {
-                            timeAgo = 'just now';
-                        } else if (diffMins < 60) {
-                            timeAgo = `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
-                        } else if (diffHours < 24) {
-                            timeAgo = `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-                        } else {
-                            timeAgo = `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-                        }
-                        
-                        const formattedDate = lastImportDate.toLocaleString();
-                        lastImportInfo = `
-                            <div style="background: #d4edda; padding: 10px; border-radius: 4px; margin-bottom: 15px; border: 1px solid #c3e6cb;">
-                                <p style="margin: 0; font-size: 13px;">
-                                    <strong>Last Import:</strong> ${formattedDate} (${timeAgo})
-                                    ${plugin.last_import_records !== null ? ` • ${plugin.last_import_records} records imported` : ''}
-                                </p>
-                            </div>
-                        `;
-                    } else {
-                        lastImportInfo = `
-                            <div style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 15px; border: 1px solid #ffeaa7;">
-                                <p style="margin: 0; font-size: 13px;">
-                                    <strong>Last Import:</strong> Never imported. Run an import from the "Run Imports" tab first.
-                                </p>
-                            </div>
-                        `;
-                    }
-                    
-                    html += `<div class="plugin-card" style="margin-top: 15px;">
-                        <h3>${plugin.name}</h3>
-                        ${lastImportInfo}
-                        
-                        <div style="margin-top: 15px;">
-                            <p><strong>Get Context Endpoint:</strong></p>
-                            <code style="background: #f4f4f4; padding: 5px; display: block; margin: 5px 0; font-size: 12px;">
-                                GET ${baseUrl}/api/plugins/${plugin.name}/context
-                            </code>
-                            <div class="test-form">
-                                <label>Limit:</label>
-                                <input type="number" id="context-limit-${plugin.name}" value="50" min="1" max="500">
-                                <label>Days:</label>
-                                <input type="number" id="context-days-${plugin.name}" value="30" min="1" max="365">
-                                <label>Item Type (optional):</label>
-                                <input type="text" id="context-item-type-${plugin.name}" placeholder="e.g., email">
-                                <label>Query (optional text search):</label>
-                                <input type="text" id="context-query-${plugin.name}" placeholder="Search term">
-                                <button class="btn btn-small" onclick="testContextEndpoint('${plugin.name}')">Test Context Endpoint</button>
-                            </div>
-                            <div id="context-result-${plugin.name}"></div>
-                        </div>
-                        
-                        <div style="margin-top: 20px;">
-                            <p><strong>Search Endpoint:</strong></p>
-                            <code style="background: #f4f4f4; padding: 5px; display: block; margin: 5px 0; font-size: 12px;">
-                                GET ${baseUrl}/api/plugins/${plugin.name}/search
-                            </code>
-                            <div class="test-form">
-                                <label>Query (required):</label>
-                                <input type="text" id="search-query-${plugin.name}" placeholder="Search term" required>
-                                <label>Limit:</label>
-                                <input type="number" id="search-limit-${plugin.name}" value="20" min="1" max="500">
-                                <label>Days:</label>
-                                <input type="number" id="search-days-${plugin.name}" value="30" min="1" max="365">
-                                <button class="btn btn-small" onclick="testSearchEndpoint('${plugin.name}')">Test Search Endpoint</button>
-                            </div>
-                            <div id="search-result-${plugin.name}"></div>
-                        </div>
-                        
-                        <p style="margin-top: 15px;">
-                            <strong>Custom GPT Schema:</strong>
-                            <button class="btn btn-success btn-small" onclick="downloadSchema('${plugin.name}')" style="margin-left: 10px;">
-                                Download Schema JSON
-                            </button>
-                        </p>
-                    </div>`;
-                });
-                
-                html += '</div>';
-                document.getElementById('api-endpoints').innerHTML = html;
-            } catch (error) {
-                console.error('Error loading API info:', error);
-                document.getElementById('api-endpoints').innerHTML = `<p style="color: red;">Error loading API info: ${error.message}</p>`;
             }
         }
         
