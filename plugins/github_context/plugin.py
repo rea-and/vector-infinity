@@ -20,29 +20,15 @@ class Plugin(DataSourcePlugin):
     def __init__(self):
         super().__init__("github_context")
         self.github_token = None
-        self._load_token()
+        self._user_config = None  # Store user-specific config when provided
     
-    def _load_token(self):
-        """Load GitHub token from token.json file."""
-        token_path = Path(__file__).parent / "token.json"
-        if token_path.exists():
-            try:
-                with open(token_path, 'r') as f:
-                    token_data = json.load(f)
-                    self.github_token = token_data.get("github_token")
-            except Exception as e:
-                logger.error(f"Error loading GitHub token: {e}")
-    
-    def save_token(self, token: str):
-        """Save GitHub token to token.json file."""
-        token_path = Path(__file__).parent / "token.json"
-        token_data = {
-            "github_token": token
-        }
-        with open(token_path, 'w') as f:
-            json.dump(token_data, f, indent=2)
-        self.github_token = token
-        logger.info("GitHub token saved successfully")
+    def set_user_config(self, config_data: Dict[str, Any]):
+        """Set user-specific configuration (called before fetch_data)."""
+        self._user_config = config_data
+        self.github_token = config_data.get("github_token")
+        # Update config with file_urls for fetch_data
+        if "file_urls" in config_data:
+            self.config["file_urls"] = config_data["file_urls"]
     
     def _parse_github_url(self, url: str) -> Dict[str, str]:
         """
@@ -143,13 +129,24 @@ class Plugin(DataSourcePlugin):
     
     def fetch_data(self) -> List[Dict[str, Any]]:
         """Fetch data from GitHub files."""
-        if not self.github_token:
+        # Use user-specific config if available, otherwise fall back to plugin config
+        if self._user_config:
+            file_urls = self._user_config.get("file_urls", [])
+            token = self._user_config.get("github_token")
+        else:
+            file_urls = self.config.get("file_urls", [])
+            token = self.github_token
+        
+        if not token:
             raise Exception("GitHub token not set. Please configure the plugin first.")
         
-        file_urls = self.config.get("file_urls", [])
         if not file_urls:
             logger.warning("No file URLs configured for GitHub Context plugin")
             return []
+        
+        # Use the token from user config
+        original_token = self.github_token
+        self.github_token = token
         
         data_items = []
         

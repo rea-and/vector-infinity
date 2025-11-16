@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy.orm import Session
-from database import ImportLog, DataItem, SessionLocal
+from database import ImportLog, DataItem, SessionLocal, PluginConfiguration
 from plugin_loader import PluginLoader
 import logging
 import threading
@@ -232,6 +232,26 @@ class DataImporter:
                 # We need to update the log_entry in this thread
                 plugin = self.plugin_loader.get_plugin(plugin_name)
                 if not plugin:
+                    log_entry.status = "error"
+                    log_entry.error_message = f"Plugin {plugin_name} not found or not enabled"
+                    log_entry.completed_at = datetime.now(timezone.utc)
+                    db.commit()
+                    return
+                
+                # Load user-specific plugin configuration from database
+                if plugin_name == "github_context":
+                    plugin_config = db.query(PluginConfiguration).filter(
+                        PluginConfiguration.user_id == user_id,
+                        PluginConfiguration.plugin_name == plugin_name
+                    ).first()
+                    if plugin_config and hasattr(plugin, 'set_user_config'):
+                        plugin.set_user_config(plugin_config.config_data)
+                    elif not plugin_config:
+                        log_entry.status = "error"
+                        log_entry.error_message = "Plugin not configured. Please configure it first."
+                        log_entry.completed_at = datetime.now(timezone.utc)
+                        db.commit()
+                        return
                     log_entry.status = "error"
                     log_entry.error_message = f"Plugin {plugin_name} not found"
                     log_entry.completed_at = datetime.now(timezone.utc)

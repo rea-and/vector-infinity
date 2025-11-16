@@ -7,7 +7,7 @@ import json
 import importlib.util
 import secrets
 import logging
-from database import ImportLog, SessionLocal
+from database import ImportLog, SessionLocal, PluginConfiguration
 import config
 from services import plugin_loader, oauth_flows
 
@@ -136,19 +136,19 @@ def list_plugins():
                 "last_auth_time": last_auth_time
             }
             
-            # Add GitHub-specific configuration data
+            # Add GitHub-specific configuration data from database
             if name == "github_context":
-                plugin_data["token_configured"] = False
-                plugin_data["file_urls"] = []
-                if plugin and hasattr(plugin, 'github_token'):
-                    plugin_data["token_configured"] = plugin.github_token is not None
-                if config_path.exists():
-                    try:
-                        with open(config_path, 'r') as f:
-                            plugin_config = json.load(f)
-                            plugin_data["file_urls"] = plugin_config.get("file_urls", [])
-                    except:
-                        pass
+                plugin_config = db.query(PluginConfiguration).filter(
+                    PluginConfiguration.user_id == current_user.id,
+                    PluginConfiguration.plugin_name == name
+                ).first()
+                if plugin_config:
+                    config_data = plugin_config.config_data
+                    plugin_data["token_configured"] = bool(config_data.get("github_token"))
+                    plugin_data["file_urls"] = config_data.get("file_urls", [])
+                else:
+                    plugin_data["token_configured"] = False
+                    plugin_data["file_urls"] = []
             
             result.append(plugin_data)
         
@@ -212,59 +212,89 @@ def start_plugin_auth(plugin_name):
 @bp.route("/<plugin_name>/config", methods=["GET"])
 @login_required
 def get_plugin_config(plugin_name):
-    """Get plugin configuration."""
-    plugin = plugin_loader.get_plugin(plugin_name)
-    if not plugin:
-        return jsonify({"error": f"Plugin {plugin_name} not found"}), 404
-    
+    """Get plugin configuration (user-specific, from database)."""
+    db = SessionLocal()
     try:
-        config_data = plugin.config.copy()
+        # Get user-specific configuration from database
+        plugin_config = db.query(PluginConfiguration).filter(
+            PluginConfiguration.user_id == current_user.id,
+            PluginConfiguration.plugin_name == plugin_name
+        ).first()
         
-        # For GitHub plugin, check if token is set (but don't return the token itself)
-        if plugin_name == "github_context" and hasattr(plugin, 'github_token'):
-            config_data["token_configured"] = plugin.github_token is not None
-        
-        return jsonify(config_data)
+        if plugin_config:
+            config_data = plugin_config.config_data.copy()
+            # For GitHub plugin, don't return the token itself, just indicate if it's configured
+            if plugin_name == "github_context" and "github_token" in config_data:
+                config_data["token_configured"] = bool(config_data.get("github_token"))
+                # Remove the actual token from response
+                config_data.pop("github_token", None)
+            return jsonify(config_data)
+        else:
+            # Return default/empty configuration
+            if plugin_name == "github_context":
+                return jsonify({
+                    "file_urls": [],
+                    "token_configured": False
+                })
+            return jsonify({})
     except Exception as e:
         logger.error(f"Error getting plugin config: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
 
 
 @bp.route("/<plugin_name>/config", methods=["POST"])
 @login_required
 def update_plugin_config(plugin_name):
-    """Update plugin configuration."""
-    plugin = plugin_loader.get_plugin(plugin_name)
-    if not plugin:
-        return jsonify({"error": f"Plugin {plugin_name} not found"}), 404
-    
+    """Update plugin configuration (user-specific, stored in database)."""
+    db = SessionLocal()
     try:
         data = request.get_json() or {}
         
-        # Handle GitHub token separately (if provided)
-        if plugin_name == "github_context" and "github_token" in data:
-            token = data.pop("github_token", "").strip()
-            if token:
-                if hasattr(plugin, 'save_token'):
-                    plugin.save_token(token)
-                else:
-                    return jsonify({"error": "Plugin does not support token configuration"}), 400
+        # Get or create plugin configuration
+        plugin_config = db.query(PluginConfiguration).filter(
+            PluginConfiguration.user_id == current_user.id,
+            PluginConfiguration.plugin_name == plugin_name
+        ).first()
         
-        # Update config.json with remaining data
-        current_config = plugin.config.copy()
-        current_config.update(data)
-        plugin.save_config(current_config)
+        if plugin_config:
+            # Update existing configuration
+            current_config = plugin_config.config_data.copy()
+            current_config.update(data)
+            plugin_config.config_data = current_config
+            plugin_config.updated_at = datetime.now(timezone.utc)
+        else:
+            # Create new configuration
+            plugin_config = PluginConfiguration(
+                user_id=current_user.id,
+                plugin_name=plugin_name,
+                config_data=data
+            )
+            db.add(plugin_config)
         
-        logger.info(f"Updated configuration for plugin {plugin_name}")
+        db.commit()
+        db.refresh(plugin_config)
+        
+        # Prepare response (don't include token in response)
+        response_config = plugin_config.config_data.copy()
+        if plugin_name == "github_context" and "github_token" in response_config:
+            response_config["token_configured"] = bool(response_config.get("github_token"))
+            response_config.pop("github_token", None)
+        
+        logger.info(f"Updated configuration for plugin {plugin_name} (user {current_user.id})")
         
         return jsonify({
             "success": True,
             "message": "Configuration updated successfully",
-            "config": current_config
+            "config": response_config
         })
     except Exception as e:
+        db.rollback()
         logger.error(f"Error updating plugin config: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
 
 
 @bp.route("/<plugin_name>/auth/callback", methods=["GET"])

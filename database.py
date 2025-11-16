@@ -94,6 +94,23 @@ class UserSettings(Base):
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
+class PluginConfiguration(Base):
+    """Plugin configuration model for storing user-specific plugin settings."""
+    __tablename__ = "plugin_configurations"
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    plugin_name = Column(String(100), nullable=False, index=True)
+    config_data = Column(JSON, nullable=False)  # JSON object with plugin-specific configuration
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Unique constraint on user_id + plugin_name
+    __table_args__ = (
+        {'sqlite_autoincrement': True},
+    )
+
+
 # Database engine and session
 engine = create_engine(f"sqlite:///{config.DATABASE_PATH}", echo=False, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
