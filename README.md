@@ -1,6 +1,6 @@
 # Vector Infinity
 
-A personal data aggregation system that imports data from multiple sources (Gmail, WhatsApp, etc.) and provides it as context for ChatGPT Custom GPTs via REST API endpoints.
+A personal data aggregation system that imports data from multiple sources (Gmail, WhatsApp, WHOOP, etc.) and provides it as context for ChatGPT Custom GPTs via REST API endpoints.
 
 ## Features
 
@@ -324,7 +324,14 @@ Now when you chat with your Custom GPT, it will automatically:
   - Returns: Results sorted by similarity score
   - This is the recommended endpoint for Custom GPT Actions
 
-Example: `POST /api/plugins/gmail_personal/semantic-search` with body `{"query": "vacation plans", "top_k": 5}`
+Examples:
+- `POST /api/plugins/gmail_personal/semantic-search` with body `{"query": "vacation plans", "top_k": 5}`
+- `POST /api/plugins/whoop/semantic-search` with body `{"query": "recovery score", "top_k": 5}`
+- `POST /api/plugins/whatsapp_angel/semantic-search` with body `{"query": "dinner plans", "top_k": 5}`
+
+### Export Endpoints
+- `GET /api/export/emails` - Export all imported emails to a text file for ChatGPT knowledge upload
+- `GET /api/export/whoop` - Export all imported WHOOP health data to a text file for ChatGPT knowledge upload
 
 ## Architecture
 
