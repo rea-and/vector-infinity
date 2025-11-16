@@ -309,7 +309,6 @@ def send_chat_message(thread_id):
     try:
         data = request.get_json() or {}
         message = data.get("message", "")
-        plugin_name = data.get("plugin_name", "gmail_personal")  # Default to gmail_personal
         
         if not message:
             return jsonify({"error": "message parameter is required"}), 400
@@ -320,13 +319,13 @@ def send_chat_message(thread_id):
         assistant_service = AssistantService()
         vector_store_service = VectorStoreService()
         
-        # Get vector store ID for the plugin
-        vector_store_id = vector_store_service.get_vector_store_id(plugin_name)
+        # Get unified vector store ID
+        vector_store_id = vector_store_service.get_unified_vector_store_id()
         if not vector_store_id:
-            return jsonify({"error": f"No vector store found for plugin {plugin_name}. Please run an import first."}), 404
+            return jsonify({"error": "No vector store found. Please run an import first."}), 404
         
-        # Get or create assistant with vector store
-        assistant_id = assistant_service.get_or_create_assistant(plugin_name, [vector_store_id])
+        # Get or create unified assistant with vector store
+        assistant_id = assistant_service.get_or_create_unified_assistant(vector_store_id)
         if not assistant_id:
             return jsonify({"error": "Failed to get or create assistant"}), 500
         

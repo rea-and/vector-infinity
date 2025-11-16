@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "days_back": 365,
+  "days_back": 5,
   "max_results": 0,
   "query": ""
 }

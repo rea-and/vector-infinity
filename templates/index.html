@@ -325,15 +325,9 @@
         <div id="chat" class="tab-content active">
             <div class="card" style="height: calc(100vh - 200px); display: flex; flex-direction: column;">
                 <h2>Chat with Your Data</h2>
-                <p style="margin-bottom: 15px; color: #666;">Ask questions about your imported data using OpenAI's Assistant API with Vector Stores.</p>
+                <p style="margin-bottom: 15px; color: #666;">Ask questions about your imported data from all enabled plugins (Gmail, WhatsApp, WHOOP, etc.) using OpenAI's Assistant API with Vector Stores.</p>
                 <div style="margin-bottom: 15px;">
-                    <label for="chat-plugin-select">Plugin: </label>
-                    <select id="chat-plugin-select" style="padding: 5px 10px; margin-left: 10px;">
-                        <option value="gmail_personal">Gmail Personal</option>
-                        <option value="whatsapp_angel">WhatsApp Angel</option>
-                        <option value="whoop">WHOOP</option>
-                    </select>
-                    <button class="btn" onclick="newChatThread()" style="margin-left: 10px;">New Chat</button>
+                    <button class="btn" onclick="newChatThread()">New Chat</button>
                 </div>
                 <div id="chat-messages" style="flex: 1; overflow-y: auto; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; background: #f9f9f9; border-radius: 4px;">
                     <p style="color: #666; text-align: center;">Start a new chat to begin asking questions about your data.</p>
@@ -1012,8 +1006,7 @@
                 }
             }
             
-            const pluginName = document.getElementById('chat-plugin-select').value;
-            const messagesDiv = document.getElementById('chat-messages');
+               const messagesDiv = document.getElementById('chat-messages');
             
             // Add user message to UI
             const userMessageDiv = document.createElement('div');
@@ -1042,14 +1035,13 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
             
             try {
-                const response = await fetch(`${API_BASE}/chat/threads/${currentThreadId}/messages`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        message: message,
-                        plugin_name: pluginName
-                    })
-                });
+                   const response = await fetch(`${API_BASE}/chat/threads/${currentThreadId}/messages`, {
+                       method: 'POST',
+                       headers: {'Content-Type': 'application/json'},
+                       body: JSON.stringify({
+                           message: message
+                       })
+                   });
                 
                 if (!response.ok) {
                     const error = await response.json();

@@ -15,88 +15,84 @@ class AssistantService:
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable is required")
         self.client = OpenAI(api_key=api_key)
-        self._assistant_cache = {}  # Cache assistant IDs per plugin
+        self._unified_assistant_id = None  # Cache unified assistant ID
     
-    def get_or_create_assistant(self, plugin_name: str, vector_store_ids: List[str]) -> Optional[str]:
+    def get_or_create_unified_assistant(self, vector_store_id: str) -> Optional[str]:
         """
-        Get or create an assistant for a plugin.
+        Get or create a unified assistant for all plugins.
         
         Args:
-            plugin_name: Name of the plugin
-            vector_store_ids: List of vector store IDs to attach to the assistant
+            vector_store_id: Unified vector store ID
         
         Returns:
             Assistant ID or None
         """
-        if plugin_name in self._assistant_cache:
-            # Verify assistant still exists and update vector stores if needed
+        if self._unified_assistant_id:
+            # Verify assistant still exists and update vector store if needed
             try:
-                assistant = self.client.beta.assistants.retrieve(self._assistant_cache[plugin_name])
-                # Update vector stores if they changed
+                assistant = self.client.beta.assistants.retrieve(self._unified_assistant_id)
+                # Update vector store if it changed
                 current_vs_ids = []
                 if assistant.tool_resources and assistant.tool_resources.file_search:
                     current_vs_ids = assistant.tool_resources.file_search.vector_store_ids or []
                 
-                if set(current_vs_ids) != set(vector_store_ids):
-                    # Update assistant with new vector stores
+                if [vector_store_id] != current_vs_ids:
+                    # Update assistant with new vector store
                     assistant = self.client.beta.assistants.update(
                         assistant.id,
                         tool_resources={
                             "file_search": {
-                                "vector_store_ids": vector_store_ids
+                                "vector_store_ids": [vector_store_id]
                             }
                         }
                     )
-                    logger.info(f"Updated assistant {assistant.id} with new vector stores")
+                    logger.info(f"Updated unified assistant {assistant.id} with new vector store")
                 
                 return assistant.id
             except Exception as e:
-                logger.warning(f"Error retrieving assistant: {e}, creating new one")
+                logger.warning(f"Error retrieving unified assistant: {e}, creating new one")
                 # Fall through to create new assistant
         
-        # Try to find existing assistant by name
+        # Try to find existing unified assistant by name
         try:
             assistants = self.client.beta.assistants.list(limit=100)
             for assistant in assistants.data:
-                if assistant.name == f"vector_infinity_{plugin_name}":
-                    logger.info(f"Found existing assistant for {plugin_name}: {assistant.id}")
-                    # Update vector stores
-                    if vector_store_ids:
-                        assistant = self.client.beta.assistants.update(
-                            assistant.id,
-                            tool_resources={
-                                "file_search": {
-                                    "vector_store_ids": vector_store_ids
-                                }
+                if assistant.name == "vector_infinity_unified":
+                    logger.info(f"Found existing unified assistant: {assistant.id}")
+                    # Update vector store
+                    assistant = self.client.beta.assistants.update(
+                        assistant.id,
+                        tool_resources={
+                            "file_search": {
+                                "vector_store_ids": [vector_store_id]
                             }
-                        )
-                    self._assistant_cache[plugin_name] = assistant.id
+                        }
+                    )
+                    self._unified_assistant_id = assistant.id
                     return assistant.id
         except Exception as e:
             logger.warning(f"Error listing assistants: {e}")
         
-        # Create new assistant
+        # Create new unified assistant
         try:
-            tool_resources = None
-            if vector_store_ids:
-                tool_resources = {
-                    "file_search": {
-                        "vector_store_ids": vector_store_ids
-                    }
+            tool_resources = {
+                "file_search": {
+                    "vector_store_ids": [vector_store_id]
                 }
+            }
             
             assistant = self.client.beta.assistants.create(
-                name=f"vector_infinity_{plugin_name}",
-                instructions=f"You are a helpful assistant that can answer questions about {plugin_name} data. Use the provided context from the vector store to answer questions accurately.",
+                name="vector_infinity_unified",
+                instructions="You are a helpful assistant that can answer questions about all imported data from various sources (Gmail, WhatsApp, WHOOP, etc.). Use the provided context from the vector store to answer questions accurately. When answering, mention the source of the information when relevant.",
                 model="gpt-4o-mini",  # Use gpt-4o-mini for cost efficiency
                 tools=[{"type": "file_search"}],
                 tool_resources=tool_resources
             )
-            logger.info(f"Created new assistant for {plugin_name}: {assistant.id}")
-            self._assistant_cache[plugin_name] = assistant.id
+            logger.info(f"Created new unified assistant: {assistant.id}")
+            self._unified_assistant_id = assistant.id
             return assistant.id
         except Exception as e:
-            logger.error(f"Error creating assistant for {plugin_name}: {e}")
+            logger.error(f"Error creating unified assistant: {e}")
             return None
     
     def create_thread(self) -> Optional[str]:
