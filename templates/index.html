@@ -763,7 +763,7 @@
             }
             
             .chat-title-mobile-new-btn {
-                display: flex; /* Show on mobile */
+                display: none; /* Hidden by default */
             }
             
             /* Hide mobile new button when sidebar is open */
@@ -772,9 +772,14 @@
                 display: none;
             }
             
-            /* Show mobile title bar only when chat tab is active */
+            /* Show mobile title bar and new button only when chat tab is active */
             #chat.tab-content.active ~ .chat-title-mobile,
             body:has(#chat.tab-content.active) .chat-title-mobile {
+                display: flex;
+            }
+            
+            #chat.tab-content.active ~ .chat-title-mobile-new-btn,
+            body:has(#chat.tab-content.active) .chat-title-mobile-new-btn {
                 display: flex;
             }
             
