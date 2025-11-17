@@ -108,6 +108,16 @@ In `config.json`, you can customize:
 - **"credentials.json not found"**: Make sure the file is in `plugins/gmail/` directory
 - **"Authentication failed"**: Delete `token.json` and try again
 - **"Permission denied"**: Make sure you granted the correct permissions during OAuth
+- **"Redirect URI mismatch"**: If you're getting a redirect URI mismatch error:
+  1. Check the application logs to see what redirect URI is being generated
+  2. Make sure the redirect URI in Google Cloud Console exactly matches what's being generated
+  3. If the auto-detected URI doesn't match, you can explicitly set it by adding to your `.env` file:
+     ```
+     BASE_URL=https://vectorinfinity.com
+     ```
+     (Replace with your actual domain)
+  4. Restart the application after setting BASE_URL
+  5. Make sure the redirect URI in Google Cloud Console is exactly: `https://vectorinfinity.com/api/plugins/gmail/auth/callback`
 - **"No browser available"**: If running on a headless server, you'll need to:
   - Use SSH port forwarding, or
   - Copy the authorization URL from the terminal and open it locally, then paste the code back

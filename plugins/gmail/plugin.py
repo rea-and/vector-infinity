@@ -38,32 +38,44 @@ class Plugin(DataSourcePlugin):
         
         try:
             from flask import request
+            import config
             
-            # Get the base URL from the request
-            # Use scheme and host from request, but prefer X-Forwarded-Proto if behind proxy (Nginx)
-            scheme = request.headers.get('X-Forwarded-Proto', request.scheme)
-            host = request.headers.get('X-Forwarded-Host', request.host)
+            # Check if BASE_URL is explicitly configured
+            if config.BASE_URL:
+                base_url = config.BASE_URL.rstrip('/')
+                logger.info(f"Using configured BASE_URL: {base_url}")
+            else:
+                # Get the base URL from the request
+                # Use scheme and host from request, but prefer X-Forwarded-Proto if behind proxy (Nginx)
+                scheme = request.headers.get('X-Forwarded-Proto', request.scheme)
+                host = request.headers.get('X-Forwarded-Host', request.host)
+                
+                # Remove port from host if present (Google OAuth doesn't use ports in redirect URIs)
+                if ':' in host:
+                    host = host.split(':')[0]
+                
+                # Google requires HTTPS for sensitive scopes like Gmail
+                # If we're on HTTP, try to detect if we should use HTTPS
+                if scheme == 'http':
+                    # Check if we're behind a proxy that handles HTTPS (Nginx with SSL)
+                    if request.headers.get('X-Forwarded-Proto') == 'https':
+                        scheme = 'https'
+                    # If we have a domain (not localhost/IP), we likely need HTTPS
+                    elif host and not host.startswith('localhost') and not host.startswith('127.0.0.1'):
+                        # It's a domain name, likely needs HTTPS
+                        logger.info(f"Gmail API requires HTTPS. Detected domain '{host}' but scheme is HTTP. "
+                                 "Forcing HTTPS.")
+                        scheme = 'https'
+                    else:
+                        # For Gmail API, we need HTTPS - warn the user
+                        logger.warning("Gmail API requires HTTPS. Current scheme is HTTP. "
+                                     "Please set up HTTPS with Nginx and Let's Encrypt (see README.md).")
+                        # Still use HTTP for now, but it will fail at Google's end
+                        # The error message will guide the user
+                
+                base_url = f"{scheme}://{host}"
+                logger.info(f"Auto-detected base URL: {base_url} (from scheme={scheme}, host={host})")
             
-            # Google requires HTTPS for sensitive scopes like Gmail
-            # If we're on HTTP, try to detect if we should use HTTPS
-            if scheme == 'http':
-                # Check if we're behind a proxy that handles HTTPS (Nginx with SSL)
-                if request.headers.get('X-Forwarded-Proto') == 'https':
-                    scheme = 'https'
-                # If we have a domain (not localhost/IP), we likely need HTTPS
-                elif host and not host.startswith('localhost') and not host.startswith('127.0.0.1') and ':' not in host.split('.')[0]:
-                    # It's a domain name, likely needs HTTPS
-                    logger.warning(f"Gmail API requires HTTPS. Detected domain '{host}' but scheme is HTTP. "
-                                 "Forcing HTTPS. Make sure your domain has HTTPS set up (see README.md for Nginx setup).")
-                    scheme = 'https'
-                else:
-                    # For Gmail API, we need HTTPS - warn the user
-                    logger.warning("Gmail API requires HTTPS. Current scheme is HTTP. "
-                                 "Please set up HTTPS with Nginx and Let's Encrypt (see README.md).")
-                    # Still use HTTP for now, but it will fail at Google's end
-                    # The error message will guide the user
-            
-            base_url = f"{scheme}://{host}"
             redirect_uri = f"{base_url}/api/plugins/gmail/auth/callback"
             logger.info(f"Using redirect URI: {redirect_uri}")
             

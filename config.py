@@ -37,6 +37,11 @@ SECRET_KEY = os.getenv("SECRET_KEY", "change-this-secret-key-in-production")
 # User-specific directories
 USER_DATA_DIR = BASE_DIR / "data" / "users"
 
+# Base URL for OAuth redirects (optional, will auto-detect if not set)
+# Set this if you're having redirect URI mismatch issues
+# Example: "https://vectorinfinity.com" or "https://your-domain.com"
+BASE_URL = os.getenv("BASE_URL", "")
+
 # Create necessary directories
 DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
