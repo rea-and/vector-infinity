@@ -249,11 +249,14 @@ class Plugin(DataSourcePlugin):
         if not query:
             # If we have a latest timestamp, only fetch emails after that (incremental import)
             if self._latest_timestamp:
-                # Add 1 second to avoid re-fetching the last email
-                after_timestamp = self._latest_timestamp + timedelta(seconds=1)
-                after_date = after_timestamp.strftime("%Y/%m/%d")
+                # Use the date of the latest email to fetch emails from that day onwards
+                # Gmail's "after:" query is date-based (e.g., "after:2024/01/15" means after 2024-01-15 00:00:00)
+                # We use the same day as the latest email to ensure we don't miss any emails that arrived
+                # on the same day after the latest one. The importer will skip duplicates by source_id.
+                latest_date = self._latest_timestamp.date()
+                after_date = latest_date.strftime("%Y/%m/%d")
                 query = f"after:{after_date}"
-                logger.info(f"Incremental import: fetching emails after {after_date} (latest imported: {self._latest_timestamp.isoformat()})")
+                logger.info(f"Incremental import: fetching emails after {after_date} (latest imported: {self._latest_timestamp.isoformat()}). Duplicate detection will skip already-imported emails.")
             else:
                 # Default: get emails from last N days (first import or full import)
                 after_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y/%m/%d")
