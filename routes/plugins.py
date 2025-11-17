@@ -177,6 +177,22 @@ def list_plugins():
                     plugin_data["token_configured"] = False
                     plugin_data["file_urls"] = []
             
+            # Add Gmail-specific configuration data from database
+            if name == "gmail":
+                plugin_config = db.query(PluginConfiguration).filter(
+                    PluginConfiguration.user_id == current_user.id,
+                    PluginConfiguration.plugin_name == name
+                ).first()
+                if plugin_config:
+                    config_data = plugin_config.config_data
+                    plugin_data["days_back"] = config_data.get("days_back", 7)
+                    plugin_data["max_results"] = config_data.get("max_results", 100)
+                    plugin_data["query"] = config_data.get("query", "")
+                else:
+                    plugin_data["days_back"] = 7
+                    plugin_data["max_results"] = 100
+                    plugin_data["query"] = ""
+            
             result.append(plugin_data)
         
         # Sort plugins: enabled first (alphabetical), then disabled (alphabetical)
@@ -268,6 +284,12 @@ def get_plugin_config(plugin_name):
                 return jsonify({
                     "file_urls": [],
                     "token_configured": False
+                })
+            elif plugin_name == "gmail":
+                return jsonify({
+                    "days_back": 7,
+                    "max_results": 100,
+                    "query": ""
                 })
             return jsonify({})
     except Exception as e:
@@ -404,6 +426,7 @@ def update_plugin_config(plugin_name):
         if plugin_name == "github" and "github_token" in response_config:
             response_config["token_configured"] = bool(response_config.get("github_token"))
             response_config.pop("github_token", None)
+        # Gmail config doesn't need special handling (no sensitive tokens)
         
         logger.info(f"Updated configuration for plugin {plugin_name} (user {current_user.id})")
         

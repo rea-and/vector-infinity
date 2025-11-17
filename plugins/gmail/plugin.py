@@ -5,6 +5,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
+from typing import Dict, Any
 import os
 from pathlib import Path
 import logging
@@ -22,12 +23,17 @@ class Plugin(DataSourcePlugin):
         self.service = None
         self._oauth_flow = None  # Store OAuth flow for web-based auth
         self._latest_timestamp = None  # For incremental imports
+        self._user_config = None  # Store user-specific config when provided
         # Don't authenticate on init - do it lazily when needed
         # self._authenticate()
     
     def set_latest_timestamp(self, timestamp):
         """Set the latest imported timestamp for incremental imports."""
         self._latest_timestamp = timestamp
+    
+    def set_user_config(self, config_data: Dict[str, Any]):
+        """Set user-specific configuration (called before fetch_data)."""
+        self._user_config = config_data
     
     def get_authorization_url(self, state):
         """Get OAuth authorization URL for web-based authentication."""
@@ -224,10 +230,15 @@ class Plugin(DataSourcePlugin):
             raise Exception("Gmail service not authenticated. Please set up credentials.json")
         
         results = []
-        days_back = self.config.get("days_back", 7)
-        max_results = self.config.get("max_results", 100)
-        
-        query = self.config.get("query", "")
+        # Use user-specific config if available, otherwise fall back to plugin config
+        if self._user_config:
+            days_back = self._user_config.get("days_back", 7)
+            max_results = self._user_config.get("max_results", 100)
+            query = self._user_config.get("query", "")
+        else:
+            days_back = self.config.get("days_back", 7)
+            max_results = self.config.get("max_results", 100)
+            query = self.config.get("query", "")
         if not query:
             # If we have a latest timestamp, only fetch emails after that (incremental import)
             if self._latest_timestamp:

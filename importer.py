@@ -325,17 +325,20 @@ class DataImporter:
                     return
                 
                 # Load user-specific plugin configuration from database
-                if plugin_name == "github":
+                if plugin_name in ["github", "gmail"]:
                     if plugin_config_db and hasattr(plugin, 'set_user_config'):
                         plugin.set_user_config(plugin_config_db.config_data)
-                        logger.info(f"Loaded user config for {plugin_name}: token_configured={bool(plugin_config_db.config_data.get('github_token'))}, file_urls={len(plugin_config_db.config_data.get('file_urls', []))}")
-                    elif not plugin_config_db:
+                        if plugin_name == "github":
+                            logger.info(f"Loaded user config for {plugin_name}: token_configured={bool(plugin_config_db.config_data.get('github_token'))}, file_urls={len(plugin_config_db.config_data.get('file_urls', []))}")
+                        elif plugin_name == "gmail":
+                            logger.info(f"Loaded user config for {plugin_name}: days_back={plugin_config_db.config_data.get('days_back', 7)}, max_results={plugin_config_db.config_data.get('max_results', 100)}")
+                    elif plugin_name == "github" and not plugin_config_db:
                         log_entry.status = "error"
                         log_entry.error_message = "Plugin not configured. Please configure it first (GitHub token and file URLs)."
                         log_entry.completed_at = datetime.now(timezone.utc)
                         db.commit()
                         return
-                    else:
+                    elif plugin_name == "github":
                         log_entry.status = "error"
                         log_entry.error_message = "Plugin configuration error. Please reconfigure the plugin."
                         log_entry.completed_at = datetime.now(timezone.utc)
