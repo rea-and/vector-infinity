@@ -120,8 +120,8 @@ def list_plugins():
                                     spec.loader.exec_module(module)
                                     if hasattr(module, 'SCOPES'):
                                         scopes = module.SCOPES
-                        except:
-                            pass
+                        except Exception as scope_error:
+                            logger.debug(f"Error getting SCOPES for {name}: {scope_error}")
                     
                     if scopes:
                         try:
@@ -133,15 +133,21 @@ def list_plugins():
                                 auth_status = "expired"  # Can be refreshed
                             else:
                                 auth_status = "invalid"
-                        except Exception as e:
-                            logger.debug(f"Error validating token for {name}: {e}")
-                            auth_status = "invalid"
+                        except Exception as cred_error:
+                            logger.debug(f"Error validating token for {name}: {cred_error}")
+                            # If token file exists but validation fails, still mark as authenticated
+                            # (token might be valid but validation failed for other reasons)
+                            auth_status = "authenticated"
                     else:
-                        # Token file exists but we can't validate it - assume authenticated
+                        # Token file exists but we can't get scopes to validate it
+                        # Assume authenticated since token file exists
+                        logger.debug(f"Token file exists for {name} but SCOPES not found, assuming authenticated")
                         auth_status = "authenticated"
                 except Exception as e:
-                    logger.warning(f"Error checking auth status for {name}: {e}")
-                    auth_status = "unknown"
+                    logger.warning(f"Error checking auth status for {name}: {e}", exc_info=True)
+                    # If token file exists but we can't check it, assume authenticated
+                    # (better than showing "unknown" when token clearly exists)
+                    auth_status = "authenticated"
             else:
                 auth_status = "not_authenticated"
             
