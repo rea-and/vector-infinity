@@ -29,7 +29,8 @@ def load_user(user_id):
     """Load user from database."""
     db = SessionLocal()
     try:
-        user = db.query(User).get(int(user_id))
+        # Use Session.get() instead of Query.get() for SQLAlchemy 2.0 compatibility
+        user = db.get(User, int(user_id))
         if user:
             logger.debug(f"Loaded user: {user.email} (ID: {user.id})")
         return user

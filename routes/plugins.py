@@ -202,7 +202,13 @@ def start_plugin_auth(plugin_name):
         auth_url = plugin.get_authorization_url(state)
         
         if not auth_url:
-            return jsonify({"error": "Failed to generate authorization URL"}), 500
+            # Provide more specific error message based on plugin
+            if plugin_name == "gmail":
+                error_msg = "Gmail credentials.json not found. Please add credentials.json to the plugins/gmail/ directory. See plugins/gmail/SETUP_GMAIL.md for instructions."
+            else:
+                error_msg = "Failed to generate authorization URL. Please check plugin configuration."
+            logger.error(f"Failed to generate authorization URL for {plugin_name}: {error_msg}")
+            return jsonify({"error": error_msg}), 500
         
         # Get redirect URI from stored flow (plugin stores it there)
         redirect_uri = None
