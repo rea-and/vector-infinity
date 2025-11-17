@@ -1987,6 +1987,9 @@
                                     </div>
                                     ${lastImportHtml}
                                     ${progressHtml}
+                                    <button class="btn" onclick="configureWhatsAppPlugin('${plugin.name}')" style="margin-top: 5px; width: 100%;">
+                                        ⚙️ Configure
+                                    </button>
                                     <div style="margin-top: 10px;">
                                         <label style="display: block; margin-bottom: 5px; font-size: 13px; font-weight: 600;">
                                             Upload WhatsApp Chat Export (ZIP):
@@ -1995,10 +1998,39 @@
                                         <button class="btn" id="btn-${plugin.name}" onclick="runImportWithFile('${plugin.name}')" ${!plugin.enabled || hasRunningImport ? 'disabled' : ''} style="margin-top: 5px; width: 100%;">
                                             ${hasRunningImport ? '<span class="loading"></span> Importing...' : 'Upload & Import'}
                                         </button>
-                                        <button type="button" class="btn btn-secondary" data-reset-plugin="${plugin.name}" style="margin-top: 5px; width: 100%; background: #dc3545; color: white; cursor: pointer;">
-                                            🗑️ Clear Data
-                                        </button>
                                     </div>
+                                    <button type="button" class="btn btn-secondary" data-reset-plugin="${plugin.name}" style="margin-top: 5px; width: 100%; background: #dc3545; color: white; cursor: pointer;">
+                                        🗑️ Clear Data
+                                    </button>
+                                </div>
+                            `;
+                            }
+                            
+                            // Special handling for whoop plugin (configuration)
+                            if (plugin.name === 'whoop') {
+                                return `
+                                <div class="plugin-card">
+                                    <h3>${plugin.nice_name || plugin.name}</h3>
+                                    <div class="plugin-toggle">
+                                        <label onclick="event.stopPropagation();">
+                                            <input type="checkbox" id="toggle-${plugin.name}" ${plugin.enabled ? 'checked' : ''} onchange="togglePlugin('${plugin.name}', this.checked)">
+                                            <span style="margin-left: 10px;">Enable Plugin</span>
+                                        </label>
+                                        <div class="toggle-switch ${plugin.enabled ? 'active' : ''}" onclick="const cb = document.querySelector('#toggle-${plugin.name}'); cb.checked = !cb.checked; togglePlugin('${plugin.name}', cb.checked);">
+                                        </div>
+                                    </div>
+                                    ${lastImportHtml}
+                                    ${authInfo || ''}
+                                    ${progressHtml}
+                                    <button class="btn" onclick="configureWhoopPlugin('${plugin.name}')" style="margin-top: 5px; width: 100%;">
+                                        ⚙️ Configure
+                                    </button>
+                                    <button class="btn" id="btn-${plugin.name}" onclick="runImport('${plugin.name}')" ${!plugin.enabled || hasRunningImport ? 'disabled' : ''} style="margin-top: 5px; width: 100%;">
+                                        ${hasRunningImport ? '<span class="loading"></span> Importing...' : 'Run Import'}
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" data-reset-plugin="${plugin.name}" style="margin-top: 5px; width: 100%; background: #dc3545; color: white; cursor: pointer;">
+                                        🗑️ Clear Data
+                                    </button>
                                 </div>
                             `;
                             }
@@ -2701,6 +2733,144 @@
             } catch (error) {
                 console.error('Error saving Gmail configuration:', error);
                 alert(`Error saving configuration: ${error.message}`);
+            }
+        }
+        
+        async function configureWhatsAppPlugin(pluginName) {
+            try {
+                // Fetch current configuration
+                const configResponse = await fetch(`${API_BASE}/plugins/${pluginName}/config`);
+                if (!configResponse.ok) {
+                    throw new Error('Failed to load plugin configuration');
+                }
+                const config = await configResponse.json();
+                
+                // Create modal dialog
+                const modal = document.createElement('div');
+                modal.id = 'whatsapp-config-modal';
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.7);
+                    z-index: 10000;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 20px;
+                `;
+                
+                modal.innerHTML = `
+                    <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 24px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                        <h2 style="margin-top: 0; color: var(--text-primary);">Configure WhatsApp Plugin</h2>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <p style="color: var(--text-secondary);">
+                                Configuration options for WhatsApp plugin will be available here.
+                            </p>
+                            <p style="color: var(--text-secondary); font-size: 14px; margin-top: 10px;">
+                                Currently, you can upload WhatsApp chat exports (ZIP files) directly from the plugin card.
+                            </p>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                            <button class="btn btn-secondary" onclick="closeWhatsAppConfigModal()" style="padding: 10px 20px;">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Close on outside click
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        closeWhatsAppConfigModal();
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Error opening WhatsApp configuration:', error);
+                alert(`Error: ${error.message}`);
+            }
+        }
+        
+        function closeWhatsAppConfigModal() {
+            const modal = document.getElementById('whatsapp-config-modal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+        
+        async function configureWhoopPlugin(pluginName) {
+            try {
+                // Fetch current configuration
+                const configResponse = await fetch(`${API_BASE}/plugins/${pluginName}/config`);
+                if (!configResponse.ok) {
+                    throw new Error('Failed to load plugin configuration');
+                }
+                const config = await configResponse.json();
+                
+                // Create modal dialog
+                const modal = document.createElement('div');
+                modal.id = 'whoop-config-modal';
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.7);
+                    z-index: 10000;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 20px;
+                `;
+                
+                modal.innerHTML = `
+                    <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 24px; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                        <h2 style="margin-top: 0; color: var(--text-primary);">Configure WHOOP Plugin</h2>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <p style="color: var(--text-secondary);">
+                                Configuration options for WHOOP plugin will be available here.
+                            </p>
+                            <p style="color: var(--text-secondary); font-size: 14px; margin-top: 10px;">
+                                Currently, the plugin uses default settings from the configuration file.
+                            </p>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                            <button class="btn btn-secondary" onclick="closeWhoopConfigModal()" style="padding: 10px 20px;">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                // Close on outside click
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        closeWhoopConfigModal();
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Error opening WHOOP configuration:', error);
+                alert(`Error: ${error.message}`);
+            }
+        }
+        
+        function closeWhoopConfigModal() {
+            const modal = document.getElementById('whoop-config-modal');
+            if (modal) {
+                modal.remove();
             }
         }
         
