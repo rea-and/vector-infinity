@@ -109,7 +109,8 @@ def run_import():
         })
     else:
         # For "import all", run synchronously (could be improved later)
-        results = importer.import_all()
+        # Note: This should be async in production, but for now it's synchronous
+        results = importer.import_all(user_id=current_user.id)
         return jsonify({
             "success": True,
             "results": {

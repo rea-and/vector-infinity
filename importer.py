@@ -32,18 +32,26 @@ class DataImporter:
     def __init__(self):
         self.plugin_loader = PluginLoader()
     
-    def import_from_plugin(self, plugin_name: str) -> ImportLog:
+    def import_from_plugin(self, plugin_name: str, user_id: int = None) -> ImportLog:
         """
         Import data from a specific plugin.
+        
+        Args:
+            plugin_name: Name of the plugin to import from
+            user_id: User ID for user-specific imports (required for multi-user support)
         
         Returns:
             ImportLog object with the result
         """
+        if user_id is None:
+            raise ValueError("user_id is required for import_from_plugin")
+        
         db = SessionLocal()
         plugin = self.plugin_loader.get_plugin(plugin_name)
         
         if not plugin:
             log_entry = ImportLog(
+                user_id=user_id,
                 plugin_name=plugin_name,
                 status="error",
                 started_at=datetime.now(timezone.utc),
@@ -70,6 +78,7 @@ class DataImporter:
         
         # Create log entry
         log_entry = ImportLog(
+            user_id=user_id,
             plugin_name=plugin_name,
             status="running",
             started_at=datetime.now(timezone.utc)
@@ -79,7 +88,7 @@ class DataImporter:
         
         try:
             # Fetch data from plugin
-            logger.info(f"Fetching data from plugin: {plugin_name}")
+            logger.info(f"Fetching data from plugin: {plugin_name} (user {user_id})")
             
             # Update progress: fetching data
             log_entry.progress_message = "Fetching data from source..."
@@ -103,8 +112,9 @@ class DataImporter:
                     log_entry.progress_current = idx + 1
                     log_entry.progress_message = f"Processing item {idx + 1} of {total_items}..."
                     db.commit()
-                # Check if item already exists
+                # Check if item already exists (user-specific)
                 existing = db.query(DataItem).filter_by(
+                    user_id=user_id,
                     plugin_name=plugin_name,
                     source_id=item_data.get("source_id")
                 ).first()
@@ -115,6 +125,7 @@ class DataImporter:
                 else:
                     # Create new item
                     new_item = DataItem(
+                        user_id=user_id,
                         plugin_name=plugin_name,
                         source_id=item_data.get("source_id"),
                         item_type=item_data.get("item_type", "unknown"),
@@ -163,7 +174,7 @@ class DataImporter:
                         else:
                             logger.warning(f"Failed to upload batch {batch_num}/{total_batches} to vector store")
                     
-                    logger.info(f"Uploaded {total_uploaded} items to vector store for {plugin_name}")
+                    logger.info(f"Uploaded {total_uploaded} items to vector store for {plugin_name} (user {user_id})")
                     log_entry.progress_message = f"Successfully uploaded {total_uploaded} items to vector store"
                     db.commit()
                 except Exception as e:
@@ -181,7 +192,7 @@ class DataImporter:
             log_entry.progress_message = f"Completed: {records_imported} records imported"
             db.commit()
             
-            logger.info(f"Successfully imported {records_imported} items from {plugin_name}")
+            logger.info(f"Successfully imported {records_imported} items from {plugin_name} (user {user_id})")
             
         except Exception as e:
             logger.error(f"Error importing from {plugin_name}: {e}", exc_info=True)
@@ -209,13 +220,42 @@ class DataImporter:
         
         return ImportLogResult(result)
     
-    def import_all(self) -> dict:
-        """Import data from all enabled plugins."""
+    def import_all(self, user_id: int = None) -> dict:
+        """
+        Import data from all enabled plugins for a specific user.
+        
+        Args:
+            user_id: User ID for user-specific imports (required for multi-user support)
+        
+        Returns:
+            Dictionary mapping plugin names to ImportLog results
+        """
+        if user_id is None:
+            raise ValueError("user_id is required for import_all")
+        
         results = {}
         plugins = self.plugin_loader.get_all_plugins()
         
-        for plugin_name in plugins:
-            results[plugin_name] = self.import_from_plugin(plugin_name)
+        # Check which plugins are enabled for this user
+        db = SessionLocal()
+        try:
+            for plugin_name in plugins:
+                # Check if plugin is enabled for this user
+                plugin_config_db = db.query(PluginConfiguration).filter(
+                    PluginConfiguration.user_id == user_id,
+                    PluginConfiguration.plugin_name == plugin_name
+                ).first()
+                
+                enabled = False
+                if plugin_config_db and plugin_config_db.config_data:
+                    enabled = plugin_config_db.config_data.get("enabled", False)
+                
+                if enabled:
+                    results[plugin_name] = self.import_from_plugin(plugin_name, user_id=user_id)
+                else:
+                    logger.info(f"Skipping plugin {plugin_name} - not enabled for user {user_id}")
+        finally:
+            db.close()
         
         return results
     

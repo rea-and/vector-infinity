@@ -55,6 +55,7 @@ def clear_all_data():
 
 
 @bp.route("/factory-reset", methods=["POST"])
+@login_required
 def factory_reset():
     """Factory reset: Delete absolutely everything - database, logs, temp files, vector store."""
     try:
