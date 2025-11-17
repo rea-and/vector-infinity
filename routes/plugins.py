@@ -80,7 +80,6 @@ def list_plugins():
                 dt = last_import.completed_at
                 if dt.tzinfo is None:
                     # If naive datetime, assume UTC
-                    from datetime import timezone
                     dt = dt.replace(tzinfo=timezone.utc)
                 last_import_time = dt.isoformat()
                 last_import_records = last_import.records_imported
