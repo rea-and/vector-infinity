@@ -1,6 +1,6 @@
 """Base class for data source plugins."""
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 import json
 from pathlib import Path
@@ -58,4 +58,65 @@ class DataSourcePlugin(ABC):
         return {
             "enabled": {"type": "boolean", "default": False, "description": "Enable this plugin"},
         }
+    
+    def set_user_config(self, config_data: Dict[str, Any]):
+        """
+        Set user-specific configuration (called before fetch_data).
+        Plugins can override this to handle user-specific settings.
+        """
+        pass
+    
+    def validate_user_config(self, config_data: Optional[Dict[str, Any]]) -> Tuple[bool, Optional[str]]:
+        """
+        Validate if the plugin is properly configured for the user.
+        
+        Args:
+            config_data: User-specific configuration data from database, or None if not configured
+        
+        Returns:
+            Tuple of (is_valid, error_message)
+            - is_valid: True if plugin is properly configured, False otherwise
+            - error_message: Error message if not valid, None if valid
+        """
+        return True, None
+    
+    def get_plugin_metadata(self, config_data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Get plugin-specific metadata to include in the plugin list response.
+        Plugins can override this to add custom metadata fields.
+        
+        Args:
+            config_data: User-specific configuration data from database, or None if not configured
+        
+        Returns:
+            Dictionary of metadata fields to add to plugin_data
+        """
+        return {}
+    
+    def should_update_existing_item(self, existing_item: Any, new_item_data: Dict[str, Any]) -> bool:
+        """
+        Determine if an existing item should be updated with new data.
+        Plugins can override this to implement custom update logic (e.g., SHA comparison for GitHub).
+        
+        Args:
+            existing_item: Existing DataItem from database
+            new_item_data: New item data from plugin
+        
+        Returns:
+            True if item should be updated, False if it should be skipped
+        """
+        return False  # By default, don't update existing items
+    
+    def sanitize_config_for_response(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Sanitize configuration data before sending to client (remove sensitive data).
+        Plugins can override this to remove tokens, passwords, etc.
+        
+        Args:
+            config_data: Configuration data to sanitize
+        
+        Returns:
+            Sanitized configuration data
+        """
+        return config_data.copy()
 

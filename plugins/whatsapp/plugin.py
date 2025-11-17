@@ -6,7 +6,7 @@ import logging
 import zipfile
 import tempfile
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -213,4 +213,14 @@ class Plugin(DataSourcePlugin):
         """Return configuration schema."""
         schema = super().get_config_schema()
         return schema
+    
+    def validate_user_config(self, config_data: Optional[Dict[str, Any]]) -> Tuple[bool, Optional[str]]:
+        """Validate WhatsApp plugin configuration."""
+        # WhatsApp requires a file to be uploaded, which is handled separately
+        # This validation is for config data, not file upload
+        return True, None
+    
+    def requires_file_upload(self) -> bool:
+        """Check if plugin requires a file upload."""
+        return True
 

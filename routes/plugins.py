@@ -163,35 +163,16 @@ def list_plugins():
                 "last_auth_time": last_auth_time
             }
             
-            # Add GitHub-specific configuration data from database
-            if name == "github":
-                plugin_config = db.query(PluginConfiguration).filter(
-                    PluginConfiguration.user_id == current_user.id,
-                    PluginConfiguration.plugin_name == name
-                ).first()
-                if plugin_config:
-                    config_data = plugin_config.config_data
-                    plugin_data["token_configured"] = bool(config_data.get("github_token"))
-                    plugin_data["file_urls"] = config_data.get("file_urls", [])
-                else:
-                    plugin_data["token_configured"] = False
-                    plugin_data["file_urls"] = []
+            # Get plugin-specific metadata from plugin itself
+            plugin_config = db.query(PluginConfiguration).filter(
+                PluginConfiguration.user_id == current_user.id,
+                PluginConfiguration.plugin_name == name
+            ).first()
             
-            # Add Gmail-specific configuration data from database
-            if name == "gmail":
-                plugin_config = db.query(PluginConfiguration).filter(
-                    PluginConfiguration.user_id == current_user.id,
-                    PluginConfiguration.plugin_name == name
-                ).first()
-                if plugin_config:
-                    config_data = plugin_config.config_data
-                    plugin_data["days_back"] = config_data.get("days_back", 7)
-                    plugin_data["max_results"] = config_data.get("max_results", 100)
-                    plugin_data["query"] = config_data.get("query", "")
-                else:
-                    plugin_data["days_back"] = 7
-                    plugin_data["max_results"] = 100
-                    plugin_data["query"] = ""
+            config_data = plugin_config.config_data if plugin_config else None
+            if plugin and hasattr(plugin, 'get_plugin_metadata'):
+                plugin_metadata = plugin.get_plugin_metadata(config_data)
+                plugin_data.update(plugin_metadata)
             
             result.append(plugin_data)
         
@@ -223,11 +204,12 @@ def start_plugin_auth(plugin_name):
         auth_url = plugin.get_authorization_url(state)
         
         if not auth_url:
-            # Provide more specific error message based on plugin
-            if plugin_name == "gmail":
-                error_msg = "Gmail credentials.json not found. Please add credentials.json to the plugins/gmail/ directory. See plugins/gmail/SETUP_GMAIL.md for instructions."
-            else:
-                error_msg = "Failed to generate authorization URL. Please check plugin configuration."
+            # Let plugin provide error message if it has one, otherwise use generic message
+            error_msg = "Failed to generate authorization URL. Please check plugin configuration."
+            if hasattr(plugin, 'get_auth_error_message'):
+                plugin_error = plugin.get_auth_error_message()
+                if plugin_error:
+                    error_msg = plugin_error
             logger.error(f"Failed to generate authorization URL for {plugin_name}: {error_msg}")
             return jsonify({"error": error_msg}), 500
         
@@ -272,25 +254,15 @@ def get_plugin_config(plugin_name):
         
         if plugin_config:
             config_data = plugin_config.config_data.copy()
-            # For GitHub plugin, don't return the token itself, just indicate if it's configured
-            if plugin_name == "github" and "github_token" in config_data:
-                config_data["token_configured"] = bool(config_data.get("github_token"))
-                # Remove the actual token from response
-                config_data.pop("github_token", None)
+            # Let plugin sanitize its own config (remove sensitive data)
+            plugin = plugin_loader.get_plugin(plugin_name)
+            if plugin and hasattr(plugin, 'sanitize_config_for_response'):
+                config_data = plugin.sanitize_config_for_response(config_data)
             return jsonify(config_data)
         else:
             # Return default/empty configuration
-            if plugin_name == "github":
-                return jsonify({
-                    "file_urls": [],
-                    "token_configured": False
-                })
-            elif plugin_name == "gmail":
-                return jsonify({
-                    "days_back": 7,
-                    "max_results": 100,
-                    "query": ""
-                })
+            # Plugins can provide defaults via get_plugin_metadata, but for config endpoint
+            # we return empty dict and let the UI handle defaults
             return jsonify({})
     except Exception as e:
         logger.error(f"Error getting plugin config: {e}", exc_info=True)
@@ -421,12 +393,11 @@ def update_plugin_config(plugin_name):
             else:
                 raise commit_error
         
-        # Prepare response (don't include token in response)
+        # Prepare response - let plugin sanitize its own config (remove sensitive data)
         response_config = plugin_config.config_data.copy()
-        if plugin_name == "github" and "github_token" in response_config:
-            response_config["token_configured"] = bool(response_config.get("github_token"))
-            response_config.pop("github_token", None)
-        # Gmail config doesn't need special handling (no sensitive tokens)
+        plugin = plugin_loader.get_plugin(plugin_name)
+        if plugin and hasattr(plugin, 'sanitize_config_for_response'):
+            response_config = plugin.sanitize_config_for_response(response_config)
         
         logger.info(f"Updated configuration for plugin {plugin_name} (user {current_user.id})")
         

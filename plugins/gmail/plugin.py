@@ -5,7 +5,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
-from typing import Dict, Any
+from typing import Dict, Any, Tuple, Optional
 import os
 from pathlib import Path
 import logging
@@ -34,6 +34,13 @@ class Plugin(DataSourcePlugin):
     def set_user_config(self, config_data: Dict[str, Any]):
         """Set user-specific configuration (called before fetch_data)."""
         self._user_config = config_data
+    
+    def get_auth_error_message(self) -> Optional[str]:
+        """Get error message if authentication setup is missing."""
+        credentials_path = Path(__file__).parent / "credentials.json"
+        if not credentials_path.exists():
+            return "Gmail credentials.json not found. Please add credentials.json to the plugins/gmail/ directory. See plugins/gmail/SETUP_GMAIL.md for instructions."
+        return None
     
     def get_authorization_url(self, state):
         """Get OAuth authorization URL for web-based authentication."""
@@ -437,4 +444,17 @@ class Plugin(DataSourcePlugin):
             }
         })
         return schema
+    
+    def get_plugin_metadata(self, config_data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Get Gmail-specific metadata for plugin list."""
+        metadata = {}
+        if config_data:
+            metadata["days_back"] = config_data.get("days_back", 7)
+            metadata["max_results"] = config_data.get("max_results", 100)
+            metadata["query"] = config_data.get("query", "")
+        else:
+            metadata["days_back"] = 7
+            metadata["max_results"] = 100
+            metadata["query"] = ""
+        return metadata
 

@@ -325,28 +325,27 @@ class DataImporter:
                     return
                 
                 # Load user-specific plugin configuration from database
-                if plugin_name in ["github", "gmail"]:
-                    if plugin_config_db and hasattr(plugin, 'set_user_config'):
-                        plugin.set_user_config(plugin_config_db.config_data)
-                        if plugin_name == "github":
-                            logger.info(f"Loaded user config for {plugin_name}: token_configured={bool(plugin_config_db.config_data.get('github_token'))}, file_urls={len(plugin_config_db.config_data.get('file_urls', []))}")
-                        elif plugin_name == "gmail":
-                            logger.info(f"Loaded user config for {plugin_name}: days_back={plugin_config_db.config_data.get('days_back', 7)}, max_results={plugin_config_db.config_data.get('max_results', 100)}")
-                    elif plugin_name == "github" and not plugin_config_db:
+                config_data = None
+                if plugin_config_db:
+                    config_data = plugin_config_db.config_data
+                
+                # Set user config if plugin supports it
+                if hasattr(plugin, 'set_user_config') and config_data:
+                    plugin.set_user_config(config_data)
+                    logger.info(f"Loaded user config for {plugin_name}")
+                
+                # Validate plugin configuration
+                if hasattr(plugin, 'validate_user_config'):
+                    is_valid, error_message = plugin.validate_user_config(config_data)
+                    if not is_valid:
                         log_entry.status = "error"
-                        log_entry.error_message = "Plugin not configured. Please configure it first (GitHub token and file URLs)."
-                        log_entry.completed_at = datetime.now(timezone.utc)
-                        db.commit()
-                        return
-                    elif plugin_name == "github":
-                        log_entry.status = "error"
-                        log_entry.error_message = "Plugin configuration error. Please reconfigure the plugin."
+                        log_entry.error_message = error_message or "Plugin configuration error. Please reconfigure the plugin."
                         log_entry.completed_at = datetime.now(timezone.utc)
                         db.commit()
                         return
                 
-                # Set file path for whatsapp plugin if provided
-                if plugin_name == "whatsapp" and uploaded_file_path:
+                # Set file path for plugins that support file uploads
+                if uploaded_file_path:
                     if hasattr(plugin, 'set_uploaded_file'):
                         plugin.set_uploaded_file(str(uploaded_file_path))
                         logger.info(f"Set uploaded file path on plugin in async thread: {uploaded_file_path}")
@@ -357,16 +356,17 @@ class DataImporter:
                         db.commit()
                         return
                 
-                # Verify file path is set for whatsapp plugin
-                if plugin_name == "whatsapp" and hasattr(plugin, 'uploaded_file_path'):
-                    if not plugin.uploaded_file_path:
-                        log_entry.status = "error"
-                        log_entry.error_message = "No file uploaded. Please upload a zip file containing the chat export."
-                        log_entry.completed_at = datetime.now(timezone.utc)
-                        db.commit()
-                        logger.error(f"No file path set on plugin {plugin_name}")
-                        return
-                    logger.info(f"Using uploaded file path: {plugin.uploaded_file_path}")
+                # Verify file path is set for plugins that require file uploads
+                if hasattr(plugin, 'requires_file_upload') and plugin.requires_file_upload():
+                    if hasattr(plugin, 'uploaded_file_path'):
+                        if not plugin.uploaded_file_path:
+                            log_entry.status = "error"
+                            log_entry.error_message = "No file uploaded. Please upload a zip file containing the chat export."
+                            log_entry.completed_at = datetime.now(timezone.utc)
+                            db.commit()
+                            logger.error(f"No file path set on plugin {plugin_name}")
+                            return
+                        logger.info(f"Using uploaded file path: {plugin.uploaded_file_path}")
                 
                 try:
                     log_entry.progress_message = "Checking for new data..."
@@ -414,18 +414,10 @@ class DataImporter:
                         ).first()
                         
                         if existing:
-                            # For GitHub files, check if content has changed (compare SHA from metadata)
+                            # Check if plugin wants to update existing item
                             should_update = False
-                            if plugin_name == "github":
-                                new_sha = item_data.get("metadata", {}).get("sha")
-                                existing_sha = existing.item_metadata.get("sha") if existing.item_metadata else None
-                                if new_sha and new_sha != existing_sha:
-                                    logger.info(f"GitHub file content changed (SHA: {existing_sha} -> {new_sha}), updating: {source_id}")
-                                    should_update = True
-                                elif existing.content != item_data.get("content"):
-                                    # Fallback: compare content if SHA not available
-                                    logger.info(f"GitHub file content changed (content differs), updating: {source_id}")
-                                    should_update = True
+                            if hasattr(plugin, 'should_update_existing_item'):
+                                should_update = plugin.should_update_existing_item(existing, item_data)
                             
                             if should_update:
                                 # Update existing item

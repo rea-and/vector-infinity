@@ -4,7 +4,7 @@ from pathlib import Path
 import json
 import logging
 import requests
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple, Optional
 from datetime import datetime, timezone
 import re
 
@@ -297,4 +297,55 @@ class Plugin(DataSourcePlugin):
             "description": "List of GitHub file URLs to import (e.g., https://github.com/owner/repo/blob/branch/path/file.txt)"
         }
         return schema
+    
+    def validate_user_config(self, config_data: Optional[Dict[str, Any]]) -> Tuple[bool, Optional[str]]:
+        """Validate GitHub plugin configuration."""
+        if not config_data:
+            return False, "Plugin not configured. Please configure it first (GitHub token and file URLs)."
+        
+        token = config_data.get("github_token")
+        file_urls = config_data.get("file_urls", [])
+        
+        if not token:
+            return False, "GitHub token not configured. Please add your GitHub personal access token."
+        
+        if not file_urls or len(file_urls) == 0:
+            return False, "No file URLs configured. Please add at least one GitHub file URL."
+        
+        return True, None
+    
+    def get_plugin_metadata(self, config_data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Get GitHub-specific metadata for plugin list."""
+        metadata = {}
+        if config_data:
+            metadata["token_configured"] = bool(config_data.get("github_token"))
+            metadata["file_urls"] = config_data.get("file_urls", [])
+        else:
+            metadata["token_configured"] = False
+            metadata["file_urls"] = []
+        return metadata
+    
+    def should_update_existing_item(self, existing_item: Any, new_item_data: Dict[str, Any]) -> bool:
+        """Check if GitHub file should be updated (compare SHA)."""
+        new_sha = new_item_data.get("metadata", {}).get("sha")
+        existing_sha = existing_item.item_metadata.get("sha") if existing_item.item_metadata else None
+        
+        if new_sha and new_sha != existing_sha:
+            logger.info(f"GitHub file content changed (SHA: {existing_sha} -> {new_sha}), updating: {new_item_data.get('source_id')}")
+            return True
+        
+        # Fallback: compare content if SHA not available
+        if existing_item.content != new_item_data.get("content"):
+            logger.info(f"GitHub file content changed (content differs), updating: {new_item_data.get('source_id')}")
+            return True
+        
+        return False
+    
+    def sanitize_config_for_response(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Remove GitHub token from config response."""
+        sanitized = config_data.copy()
+        if "github_token" in sanitized:
+            sanitized["token_configured"] = bool(sanitized.get("github_token"))
+            sanitized.pop("github_token", None)
+        return sanitized
 
