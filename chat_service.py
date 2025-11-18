@@ -159,10 +159,14 @@ class ChatService:
             
         except Exception as e:
             logger.error(f"Error sending message: {e}", exc_info=True)
-            # Check if it's an unsupported model error
+            # Check if it's an unsupported model error or Responses API required
             error_str = str(e)
-            if "unsupported_model" in error_str or "cannot be used" in error_str:
-                logger.error(f"Model {model} is not supported. Falling back to default model {config.DEFAULT_MODEL}")
+            if ("unsupported_model" in error_str or 
+                "cannot be used" in error_str or 
+                "only supported in v1/responses" in error_str or
+                "not in v1/chat/completions" in error_str):
+                
+                logger.error(f"Model {model} is not supported by Chat Completions API. Falling back to default model {config.DEFAULT_MODEL}")
                 # Clear the invalid model from user settings
                 if user_id:
                     self._clear_invalid_model(user_id, model)
@@ -170,10 +174,8 @@ class ChatService:
                 fallback_model = config.DEFAULT_MODEL
                 fallback_params = {
                     "model": fallback_model,
-                    "messages": messages_list  # Reuse the same messages list
+                    "messages": messages_list  # Reuse the same messages list (file_ids already attached if vector_store_id was provided)
                 }
-                # Note: file_ids are already attached to messages_list if vector_store_id was provided
-                # No need to add them again here since we're reusing messages_list
                 try:
                     response = self.client.chat.completions.create(**fallback_params)
                     response_text = response.choices[0].message.content
