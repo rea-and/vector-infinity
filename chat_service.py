@@ -189,9 +189,15 @@ class ChatService:
         }
         
         # Add previous_response_id for state management (if this is a continuation)
+        # Note: previous_response_id must be from Responses API, not Chat Completions
+        # If it's from Chat Completions (starts with 'chatcmpl-'), don't use it
         if previous_response_id:
-            request_params["previous_response_id"] = previous_response_id
-            logger.info(f"Using previous_response_id for state management: {previous_response_id}")
+            if previous_response_id.startswith('chatcmpl-'):
+                # This is a Chat Completions response ID, not compatible with Responses API
+                logger.warning(f"previous_response_id is from Chat Completions ({previous_response_id}), not using it for Responses API")
+            else:
+                request_params["previous_response_id"] = previous_response_id
+                logger.info(f"Using previous_response_id for state management: {previous_response_id}")
         
         # Note: Vector store support in Responses API may be different
         # For now, we'll try without vector stores and see if the API supports them
@@ -219,6 +225,18 @@ class ChatService:
             # Responses API might not be available in this version of the client
             raise Exception(f"Responses API not available in this OpenAI client version: {attr_error}")
         except Exception as api_error:
+            # Log the full error details for debugging
+            error_str = str(api_error)
+            logger.error(f"Responses API error: {api_error}")
+            logger.error(f"Responses API error type: {type(api_error)}")
+            if hasattr(api_error, 'response'):
+                try:
+                    error_response = api_error.response
+                    logger.error(f"Responses API error response: {error_response}")
+                    if hasattr(error_response, 'text'):
+                        logger.error(f"Responses API error response text: {error_response.text}")
+                except:
+                    pass
             # Re-raise API errors (like model not supported, etc.) to be handled by caller
             raise
         
