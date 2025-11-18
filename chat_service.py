@@ -48,7 +48,7 @@ class ChatService:
                 # a model that was later removed from the list, or a model not in the default list)
                 # We'll validate it works when actually calling the API
                 logger.debug(f"Using user-selected model: {settings.assistant_model} for user {user_id}")
-                    return settings.assistant_model
+                return settings.assistant_model
             return config.DEFAULT_MODEL
         finally:
             db.close()
