@@ -115,7 +115,11 @@ def update_database_schema():
         logger.warning(f"Database schema update check failed: {e}", exc_info=True)
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True)
+CORS(app, 
+     supports_credentials=True,
+     origins="*",  # Allow all origins (adjust for production)
+     allow_headers=["Content-Type", "Authorization"],
+     expose_headers=["Content-Type"])
 
 # Configure Flask-Login
 app.secret_key = config.SECRET_KEY if hasattr(config, 'SECRET_KEY') else secrets.token_hex(32)
@@ -128,6 +132,8 @@ login_manager.session_protection = "strong"
 app.config['SESSION_COOKIE_SECURE'] = False  # Set to True if using HTTPS
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Allows cookies to be sent with top-level navigations
+app.config['SESSION_COOKIE_PATH'] = '/'  # Ensure cookie is available for all paths
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
 
 # Custom unauthorized handler for API endpoints
 @login_manager.unauthorized_handler

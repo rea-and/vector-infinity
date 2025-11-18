@@ -121,7 +121,10 @@ def login():
             # Log in the user
             remember = data.get('remember', False)
             try:
+                from flask import session
                 login_user(user, remember=remember)
+                # Make session permanent to ensure cookie is set
+                session.permanent = True
                 logger.info(f"User logged in successfully: {email} (ID: {user.id}, role: {user.role})")
             except Exception as login_error:
                 logger.error(f"Error calling login_user for {email}: {login_error}", exc_info=True)
