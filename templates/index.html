@@ -1632,14 +1632,8 @@
                 <div class="nav-item" onclick="showTab('run')" data-tab="run">
                     ⚡ Plugins
                 </div>
-                <div class="nav-item" onclick="showTab('imports')" data-tab="imports">
-                    📋 Import Logs
-                </div>
                 <div class="nav-item" onclick="showTab('stats')" data-tab="stats">
                     📊 Statistics
-                </div>
-                <div class="nav-item" id="nav-users" onclick="showTab('users')" data-tab="users" style="display: none;">
-                    👥 Users
                 </div>
                 <div class="nav-item" onclick="showTab('settings')" data-tab="settings">
                     ⚙️ Settings
@@ -1710,16 +1704,6 @@
                 </div>
             </div>
             
-            <div id="imports" class="tab-content">
-                <div class="container">
-                    <div class="card">
-                        <h2>Import Logs</h2>
-                        <button class="btn" onclick="loadImports()">Refresh</button>
-                        <div id="imports-table"></div>
-                    </div>
-                </div>
-            </div>
-            
             <div id="run" class="tab-content">
                 <div class="container">
                     <div class="card">
@@ -1749,19 +1733,26 @@
                 </div>
             </div>
             
-            <div id="users" class="tab-content">
-                <div class="container">
-                    <h2>User Management</h2>
-                    <div id="users-content">
-                        <p>Loading users...</p>
-                    </div>
-                </div>
-            </div>
-            
             <div id="settings" class="tab-content">
                     <div class="container">
                         <div class="card">
                             <h2>Settings</h2>
+                            
+                            <!-- Sub-navigation for Settings -->
+                            <div class="settings-subnav" style="display: flex; gap: 8px; margin-top: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                                <button class="btn btn-secondary settings-subnav-btn active" onclick="showSettingsSubTab('general')" data-subtab="general" style="padding: 8px 16px; font-size: 14px;">
+                                    ⚙️ General
+                                </button>
+                                <button class="btn btn-secondary settings-subnav-btn" onclick="showSettingsSubTab('imports')" data-subtab="imports" style="padding: 8px 16px; font-size: 14px;">
+                                    📋 Import Logs
+                                </button>
+                                <button class="btn btn-secondary settings-subnav-btn" id="settings-subnav-users" onclick="showSettingsSubTab('users')" data-subtab="users" style="padding: 8px 16px; font-size: 14px; display: none;">
+                                    👥 Users
+                                </button>
+                            </div>
+                            
+                            <!-- General Settings Sub-tab -->
+                            <div id="settings-general" class="settings-subtab active">
                             <div style="margin-top: 20px;">
                                 <h3>Data Management</h3>
                                 <p style="color: var(--text-secondary); margin-bottom: 15px;">
@@ -1852,6 +1843,22 @@
                                 <button class="btn btn-danger" onclick="factoryReset()" style="background: #c0392b; border: 2px solid #a93226;">
                                     🔥 Factory Reset
                                 </button>
+                            </div>
+                            </div>
+                            
+                            <!-- Import Logs Sub-tab -->
+                            <div id="settings-imports" class="settings-subtab" style="display: none;">
+                                <h3>Import Logs</h3>
+                                <button class="btn" onclick="loadImports()" style="margin-bottom: 15px;">Refresh</button>
+                                <div id="imports-table"></div>
+                            </div>
+                            
+                            <!-- Users Sub-tab -->
+                            <div id="settings-users" class="settings-subtab" style="display: none;">
+                                <h3>User Management</h3>
+                                <div id="users-content">
+                                    <p>Loading users...</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2064,6 +2071,15 @@
             if (tabName === 'settings' && currentUser) {
                 loadChatInstructions();
                 loadAssistantModel();
+                // Show users sub-tab button if admin
+                if (currentUser.is_admin) {
+                    const usersBtn = document.getElementById('settings-subnav-users');
+                    if (usersBtn) {
+                        usersBtn.style.display = 'inline-block';
+                    }
+                }
+                // Show general settings by default
+                showSettingsSubTab('general');
             }
             document.getElementById(tabName).classList.add('active');
             document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
@@ -2073,11 +2089,39 @@
                 closeSidebar();
             }
             
-            if (tabName === 'imports') loadImports();
             if (tabName === 'run') loadPlugins();
             if (tabName === 'chat') initChat();
             if (tabName === 'stats') loadStats();
-            if (tabName === 'users' && currentUser && currentUser.is_admin) loadUsers();
+        }
+        
+        function showSettingsSubTab(subTabName) {
+            // Hide all sub-tabs
+            document.querySelectorAll('.settings-subtab').forEach(tab => {
+                tab.style.display = 'none';
+            });
+            // Remove active class from all sub-nav buttons
+            document.querySelectorAll('.settings-subnav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected sub-tab
+            const subTab = document.getElementById(`settings-${subTabName}`);
+            if (subTab) {
+                subTab.style.display = 'block';
+            }
+            
+            // Activate corresponding button
+            const btn = document.querySelector(`[data-subtab="${subTabName}"]`);
+            if (btn) {
+                btn.classList.add('active');
+            }
+            
+            // Load data for the sub-tab
+            if (subTabName === 'imports') {
+                loadImports();
+            } else if (subTabName === 'users' && currentUser && currentUser.is_admin) {
+                loadUsers();
+            }
         }
         
         // Handle window resize - close sidebar if screen becomes larger
