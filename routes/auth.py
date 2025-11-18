@@ -125,17 +125,27 @@ def login():
                 login_user(user, remember=remember)
                 # Make session permanent to ensure cookie is set
                 session.permanent = True
+                # Force session to be saved
+                session.modified = True
                 logger.info(f"User logged in successfully: {email} (ID: {user.id}, role: {user.role})")
             except Exception as login_error:
                 logger.error(f"Error calling login_user for {email}: {login_error}", exc_info=True)
                 return jsonify({"error": "Session error. Please try again."}), 500
             
-            return jsonify({
+            # Create response and ensure session is saved
+            response = jsonify({
                 "success": True,
                 "message": "Login successful",
                 "user_id": user.id,
                 "email": user.email
             })
+            
+            # Ensure session cookie is set in response
+            from flask_login import current_user
+            if current_user.is_authenticated:
+                logger.debug(f"Session cookie should be set for user {current_user.id}")
+            
+            return response
         finally:
             db.close()
     except Exception as e:
