@@ -236,25 +236,69 @@ class ChatService:
             # Check if the error is about file_search not being supported
             # Some models (like gpt-5.1-codex-mini) don't support file_search tool
             if "file_search" in error_str.lower() and "not supported" in error_str.lower():
-                logger.warning(f"Model {model} does not support file_search tool. Retrying without file_search...")
-                # Retry without file_search tool
-                request_params_no_file_search = request_params.copy()
-                if "tools" in request_params_no_file_search:
-                    del request_params_no_file_search["tools"]
+                logger.warning(f"Model {model} does not support file_search tool in Responses API. Falling back to Chat Completions API with tool_resources...")
+                # Fall back to Chat Completions API with tool_resources (which might support file_search)
+                # Build messages list for Chat Completions
+                messages_list = [
+                    {"role": "system", "content": instructions}
+                ]
+                # Add conversation history if available (for Responses API, we use previous_response_id, 
+                # but for fallback we need to reconstruct from conversation_history if available)
+                # Note: conversation_history is not available here, so we'll just use the current message
+                messages_list.append({"role": "user", "content": message})
                 
+                # Try Chat Completions with tool_resources
                 try:
-                    if hasattr(self.client, 'responses'):
-                        response = self.client.responses.create(**request_params_no_file_search)
-                    elif hasattr(self.client, 'beta') and hasattr(self.client.beta, 'responses'):
-                        response = self.client.beta.responses.create(**request_params_no_file_search)
+                    chat_params = {
+                        "model": model,
+                        "messages": messages_list,
+                        "tool_resources": {
+                            "file_search": {
+                                "vector_store_ids": [vector_store_id]
+                            }
+                        }
+                    }
+                    logger.info(f"Trying Chat Completions API with tool_resources for vector store {vector_store_id}")
+                    chat_response = self.client.chat.completions.create(**chat_params)
+                    
+                    response_text = chat_response.choices[0].message.content
+                    response_id = chat_response.id
+                    
+                    logger.info(f"Successfully used Chat Completions API with tool_resources (model {model} doesn't support file_search in Responses API)")
+                    
+                    # Return in Responses API format for consistency
+                    return {
+                        "response_id": response_id,
+                        "content": response_text,
+                        "messages": messages_list + [{"role": "assistant", "content": response_text}]
+                    }
+                except Exception as chat_error:
+                    error_str_chat = str(chat_error)
+                    logger.warning(f"Chat Completions with tool_resources also failed: {chat_error}")
+                    # If tool_resources also doesn't work, try without vector store
+                    if "file_search" in error_str_chat.lower() or "tool_resources" in error_str_chat.lower():
+                        logger.warning(f"Model {model} does not support file_search at all. Retrying without vector store...")
+                        # Retry without file_search tool
+                        request_params_no_file_search = request_params.copy()
+                        if "tools" in request_params_no_file_search:
+                            del request_params_no_file_search["tools"]
+                        
+                        try:
+                            if hasattr(self.client, 'responses'):
+                                response = self.client.responses.create(**request_params_no_file_search)
+                            elif hasattr(self.client, 'beta') and hasattr(self.client.beta, 'responses'):
+                                response = self.client.beta.responses.create(**request_params_no_file_search)
+                            else:
+                                raise AttributeError("Responses API not available in this OpenAI client version")
+                            logger.info(f"Successfully sent message without file_search tool (model {model} doesn't support it)")
+                            # Continue to extract response below
+                        except Exception as retry_error:
+                            logger.error(f"Responses API failed even without file_search: {retry_error}")
+                            # Re-raise to be handled by caller
+                            raise
                     else:
-                        raise AttributeError("Responses API not available in this OpenAI client version")
-                    logger.info(f"Successfully sent message without file_search tool (model {model} doesn't support it)")
-                    # Continue to extract response below
-                except Exception as retry_error:
-                    logger.error(f"Responses API failed even without file_search: {retry_error}")
-                    # Re-raise to be handled by caller
-                    raise
+                        # Some other error with Chat Completions, re-raise
+                        raise
             else:
                 # For other errors, log and re-raise
                 if hasattr(api_error, 'response'):
