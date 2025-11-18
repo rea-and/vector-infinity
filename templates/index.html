@@ -1922,10 +1922,14 @@
             if (!text) return '';
             let html = escapeHtml(text);
             
-            // Convert **bold** to <strong>bold</strong>
-            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-            // Convert *italic* to <em>italic</em> (but not if it's part of **)
-            html = html.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<em>$1</em>');
+            // Convert **bold** to <strong>bold</strong> (must do this first)
+            html = html.replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>');
+            // Convert __bold__ to <strong>bold</strong>
+            html = html.replace(/__([^_]+?)__/g, '<strong>$1</strong>');
+            // Convert *italic* to <em>italic</em> (single asterisk, not part of **)
+            html = html.replace(/(^|[^*])\*([^*]+?)\*([^*]|$)/g, '$1<em>$2</em>$3');
+            // Convert _italic_ to <em>italic</em> (single underscore, not part of __)
+            html = html.replace(/(^|[^_])_([^_]+?)_([^_]|$)/g, '$1<em>$2</em>$3');
             // Convert `code` to <code>code</code>
             html = html.replace(/`([^`]+?)`/g, '<code>$1</code>');
             // Convert line breaks
