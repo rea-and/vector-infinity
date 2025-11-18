@@ -57,6 +57,15 @@ def update_database_schema():
                         """)
                         conn.commit()
                         logger.info("✓ Successfully added 'assistant_model' column")
+                    
+                    if 'assistant_id' not in columns:
+                        logger.info("Adding 'assistant_id' column to user_settings table...")
+                        cursor.execute("""
+                            ALTER TABLE user_settings 
+                            ADD COLUMN assistant_id VARCHAR(255)
+                        """)
+                        conn.commit()
+                        logger.info("✓ Successfully added 'assistant_id' column")
                 
                 # Check if chat_threads table exists and add chat API columns if needed
                 cursor.execute("""
@@ -80,6 +89,21 @@ def update_database_schema():
                         """)
                         conn.commit()
                         logger.info("✓ Successfully added 'previous_response_id' column")
+                    
+                    # Add openai_thread_id column if needed
+                    if 'openai_thread_id' not in columns:
+                        logger.info("Adding 'openai_thread_id' column to chat_threads table...")
+                        cursor.execute("""
+                            ALTER TABLE chat_threads 
+                            ADD COLUMN openai_thread_id VARCHAR(255)
+                        """)
+                        # Create index for openai_thread_id
+                        cursor.execute("""
+                            CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_threads_openai_thread_id 
+                            ON chat_threads(openai_thread_id)
+                        """)
+                        conn.commit()
+                        logger.info("✓ Successfully added 'openai_thread_id' column")
                     
                     # Add conversation_history column if needed
                     if 'conversation_history' not in columns:

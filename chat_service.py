@@ -1,10 +1,11 @@
-"""Service for managing OpenAI Chat Completions API conversations with vector store support."""
+"""Service for managing OpenAI Assistants API conversations with vector store support."""
 import os
 import logging
 from typing import Optional, List, Dict, Any
 from openai import OpenAI
-from database import UserSettings, SessionLocal
+from database import UserSettings, ChatThread, SessionLocal
 import config
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +13,7 @@ DEFAULT_INSTRUCTIONS = "You are a helpful assistant that can answer questions us
 
 
 class ChatService:
-    """Service for managing OpenAI Chat Completions API conversations with vector store support."""
+    """Service for managing OpenAI Assistants API conversations with vector store support."""
     
     def __init__(self):
         api_key = os.getenv("OPENAI_API_KEY")
@@ -43,359 +44,258 @@ class ChatService:
         try:
             settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).first()
             if settings and settings.assistant_model:
-                # Return the user's selected model even if not in AVAILABLE_MODELS
-                # (AVAILABLE_MODELS is just for the UI dropdown - user may have selected
-                # a model that was later removed from the list, or a model not in the default list)
-                # We'll validate it works when actually calling the API
                 logger.debug(f"Using user-selected model: {settings.assistant_model} for user {user_id}")
                 return settings.assistant_model
             return config.DEFAULT_MODEL
         finally:
             db.close()
     
-    def send_message(
-        self, 
-        message: str, 
-        conversation_history: Optional[List[Dict[str, str]]] = None,
-        vector_store_id: Optional[str] = None,
-        user_id: int = None,
-        previous_response_id: Optional[str] = None  # Kept for backward compatibility, but not used
-    ) -> Dict[str, Any]:
-        """
-        Send a message using Chat Completions API with vector store support.
-        
-        Args:
-            message: User message
-            conversation_history: Previous conversation messages
-            vector_store_id: Vector store ID for file search
-            user_id: User ID for user-specific settings
-            previous_response_id: Not used (kept for backward compatibility)
-        
-        Returns:
-            Dictionary with:
-            - response_id: Response ID (for tracking)
-            - content: AI response text
-            - messages: Updated conversation history
-        """
-        instructions = self._get_instructions(user_id)
-        model = self._get_model(user_id)
-        
-        return self._send_message_chat_completions_api(
-            message=message,
-            instructions=instructions,
-            model=model,
-            conversation_history=conversation_history,
-            vector_store_id=vector_store_id,
-            user_id=user_id
-        )
-    
-    def _send_message_chat_completions_api(
-        self,
-        message: str,
-        instructions: str,
-        model: str,
-        conversation_history: Optional[List[Dict[str, str]]] = None,
-        vector_store_id: Optional[str] = None,
-        user_id: int = None
-    ) -> Dict[str, Any]:
-        """Send a message using Chat Completions API with vector store support via Assistants API."""
-        # If we have a vector store, use Assistants API to search it, then Chat Completions for response
-        if vector_store_id:
-            logger.info(f"Using Assistants API to search vector store {vector_store_id}, then Chat Completions for response")
-            return self._send_message_with_vector_store_search(
-                message=message,
-                instructions=instructions,
-                model=model,
-                conversation_history=conversation_history,
-                vector_store_id=vector_store_id,
-                user_id=user_id
-            )
-        
-        # No vector store - use Chat Completions directly
-        return self._send_message_chat_completions_only(
-            message=message,
-            instructions=instructions,
-            model=model,
-            conversation_history=conversation_history,
-            user_id=user_id
-        )
-    
-    def _send_message_with_vector_store_search(
-        self,
-        message: str,
-        instructions: str,
-        model: str,
-        conversation_history: Optional[List[Dict[str, str]]] = None,
-        vector_store_id: Optional[str] = None,
-        user_id: int = None
-    ) -> Dict[str, Any]:
-        """Use Assistants API to search vector store, then Chat Completions for final response."""
-        import uuid
-        import time
-        
-        # Step 1: Use Assistants API to search the vector store
-        assistant = None
-        thread = None
-        try:
-            # Create a temporary assistant with vector store access
-            assistant = self.client.beta.assistants.create(
-                name=f"Vector Search {uuid.uuid4().hex[:8]}",
-                instructions="You are a search assistant. Search the provided vector store for relevant information to answer the user's question. Return only the relevant information found, without additional commentary.",
-                model=model,
-                tool_resources={
-                    "file_search": {
-                        "vector_store_ids": [vector_store_id]
-                    }
-                } if vector_store_id else None,
-                tools=[{"type": "file_search"}] if vector_store_id else []
-            )
-            
-            # Create a thread
-            thread = self.client.beta.threads.create()
-            
-            # Add current message to thread
-            self.client.beta.threads.messages.create(
-                thread_id=thread.id,
-                role="user",
-                content=message
-            )
-            
-            # Run the assistant to search the vector store
-            run = self.client.beta.threads.runs.create(
-                thread_id=thread.id,
-                assistant_id=assistant.id
-            )
-            
-            # Wait for completion
-            max_wait = 60
-            wait_time = 0
-            while wait_time < max_wait:
-                run_status = self.client.beta.threads.runs.retrieve(
-                    thread_id=thread.id,
-                    run_id=run.id
-                )
-                
-                if run_status.status == "completed":
-                    break
-                elif run_status.status == "failed":
-                    raise Exception(f"Assistant run failed: {run_status.last_error}")
-                elif run_status.status in ["cancelled", "expired"]:
-                    raise Exception(f"Assistant run {run_status.status}")
-                
-                time.sleep(1)
-                wait_time += 1
-            
-            if wait_time >= max_wait:
-                raise Exception("Assistant run timeout")
-            
-            # Get the search results from the assistant
-            messages = self.client.beta.threads.messages.list(
-                thread_id=thread.id,
-                order="asc"
-            )
-            
-            # Extract the assistant's response (search results)
-            search_results = ""
-            for msg in reversed(messages.data):
-                if msg.role == "assistant":
-                    if msg.content and len(msg.content) > 0:
-                        if hasattr(msg.content[0], 'text'):
-                            search_results = msg.content[0].text.value
-                        elif isinstance(msg.content[0], dict) and 'text' in msg.content[0]:
-                            search_results = msg.content[0]['text'].get('value', '')
-                        break
-            
-            if not search_results:
-                logger.warning("No search results from vector store")
-                search_results = "No relevant information found in the vector store."
-            
-            logger.info(f"Retrieved search results from vector store (length: {len(search_results)} chars)")
-            
-        except Exception as e:
-            logger.error(f"Error searching vector store with Assistants API: {e}", exc_info=True)
-            # If vector store search fails, continue without it
-            search_results = ""
-        finally:
-            # Clean up assistant and thread
-            if thread:
-                try:
-                    self.client.beta.threads.delete(thread.id)
-                except:
-                    pass
-            if assistant:
-                try:
-                    self.client.beta.assistants.delete(assistant.id)
-                except:
-                    pass
-        
-        # Step 2: Use Chat Completions API with the search results injected into the prompt
-        # Build messages list with system instruction and conversation history
-        messages_list = [
-            {"role": "system", "content": instructions}
-        ]
-        
-        # Add conversation history if provided
-        if conversation_history:
-            messages_list.extend(conversation_history)
-        
-        # Add current user message with search results context
-        if search_results:
-            enhanced_message = f"""Context from your imported data:
-{search_results}
-
-User question: {message}"""
-        else:
-            enhanced_message = message
-        
-        messages_list.append({"role": "user", "content": enhanced_message})
-        
-        # Call Chat Completions API
-        try:
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=messages_list
-            )
-            
-            # Extract response content
-            response_text = response.choices[0].message.content
-            response_id = response.id
-            
-            # Build updated conversation history (without the enhanced message for storage)
-            updated_history = conversation_history.copy() if conversation_history else []
-            updated_history.append({"role": "user", "content": message})
-            updated_history.append({"role": "assistant", "content": response_text})
-            
-            logger.info(f"Successfully sent message using Chat Completions API with vector store search (model: {model})")
-            
-            return {
-                "response_id": response_id,
-                "content": response_text,
-                "messages": updated_history
-            }
-            
-        except Exception as e:
-            logger.error(f"Error sending message with Chat Completions API: {e}", exc_info=True)
-            error_str = str(e)
-            
-            # Check if it's an unsupported model error
-            if ("unsupported_model" in error_str or 
-                "cannot be used" in error_str or 
-                "not in v1/chat/completions" in error_str):
-                
-                logger.error(f"Model {model} is not supported by Chat Completions API. Falling back to default model...")
-                # Try with default model
-                if model != config.DEFAULT_MODEL:
-                    try:
-                        return self._send_message_with_vector_store_search(
-                            message=message,
-                            instructions=instructions,
-                            model=config.DEFAULT_MODEL,
-                            conversation_history=conversation_history,
-                            vector_store_id=vector_store_id,
-                            user_id=user_id
-                        )
-                    except Exception as fallback_error:
-                        logger.error(f"Default model also failed: {fallback_error}")
-                        # Clear invalid model from user settings
-                        if user_id:
-                            self._clear_invalid_model(user_id, model)
-                        raise Exception(f"Model {model} is not supported. Please select a different model.")
-                else:
-                    raise Exception(f"Default model {config.DEFAULT_MODEL} is not supported. Please check your configuration.")
-            
-            # For other errors, re-raise
-            raise
-    
-    def _send_message_chat_completions_only(
-        self,
-        message: str,
-        instructions: str,
-        model: str,
-        conversation_history: Optional[List[Dict[str, str]]] = None,
-        user_id: int = None
-    ) -> Dict[str, Any]:
-        """Send a message using Chat Completions API only (no vector store)."""
-            # Build messages list with system instruction and conversation history
-            messages_list = [
-                {"role": "system", "content": instructions}
-            ]
-            
-            # Add conversation history if provided
-            if conversation_history:
-                messages_list.extend(conversation_history)
-            
-            # Add current user message
-            messages_list.append({"role": "user", "content": message})
-            
-        # Call Chat Completions API
-        try:
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=messages_list
-            )
-            
-            # Extract response content
-            response_text = response.choices[0].message.content
-            response_id = response.id
-            
-            # Build updated conversation history
-            updated_history = conversation_history.copy() if conversation_history else []
-            updated_history.append({"role": "user", "content": message})
-            updated_history.append({"role": "assistant", "content": response_text})
-            
-            logger.info(f"Successfully sent message using Chat Completions API (model: {model})")
-            
-            return {
-                "response_id": response_id,
-                "content": response_text,
-                "messages": updated_history
-            }
-            
-        except Exception as e:
-            logger.error(f"Error sending message with Chat Completions API: {e}", exc_info=True)
-            error_str = str(e)
-            
-            # Check if it's an unsupported model error
-            if ("unsupported_model" in error_str or 
-                "cannot be used" in error_str or 
-                "not in v1/chat/completions" in error_str):
-                
-                logger.error(f"Model {model} is not supported by Chat Completions API. Falling back to default model...")
-                # Try with default model
-                if model != config.DEFAULT_MODEL:
-                    try:
-                        return self._send_message_chat_completions_only(
-                            message=message,
-                            instructions=instructions,
-                            model=config.DEFAULT_MODEL,
-                            conversation_history=conversation_history,
-                            user_id=user_id
-                        )
-                    except Exception as fallback_error:
-                        logger.error(f"Default model also failed: {fallback_error}")
-                        # Clear invalid model from user settings
-                if user_id:
-                    self._clear_invalid_model(user_id, model)
-                        raise Exception(f"Model {model} is not supported. Please select a different model.")
-                else:
-                    raise Exception(f"Default model {config.DEFAULT_MODEL} is not supported. Please check your configuration.")
-            
-            # For other errors, re-raise
-            raise
-    
-    def _clear_invalid_model(self, user_id: int, invalid_model: str):
-        """Clear an invalid model from user settings and fall back to default."""
+    def get_or_create_assistant(self, user_id: int, vector_store_id: Optional[str] = None) -> str:
+        """Get or create a persistent assistant for a user."""
         db = SessionLocal()
         try:
             settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).first()
-            if settings and settings.assistant_model == invalid_model:
-                settings.assistant_model = None
-                from datetime import datetime, timezone
-                settings.updated_at = datetime.now(timezone.utc)
+            if not settings:
+                # Create UserSettings if it doesn't exist
+                settings = UserSettings(user_id=user_id)
+                db.add(settings)
                 db.commit()
-                logger.info(f"Cleared invalid model '{invalid_model}' for user {user_id}, reset to default")
+                db.refresh(settings)
+            
+            # Check if we have an existing assistant ID
+            if settings.assistant_id:
+                try:
+                    # Verify the assistant still exists
+                    assistant = self.client.beta.assistants.retrieve(settings.assistant_id)
+                    logger.info(f"Using existing assistant {settings.assistant_id} for user {user_id}")
+                    
+                    # Update vector store if it changed
+                    if vector_store_id and assistant.tool_resources and assistant.tool_resources.file_search:
+                        current_vs_ids = assistant.tool_resources.file_search.vector_store_ids or []
+                        if vector_store_id not in current_vs_ids:
+                            logger.info(f"Updating assistant {settings.assistant_id} with new vector store {vector_store_id}")
+                            self.client.beta.assistants.update(
+                                settings.assistant_id,
+                                tool_resources={
+                                    "file_search": {
+                                        "vector_store_ids": [vector_store_id]
+                                    }
+                                }
+                            )
+                    
+                    return settings.assistant_id
+                except Exception as e:
+                    logger.warning(f"Assistant {settings.assistant_id} not found, creating new one: {e}")
+                    settings.assistant_id = None
+            
+            # Create new assistant
+            instructions = self._get_instructions(user_id)
+            model = self._get_model(user_id)
+            
+            assistant_params = {
+                "name": f"Vector Infinity Assistant (User {user_id})",
+                "instructions": instructions,
+                "model": model,
+                "tools": [{"type": "file_search"}] if vector_store_id else []
+            }
+            
+            if vector_store_id:
+                assistant_params["tool_resources"] = {
+                    "file_search": {
+                        "vector_store_ids": [vector_store_id]
+                    }
+                }
+            
+            assistant = self.client.beta.assistants.create(**assistant_params)
+            
+            # Save assistant ID to database
+            settings.assistant_id = assistant.id
+            from datetime import datetime, timezone
+            settings.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            
+            logger.info(f"Created new assistant {assistant.id} for user {user_id}")
+            return assistant.id
+            
         except Exception as e:
-            logger.warning(f"Error clearing invalid model for user {user_id}: {e}")
             db.rollback()
+            logger.error(f"Error getting/creating assistant for user {user_id}: {e}", exc_info=True)
+            raise
         finally:
             db.close()
+    
+    def update_assistant_if_needed(self, user_id: int, vector_store_id: Optional[str] = None):
+        """Update assistant if model or instructions changed."""
+        db = SessionLocal()
+        try:
+            settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).first()
+            if not settings or not settings.assistant_id:
+                return
+            
+            try:
+                assistant = self.client.beta.assistants.retrieve(settings.assistant_id)
+                needs_update = False
+                update_params = {}
+                
+                # Check if model changed
+                current_model = self._get_model(user_id)
+                if assistant.model != current_model:
+                    update_params["model"] = current_model
+                    needs_update = True
+                
+                # Check if instructions changed
+                current_instructions = self._get_instructions(user_id)
+                if assistant.instructions != current_instructions:
+                    update_params["instructions"] = current_instructions
+                    needs_update = True
+                
+                # Check if vector store changed
+                if vector_store_id:
+                    current_vs_ids = []
+                    if assistant.tool_resources and assistant.tool_resources.file_search:
+                        current_vs_ids = assistant.tool_resources.file_search.vector_store_ids or []
+                    
+                    if vector_store_id not in current_vs_ids:
+                        update_params["tool_resources"] = {
+                            "file_search": {
+                                "vector_store_ids": [vector_store_id]
+                            }
+                        }
+                        needs_update = True
+                
+                if needs_update:
+                    logger.info(f"Updating assistant {settings.assistant_id} for user {user_id}")
+                    self.client.beta.assistants.update(settings.assistant_id, **update_params)
+                    
+            except Exception as e:
+                logger.warning(f"Error updating assistant: {e}")
+        finally:
+            db.close()
+    
+    def send_message(
+        self, 
+        message: str, 
+        openai_thread_id: Optional[str] = None,
+        vector_store_id: Optional[str] = None,
+        user_id: int = None
+    ) -> Dict[str, Any]:
+        """
+        Send a message using Assistants API with vector store support.
+        
+        Args:
+            message: User message
+            openai_thread_id: OpenAI Thread ID (if continuing existing conversation)
+            vector_store_id: Vector store ID for file search
+            user_id: User ID for user-specific settings
+        
+        Returns:
+            Dictionary with:
+            - response_id: Run ID (for tracking)
+            - content: AI response text
+            - openai_thread_id: OpenAI Thread ID
+            - messages: Updated conversation history (for backward compatibility)
+        """
+        if not user_id:
+            raise ValueError("user_id is required")
+        
+        # Get or create assistant for user
+        assistant_id = self.get_or_create_assistant(user_id, vector_store_id)
+        
+        # Update assistant if settings changed
+        self.update_assistant_if_needed(user_id, vector_store_id)
+        
+        # Get or create OpenAI thread
+        if openai_thread_id:
+            try:
+                # Verify thread exists
+                thread = self.client.beta.threads.retrieve(openai_thread_id)
+            except Exception as e:
+                logger.warning(f"Thread {openai_thread_id} not found, creating new one: {e}")
+                openai_thread_id = None
+        
+        if not openai_thread_id:
+            thread = self.client.beta.threads.create()
+            openai_thread_id = thread.id
+            logger.info(f"Created new OpenAI thread {openai_thread_id}")
+        
+        # Add user message to thread
+        self.client.beta.threads.messages.create(
+            thread_id=openai_thread_id,
+            role="user",
+            content=message
+        )
+        
+        # Run the assistant
+        run = self.client.beta.threads.runs.create(
+            thread_id=openai_thread_id,
+            assistant_id=assistant_id
+        )
+        
+        # Wait for completion
+        max_wait = 120  # Increased timeout for vector store searches
+        wait_time = 0
+        while wait_time < max_wait:
+            run_status = self.client.beta.threads.runs.retrieve(
+                thread_id=openai_thread_id,
+                run_id=run.id
+            )
+            
+            if run_status.status == "completed":
+                break
+            elif run_status.status == "failed":
+                error_msg = "Unknown error"
+                if hasattr(run_status, 'last_error') and run_status.last_error:
+                    error_msg = str(run_status.last_error)
+                raise Exception(f"Assistant run failed: {error_msg}")
+            elif run_status.status in ["cancelled", "expired"]:
+                raise Exception(f"Assistant run {run_status.status}")
+            
+            time.sleep(1)
+            wait_time += 1
+        
+        if wait_time >= max_wait:
+            raise Exception("Assistant run timeout")
+        
+        # Get the response
+        messages = self.client.beta.threads.messages.list(
+            thread_id=openai_thread_id,
+            order="asc"
+        )
+        
+        # Extract the assistant's response (last message from assistant)
+        response_text = ""
+        for msg in reversed(messages.data):
+            if msg.role == "assistant":
+                if msg.content and len(msg.content) > 0:
+                    if hasattr(msg.content[0], 'text'):
+                        response_text = msg.content[0].text.value
+                    elif isinstance(msg.content[0], dict) and 'text' in msg.content[0]:
+                        response_text = msg.content[0]['text'].get('value', '')
+                    break
+        
+        if not response_text:
+            raise Exception("No response from assistant")
+        
+        # Build conversation history for backward compatibility
+        conversation_history = []
+        for msg in messages.data:
+            if msg.role in ["user", "assistant"]:
+                content = ""
+                if msg.content and len(msg.content) > 0:
+                    if hasattr(msg.content[0], 'text'):
+                        content = msg.content[0].text.value
+                    elif isinstance(msg.content[0], dict) and 'text' in msg.content[0]:
+                        content = msg.content[0]['text'].get('value', '')
+                conversation_history.append({
+                    "role": msg.role,
+                    "content": content
+                })
+        
+        logger.info(f"Successfully sent message using Assistants API (assistant: {assistant_id}, thread: {openai_thread_id})")
+        
+        return {
+            "response_id": run.id,
+            "content": response_text,
+            "openai_thread_id": openai_thread_id,
+            "messages": conversation_history  # For backward compatibility
+        }

@@ -48,17 +48,18 @@ def create_chat_thread():
     """Create a new chat thread (conversation)."""
     db = SessionLocal()
     try:
-        # Create new conversation thread
-        # Generate a unique thread ID
+        # Generate a unique thread ID for our internal tracking
         import uuid
         thread_id = f"conv_{uuid.uuid4().hex[:16]}"
         
+        # OpenAI thread will be created when first message is sent
         # Save thread to database
         chat_thread = ChatThread(
             user_id=current_user.id,
-            thread_id=thread_id,
-            previous_response_id=None,  # New conversation
-            conversation_history=None,  # Empty history
+            thread_id=thread_id,  # Internal thread ID
+            openai_thread_id=None,  # Will be set when first message is sent
+            previous_response_id=None,
+            conversation_history=None,
             title=None  # Will be set from first message
         )
         db.add(chat_thread)
@@ -84,7 +85,7 @@ def create_chat_thread():
 @bp.route("/threads/<thread_id>/messages", methods=["POST"])
 @login_required
 def send_chat_message(thread_id):
-    """Send a message in a chat thread using Chat Completions API with vector store support."""
+    """Send a message in a chat thread using Assistants API with vector store support."""
     db = SessionLocal()
     try:
         data = request.get_json() or {}
@@ -110,28 +111,24 @@ def send_chat_message(thread_id):
         if not vector_store_id:
             return jsonify({"error": "No vector store found. Please run an import first."}), 404
         
-        # Get conversation history from database
-        conversation_history = chat_thread.conversation_history if chat_thread.conversation_history else None
-        
-        # Get previous_response_id (kept for backward compatibility, but not used)
-        previous_response_id = chat_thread.previous_response_id
+        # Get OpenAI thread ID (create if doesn't exist)
+        openai_thread_id = chat_thread.openai_thread_id
         
         # Send message and get response
         result = chat_service.send_message(
             message=message,
-            conversation_history=conversation_history,
+            openai_thread_id=openai_thread_id,
             vector_store_id=vector_store_id,
-            user_id=current_user.id,
-            previous_response_id=previous_response_id
+            user_id=current_user.id
         )
         
         if result is None:
             return jsonify({"error": "Failed to get response from chat service"}), 500
         
-        # Update thread with new conversation history and response ID
-        # conversation_history is used for context in Chat Completions API
-        chat_thread.conversation_history = result["messages"]
-        chat_thread.previous_response_id = result["response_id"]
+        # Update thread with OpenAI thread ID and conversation history
+        chat_thread.openai_thread_id = result["openai_thread_id"]
+        chat_thread.conversation_history = result["messages"]  # For backward compatibility
+        chat_thread.previous_response_id = result["response_id"]  # For backward compatibility
         chat_thread.updated_at = datetime.now(timezone.utc)
         
         # Update thread title from first message if not set
@@ -173,7 +170,36 @@ def get_chat_messages(thread_id):
         if not chat_thread:
             return jsonify({"error": "Thread not found or access denied"}), 404
         
-        # Get conversation history from database
+        # If we have an OpenAI thread ID, fetch messages from OpenAI
+        if chat_thread.openai_thread_id:
+            try:
+                from chat_service import ChatService
+                chat_service = ChatService()
+                messages_list = chat_service.client.beta.threads.messages.list(
+                    thread_id=chat_thread.openai_thread_id,
+                    order="asc"
+                )
+                
+                messages = []
+                for msg in messages_list.data:
+                    if msg.role in ["user", "assistant"]:
+                        content = ""
+                        if msg.content and len(msg.content) > 0:
+                            if hasattr(msg.content[0], 'text'):
+                                content = msg.content[0].text.value
+                            elif isinstance(msg.content[0], dict) and 'text' in msg.content[0]:
+                                content = msg.content[0]['text'].get('value', '')
+                        messages.append({
+                            "role": msg.role,
+                            "content": content,
+                            "created_at": chat_thread.updated_at.isoformat() if chat_thread.updated_at else None
+                        })
+                
+                return jsonify({"messages": messages})
+            except Exception as e:
+                logger.warning(f"Error fetching messages from OpenAI, falling back to local storage: {e}")
+        
+        # Fallback to local conversation history
         conversation_history = chat_thread.conversation_history if chat_thread.conversation_history else []
         
         # Convert to the format expected by the frontend

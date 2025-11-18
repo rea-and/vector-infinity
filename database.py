@@ -77,9 +77,10 @@ class ChatThread(Base):
     
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
-    thread_id = Column(String(255), nullable=True, unique=True, index=True)  # Thread ID (legacy, for backward compatibility)
-    previous_response_id = Column(String(255), nullable=True, index=True)  # Previous response ID for conversation context
-    conversation_history = Column(JSON, nullable=True)  # Store conversation messages locally
+    thread_id = Column(String(255), nullable=True, unique=True, index=True)  # OpenAI Thread ID (for Assistants API)
+    openai_thread_id = Column(String(255), nullable=True, unique=True, index=True)  # OpenAI Thread ID (explicit name)
+    previous_response_id = Column(String(255), nullable=True, index=True)  # Previous response ID (legacy, for backward compatibility)
+    conversation_history = Column(JSON, nullable=True)  # Store conversation messages locally (for backward compatibility)
     title = Column(String(500), nullable=True)  # Optional title (first message or user-defined)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -93,6 +94,7 @@ class UserSettings(Base):
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False, unique=True, index=True)
     assistant_instructions = Column(Text, nullable=True)  # Custom AI assistant instructions
     assistant_model = Column(String(50), nullable=True)  # GPT model preference (e.g., "gpt-4o-mini", "gpt-4o", "gpt-4-turbo")
+    assistant_id = Column(String(255), nullable=True)  # OpenAI Assistant ID (persistent assistant per user)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
