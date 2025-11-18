@@ -200,15 +200,14 @@ class ChatService:
                 logger.info(f"Using previous_response_id for state management: {previous_response_id}")
         
         # Add vector store for file search if provided
-        # According to OpenAI documentation, Responses API also supports tool_resources with vector_store_ids
-        # Same structure as Chat Completions API
+        # According to OpenAI documentation: https://platform.openai.com/docs/api-reference/responses
+        # Responses API uses 'tools' parameter with file_search tool
         if vector_store_id:
-            request_params["tool_resources"] = {
-                "file_search": {
-                    "vector_store_ids": [vector_store_id]
-                }
-            }
-            logger.info(f"Using vector store {vector_store_id} for file search via tool_resources (Responses API)")
+            request_params["tools"] = [{
+                "type": "file_search",
+                "vector_store_ids": [vector_store_id]
+            }]
+            logger.info(f"Using vector store {vector_store_id} for file search via tools (Responses API)")
         
         # Call Responses API
         # Note: The Responses API endpoint might be client.responses.create() or client.beta.responses.create()
@@ -400,14 +399,13 @@ class ChatService:
         
         # Add vector store for file search if provided
         # According to OpenAI documentation: https://platform.openai.com/docs/api-reference/vector-stores
-        # Chat Completions API uses tool_resources with vector_store_ids
+        # Chat Completions API uses tools parameter with file_search tool
         if vector_store_id:
-            request_params["tool_resources"] = {
-                "file_search": {
-                    "vector_store_ids": [vector_store_id]
-                }
-            }
-            logger.info(f"Using vector store {vector_store_id} for file search via tool_resources (Chat Completions API)")
+            request_params["tools"] = [{
+                "type": "file_search",
+                "vector_store_ids": [vector_store_id]
+            }]
+            logger.info(f"Using vector store {vector_store_id} for file search via tools (Chat Completions API)")
         
         try:
             # Call chat.completions API
