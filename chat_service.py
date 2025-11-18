@@ -19,6 +19,7 @@ class ChatService:
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable is required")
         self.client = OpenAI(api_key=api_key)
+        self._responses_api_available = None  # Cache for Responses API availability check
     
     def _get_instructions(self, user_id: int = None) -> str:
         """Get chat instructions for a user (custom or default)."""
@@ -52,6 +53,38 @@ class ChatService:
         finally:
             db.close()
     
+    def _is_responses_api_available(self) -> bool:
+        """Check if Responses API is available in the OpenAI client."""
+        if self._responses_api_available is not None:
+            return self._responses_api_available
+        
+        # Check if Responses API is available
+        try:
+            if hasattr(self.client, 'responses'):
+                self._responses_api_available = True
+                return True
+            elif hasattr(self.client, 'beta') and hasattr(self.client.beta, 'responses'):
+                self._responses_api_available = True
+                return True
+            else:
+                self._responses_api_available = False
+                return False
+        except Exception:
+            self._responses_api_available = False
+            return False
+    
+    def _requires_responses_api(self, model: str) -> bool:
+        """Check if a model requires Responses API (newer models that don't work with Chat Completions)."""
+        # Models that are known to require Responses API
+        responses_only_models = [
+            "gpt-5.1-codex-mini",
+            "gpt-5.1",
+            "gpt-5",
+            "o4-mini",
+            "o4"
+        ]
+        return any(model.startswith(prefix) for prefix in responses_only_models)
+    
     def send_message(
         self, 
         message: str, 
@@ -79,34 +112,63 @@ class ChatService:
         instructions = self._get_instructions(user_id)
         model = self._get_model(user_id)
         
-        # Try Responses API first (for newer models and better state management)
-        try:
-            return self._send_message_responses_api(
-                message=message,
-                instructions=instructions,
-                model=model,
-                vector_store_id=vector_store_id,
-                previous_response_id=previous_response_id
-            )
-        except Exception as responses_error:
-            error_str = str(responses_error)
-            logger.debug(f"Responses API not available or failed: {responses_error}")
-            
-            # Check if Responses API is not available (AttributeError) or model doesn't support it
-            if "responses" in error_str.lower() or "AttributeError" in str(type(responses_error).__name__):
-                # Fall back to Chat Completions API
-                logger.info(f"Falling back to Chat Completions API for model {model}")
-                return self._send_message_chat_completions_api(
+        # Determine which API to use
+        responses_api_available = self._is_responses_api_available()
+        requires_responses = self._requires_responses_api(model)
+        
+        # Use Responses API if:
+        # 1. It's available AND
+        # 2. (The model requires it OR we have a previous_response_id for state management)
+        use_responses_api = responses_api_available and (requires_responses or previous_response_id is not None)
+        
+        if use_responses_api:
+            try:
+                return self._send_message_responses_api(
                     message=message,
                     instructions=instructions,
                     model=model,
-                    conversation_history=conversation_history,
                     vector_store_id=vector_store_id,
-                    user_id=user_id
+                    previous_response_id=previous_response_id
                 )
-            else:
-                # Re-raise if it's a different error
-                raise
+            except Exception as responses_error:
+                error_str = str(responses_error)
+                logger.debug(f"Responses API failed: {responses_error}")
+                
+                # If model requires Responses API but it failed, try Chat Completions as fallback
+                # (might work for some models)
+                if requires_responses:
+                    logger.warning(f"Model {model} requires Responses API but it failed. Trying Chat Completions as fallback...")
+                    return self._send_message_chat_completions_api(
+                        message=message,
+                        instructions=instructions,
+                        model=model,
+                        conversation_history=conversation_history,
+                        vector_store_id=vector_store_id,
+                        user_id=user_id
+                    )
+                else:
+                    # For models that don't require Responses API, fall back silently
+                    logger.debug(f"Falling back to Chat Completions API for model {model}")
+                    return self._send_message_chat_completions_api(
+                        message=message,
+                        instructions=instructions,
+                        model=model,
+                        conversation_history=conversation_history,
+                        vector_store_id=vector_store_id,
+                        user_id=user_id
+                    )
+        else:
+            # Use Chat Completions API directly (Responses API not available or not needed)
+            if not responses_api_available and requires_responses:
+                logger.warning(f"Model {model} requires Responses API but it's not available in this client version. Using Chat Completions (may fail).")
+            return self._send_message_chat_completions_api(
+                message=message,
+                instructions=instructions,
+                model=model,
+                conversation_history=conversation_history,
+                vector_store_id=vector_store_id,
+                user_id=user_id
+            )
     
     def _send_message_responses_api(
         self,
