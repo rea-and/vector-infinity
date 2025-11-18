@@ -2,9 +2,10 @@
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 import logging
-from assistant_service import AssistantService
+from chat_service import ChatService
 from vector_store_service import VectorStoreService
 from database import ChatThread, SessionLocal
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -44,19 +45,20 @@ def list_chat_threads():
 @bp.route("/threads", methods=["POST"])
 @login_required
 def create_chat_thread():
-    """Create a new chat thread."""
+    """Create a new chat thread (conversation)."""
     db = SessionLocal()
     try:
-        assistant_service = AssistantService()
-        
-        thread_id = assistant_service.create_thread()
-        if not thread_id:
-            return jsonify({"error": "Failed to create thread"}), 500
+        # Create new conversation thread (no OpenAI thread needed with Responses API)
+        # Generate a unique thread ID
+        import uuid
+        thread_id = f"conv_{uuid.uuid4().hex[:16]}"
         
         # Save thread to database
         chat_thread = ChatThread(
             user_id=current_user.id,
             thread_id=thread_id,
+            previous_response_id=None,  # New conversation
+            conversation_history=None,  # Empty history
             title=None  # Will be set from first message
         )
         db.add(chat_thread)
@@ -82,7 +84,7 @@ def create_chat_thread():
 @bp.route("/threads/<thread_id>/messages", methods=["POST"])
 @login_required
 def send_chat_message(thread_id):
-    """Send a message in a chat thread."""
+    """Send a message in a chat thread using Chat Completions API."""
     db = SessionLocal()
     try:
         data = request.get_json() or {}
@@ -100,7 +102,7 @@ def send_chat_message(thread_id):
         if not chat_thread:
             return jsonify({"error": "Thread not found or access denied"}), 404
         
-        assistant_service = AssistantService()
+        chat_service = ChatService()
         vector_store_service = VectorStoreService()
         
         # Get unified vector store ID (user-specific)
@@ -108,15 +110,25 @@ def send_chat_message(thread_id):
         if not vector_store_id:
             return jsonify({"error": "No vector store found. Please run an import first."}), 404
         
-        # Get or create unified assistant with vector store (user-specific)
-        assistant_id = assistant_service.get_or_create_unified_assistant(vector_store_id, user_id=current_user.id)
-        if not assistant_id:
-            return jsonify({"error": "Failed to get or create assistant"}), 500
+        # Get conversation history from database
+        conversation_history = chat_thread.conversation_history if chat_thread.conversation_history else None
         
         # Send message and get response
-        response = assistant_service.send_message(thread_id, assistant_id, message)
-        if response is None:
-            return jsonify({"error": "Failed to get response from assistant"}), 500
+        result = chat_service.send_message(
+            message=message,
+            conversation_history=conversation_history,
+            vector_store_id=vector_store_id,
+            user_id=current_user.id
+        )
+        
+        if result is None:
+            return jsonify({"error": "Failed to get response from chat service"}), 500
+        
+        # Update thread with new conversation history and response ID
+        # SQLAlchemy JSON column handles serialization automatically
+        chat_thread.conversation_history = result["messages"]
+        chat_thread.previous_response_id = result["response_id"]
+        chat_thread.updated_at = datetime.now(timezone.utc)
         
         # Update thread title from first message if not set
         if not chat_thread.title or chat_thread.title.strip() == "":
@@ -125,18 +137,14 @@ def send_chat_message(thread_id):
             if len(message) > 50:
                 title += "..."
             chat_thread.title = title
-            db.commit()
             logger.info(f"Set thread title to: {title} for thread {thread_id}")
         
-        # Update thread's updated_at timestamp
-        from datetime import datetime, timezone
-        chat_thread.updated_at = datetime.now(timezone.utc)
         db.commit()
         
         return jsonify({
-            "response": response,
+            "response": result["content"],
             "thread_id": thread_id,
-            "assistant_id": assistant_id
+            "response_id": result["response_id"]
         })
     except Exception as e:
         db.rollback()
@@ -161,9 +169,18 @@ def get_chat_messages(thread_id):
         if not chat_thread:
             return jsonify({"error": "Thread not found or access denied"}), 404
         
-        assistant_service = AssistantService()
+        # Get conversation history from database
+        conversation_history = chat_thread.conversation_history if chat_thread.conversation_history else []
         
-        messages = assistant_service.get_thread_messages(thread_id)
+        # Convert to the format expected by the frontend
+        messages = []
+        for msg in conversation_history:
+            messages.append({
+                "role": msg.get("role"),
+                "content": msg.get("content"),
+                "created_at": chat_thread.updated_at.isoformat() if chat_thread.updated_at else None
+            })
+        
         return jsonify({"messages": messages})
     except Exception as e:
         logger.error(f"Error getting messages: {e}", exc_info=True)

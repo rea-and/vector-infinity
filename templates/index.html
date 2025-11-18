@@ -1607,14 +1607,14 @@
                                 </button>
                             </div>
                             <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color);">
-                                <h3>AI Assistant Instructions</h3>
+                                <h3>AI Chat Instructions</h3>
                                 <p style="color: var(--text-secondary); margin-bottom: 15px;">
-                                    Customize the instructions that guide the AI assistant's behavior. These instructions are used when creating or updating your assistant. Changes will apply to new conversations.
+                                    Customize the instructions that guide the AI's behavior. These instructions are used when chatting with your data. Changes will apply to new conversations.
                                 </p>
                                 <textarea 
                                     id="assistant-instructions-textarea" 
                                     style="width: 100%; min-height: 200px; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-primary); color: var(--text-primary); font-family: inherit; font-size: 14px; line-height: 1.5; resize: vertical; margin-bottom: 15px;"
-                                    placeholder="Enter custom instructions for the AI assistant..."
+                                    placeholder="Enter custom instructions for the AI..."
                                 ></textarea>
                                 <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
                                     <button class="btn btn-primary" onclick="saveAssistantInstructions()" style="min-width: 150px; padding: 10px 20px;">
@@ -1628,9 +1628,9 @@
                             </div>
                             
                             <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color);">
-                                <h3>AI Assistant Model</h3>
+                                <h3>AI Chat Model</h3>
                                 <p style="color: var(--text-secondary); margin-bottom: 15px;">
-                                    Select which GPT model to use for the AI assistant. The model will be updated on your next chat message. Different models have different capabilities and costs.
+                                    Select which GPT model to use for chat. The model will be updated on your next chat message. Different models have different capabilities and costs.
                                 </p>
                                 <div style="margin-bottom: 15px;">
                                     <label for="assistant-model-select" style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary);">
@@ -1833,9 +1833,9 @@
                 item.classList.remove('active');
             });
             
-            // Load assistant instructions and model when Settings tab is shown
+            // Load chat instructions and model when Settings tab is shown
             if (tabName === 'settings') {
-                loadAssistantInstructions();
+                loadChatInstructions();
                 loadAssistantModel();
             }
             document.getElementById(tabName).classList.add('active');
@@ -4059,10 +4059,10 @@
             }
         }
         
-        // Assistant Instructions functions
-        const DEFAULT_ASSISTANT_INSTRUCTIONS = "You are a helpful assistant that can answer questions using both your general knowledge and any relevant context from imported data (Gmail, WhatsApp, WHOOP, etc.). Answer questions naturally and directly. If you find relevant information in the imported data, mention the source when helpful. If the question is about general topics not covered in the imported data, answer using your general knowledge without mentioning that the information wasn't found in the files. Be concise and helpful.";
+        // Chat Instructions functions
+        const DEFAULT_CHAT_INSTRUCTIONS = "You are a helpful assistant that can answer questions using both your general knowledge and any relevant context from imported data (Gmail, WhatsApp, WHOOP, etc.). Answer questions naturally and directly. If you find relevant information in the imported data, mention the source when helpful. If the question is about general topics not covered in the imported data, answer using your general knowledge without mentioning that the information wasn't found in the files. Be concise and helpful.";
         
-        async function loadAssistantInstructions() {
+        async function loadChatInstructions() {
             try {
                 const response = await fetch(`${API_BASE}/settings/assistant-instructions`);
                 if (!response.ok) {
@@ -4074,7 +4074,7 @@
                 const statusSpan = document.getElementById('assistant-instructions-status');
                 
                 if (textarea) {
-                    textarea.value = data.instructions || DEFAULT_ASSISTANT_INSTRUCTIONS;
+                    textarea.value = data.instructions || DEFAULT_CHAT_INSTRUCTIONS;
                 }
                 
                 if (statusSpan) {
@@ -4087,10 +4087,10 @@
                     }
                 }
             } catch (error) {
-                console.error('Error loading assistant instructions:', error);
+                console.error('Error loading chat instructions:', error);
                 const textarea = document.getElementById('assistant-instructions-textarea');
                 if (textarea) {
-                    textarea.value = DEFAULT_ASSISTANT_INSTRUCTIONS;
+                    textarea.value = DEFAULT_CHAT_INSTRUCTIONS;
                 }
             }
         }

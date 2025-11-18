@@ -5,6 +5,7 @@ from flask_login import LoginManager, current_user
 import logging
 import config
 import secrets
+from pathlib import Path
 
 # Import route blueprints
 from routes import plugins, imports, chat, data, export, auth, users
@@ -14,26 +15,37 @@ import sqlite3
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Cache template files for performance
+_template_cache = {}
+def _load_template(template_name: str) -> str:
+    """Load and cache template file."""
+    if template_name not in _template_cache:
+        template_path = Path("templates") / template_name
+        if template_path.exists():
+            _template_cache[template_name] = template_path.read_text(encoding='utf-8')
+        else:
+            logger.error(f"Template not found: {template_path}")
+            return f"<html><body>Template {template_name} not found</body></html>"
+    return _template_cache[template_name]
 
-def migrate_database():
-    """Run database migrations on startup."""
+
+def update_database_schema():
+    """Update database schema on startup if needed."""
     try:
         # Initialize database (creates tables if they don't exist)
         init_db()
         
-        # Check and add assistant_model column if needed
         db_path = config.DATABASE_PATH
         if db_path.exists():
             conn = sqlite3.connect(str(db_path))
             cursor = conn.cursor()
             try:
-                # Check if table exists
+                # Check if user_settings table exists and add assistant_model column if needed
                 cursor.execute("""
                     SELECT name FROM sqlite_master 
                     WHERE type='table' AND name='user_settings'
                 """)
                 if cursor.fetchone():
-                    # Check if column exists
                     cursor.execute("PRAGMA table_info(user_settings)")
                     columns = [row[1] for row in cursor.fetchall()]
                     if 'assistant_model' not in columns:
@@ -44,12 +56,62 @@ def migrate_database():
                         """)
                         conn.commit()
                         logger.info("✓ Successfully added 'assistant_model' column")
+                
+                # Check if chat_threads table exists and add chat API columns if needed
+                cursor.execute("""
+                    SELECT name FROM sqlite_master 
+                    WHERE type='table' AND name='chat_threads'
+                """)
+                if cursor.fetchone():
+                    cursor.execute("PRAGMA table_info(chat_threads)")
+                    columns = [row[1] for row in cursor.fetchall()]
+                    
+                    # Make thread_id nullable (for backward compatibility)
+                    # SQLite doesn't support ALTER COLUMN, so we'll just note it
+                    # The column definition in the model is already nullable
+                    
+                    # Add previous_response_id column if needed
+                    if 'previous_response_id' not in columns:
+                        logger.info("Adding 'previous_response_id' column to chat_threads table...")
+                        cursor.execute("""
+                            ALTER TABLE chat_threads 
+                            ADD COLUMN previous_response_id VARCHAR(255)
+                        """)
+                        conn.commit()
+                        logger.info("✓ Successfully added 'previous_response_id' column")
+                    
+                    # Add conversation_history column if needed
+                    if 'conversation_history' not in columns:
+                        logger.info("Adding 'conversation_history' column to chat_threads table...")
+                        cursor.execute("""
+                            ALTER TABLE chat_threads 
+                            ADD COLUMN conversation_history TEXT
+                        """)
+                        conn.commit()
+                        logger.info("✓ Successfully added 'conversation_history' column")
+                    
+                    # Create index on previous_response_id if it doesn't exist
+                    cursor.execute("""
+                        SELECT name FROM sqlite_master 
+                        WHERE type='index' AND name='ix_chat_threads_previous_response_id'
+                    """)
+                    if not cursor.fetchone():
+                        try:
+                            cursor.execute("""
+                                CREATE INDEX ix_chat_threads_previous_response_id 
+                                ON chat_threads(previous_response_id)
+                            """)
+                            conn.commit()
+                            logger.info("✓ Successfully created index on previous_response_id")
+                        except sqlite3.Error as idx_error:
+                            logger.warning(f"Could not create index (may already exist): {idx_error}")
+                            
             except sqlite3.Error as e:
-                logger.warning(f"Database migration check failed: {e}")
+                logger.warning(f"Database schema update check failed: {e}")
             finally:
                 conn.close()
     except Exception as e:
-        logger.warning(f"Database migration check failed: {e}", exc_info=True)
+        logger.warning(f"Database schema update check failed: {e}", exc_info=True)
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
@@ -79,8 +141,8 @@ def load_user(user_id):
         db.close()
 
 
-# Run database migrations on startup
-migrate_database()
+# Update database schema on startup
+update_database_schema()
 
 # Make OAuth flows accessible to plugins (via services module)
 from services import oauth_flows
@@ -100,9 +162,9 @@ app.register_blueprint(export.bp)
 def index():
     """Serve the main UI or redirect to login."""
     if current_user.is_authenticated:
-        return render_template_string(open("templates/index.html").read())
+        return render_template_string(_load_template("index.html"))
     else:
-        return render_template_string(open("templates/login.html").read())
+        return render_template_string(_load_template("login.html"))
 
 
 @app.route("/login")
@@ -110,7 +172,7 @@ def login_page():
     """Login page."""
     if current_user.is_authenticated:
         return redirect(url_for('index'))
-    return render_template_string(open("templates/login.html").read())
+    return render_template_string(_load_template("login.html"))
 
 
 if __name__ == "__main__":

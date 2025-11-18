@@ -1,13 +1,13 @@
 # Vector Infinity
 
-A personal data aggregation system that imports data from multiple sources (Gmail, WhatsApp, WHOOP, etc.) and provides it as context via OpenAI's Assistant API with Vector Stores. Chat directly with your data through the web UI.
+A personal data aggregation system that imports data from multiple sources (Gmail, WhatsApp, WHOOP, etc.) and provides it as context via OpenAI's Chat Completions API with Vector Stores. Chat directly with your data through the web UI.
 
 ## Features
 
 - **Plugin Architecture**: Easily extensible plugin system for adding new data sources
 - **Automated Daily Imports**: Scheduled daily imports from all configured sources
 - **Local Database**: All data stored locally in SQLite (lightweight, low RAM usage)
-- **OpenAI Assistant API**: Uses OpenAI's Assistant API with Vector Stores for intelligent chat
+- **OpenAI Chat API**: Uses OpenAI's Chat Completions API with Vector Stores for intelligent chat
 - **Web UI Control Plane**: Responsive web interface for:
   - Viewing import logs
   - Manually triggering imports
@@ -77,7 +77,7 @@ nano .env
 
 **Note**: You'll need to set `OPENAI_API_KEY` in your `.env` file. This is required for:
 - Uploading data to OpenAI Vector Stores
-- Using the Assistant API for chat functionality
+- Using the Chat Completions API for chat functionality
 
 ```bash
 OPENAI_API_KEY=sk-your-api-key-here
@@ -106,7 +106,7 @@ export OPENAI_API_KEY=sk-your-key-here
 # Or: python3 list_openai_models.py
 ```
 
-This will list all available models from OpenAI and show which ones are compatible with the Assistants API.
+This will list all available models from OpenAI and show which ones are compatible with the Chat Completions API.
 
 The default port is 80. If you have an existing `.env` file with `WEB_PORT=5000`, update it to `WEB_PORT=80` or delete the line to use the default.
 
@@ -235,18 +235,18 @@ To create a new plugin:
 
 ## Chat with Your Data
 
-This application uses OpenAI's Assistant API with Vector Stores to provide intelligent chat functionality directly in the web UI.
+This application uses OpenAI's Chat Completions API with Vector Stores to provide intelligent chat functionality directly in the web UI.
 
 ### How It Works
 
 1. **Import**: When you import data, it's automatically uploaded to OpenAI Vector Stores (one per plugin)
 2. **Vector Stores**: OpenAI handles embeddings and vector search automatically
-3. **Assistant API**: Each plugin has an Assistant that uses its Vector Store for context
+3. **Chat API**: The chat service uses Vector Stores for context when answering questions
 4. **Chat**: Use the "Chat" tab in the web UI to ask questions about your data
 
 ### Prerequisites
 
-1. **OpenAI API Key**: Required for Vector Stores and Assistant API
+1. **OpenAI API Key**: Required for Vector Stores and Chat Completions API
 2. **Set in `.env` file**:
    ```
    OPENAI_API_KEY=sk-your-api-key-here
@@ -263,7 +263,7 @@ This application uses OpenAI's Assistant API with Vector Stores to provide intel
    - Go to the "Chat" tab
    - Select the plugin you want to chat about (Gmail, WhatsApp, WHOOP)
    - Type your question and press Enter
-   - The Assistant will use your imported data to answer
+   - The AI will use your imported data to answer
 
 **Example queries:**
 - "What emails did I receive about vacation plans?"
@@ -292,7 +292,7 @@ This application uses OpenAI's Assistant API with Vector Stores to provide intel
   - Returns: `{"thread_id": "thread_..."}`
 - `POST /api/chat/threads/<thread_id>/messages` - Send a message
   - Body: `{"message": "your question", "plugin_name": "gmail"}`
-  - Returns: `{"response": "assistant response", "thread_id": "...", "assistant_id": "..."}`
+  - Returns: `{"response": "AI response", "thread_id": "...", "response_id": "..."}`
 - `GET /api/chat/threads/<thread_id>/messages` - Get all messages from a thread
   - Returns: `{"messages": [{"role": "user|assistant", "content": "...", "created_at": "..."}]}`
 
@@ -307,18 +307,18 @@ This application uses OpenAI's Assistant API with Vector Stores to provide intel
 - **Scheduler**: APScheduler (background task scheduling)
 - **Frontend**: Vanilla HTML/CSS/JS (responsive, mobile-friendly) with integrated chat interface
 - **Vector Stores**: OpenAI Vector Stores (one per plugin) for semantic search
-- **Assistant API**: OpenAI Assistants with Vector Store integration for chat
+- **Chat API**: OpenAI Chat Completions with Vector Store integration
 
 ### How It Works
 
 1. **Import**: Plugins fetch data from various sources (Gmail, WhatsApp, WHOOP, etc.) on a schedule
 2. **Storage**: Data is stored in SQLite with metadata (title, content, timestamps, etc.)
 3. **Vector Store Upload**: Data is automatically uploaded to OpenAI Vector Stores during import
-4. **Assistant Creation**: Each plugin gets an Assistant that uses its Vector Store for context
-5. **Chat**: Users can chat directly in the web UI, and the Assistant uses Vector Store data to answer questions
+4. **Chat Service**: The chat service uses Vector Stores for context when answering questions
+5. **Chat**: Users can chat directly in the web UI, and the AI uses Vector Store data to answer questions
 6. **Export**: Export endpoints allow downloading data as text files for external use
 
-This provides a seamless chat experience where you can ask questions about your personal data (emails, WhatsApp messages, WHOOP health data) and get intelligent answers using OpenAI's Assistant API with Vector Stores.
+This provides a seamless chat experience where you can ask questions about your personal data (emails, WhatsApp messages, WHOOP health data) and get intelligent answers using OpenAI's Chat Completions API with Vector Stores.
 
 ## Low RAM Optimization
 

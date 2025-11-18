@@ -77,7 +77,9 @@ class ChatThread(Base):
     
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
-    thread_id = Column(String(255), nullable=False, unique=True, index=True)  # OpenAI thread ID
+    thread_id = Column(String(255), nullable=True, unique=True, index=True)  # Thread ID (legacy, for backward compatibility)
+    previous_response_id = Column(String(255), nullable=True, index=True)  # Previous response ID for conversation context
+    conversation_history = Column(JSON, nullable=True)  # Store conversation messages locally
     title = Column(String(500), nullable=True)  # Optional title (first message or user-defined)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
