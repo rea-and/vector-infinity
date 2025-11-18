@@ -1,13 +1,13 @@
 # Vector Infinity
 
-A personal data aggregation system that imports data from multiple sources (Gmail, WhatsApp, WHOOP, etc.) and provides it as context via OpenAI's Chat Completions API with Vector Stores. Chat directly with your data through the web UI.
+A personal data aggregation system that imports data from multiple sources (Gmail, WhatsApp, WHOOP, etc.) and provides it as context via OpenAI's Responses API (with Chat Completions fallback) with Vector Stores. Chat directly with your data through the web UI.
 
 ## Features
 
 - **Plugin Architecture**: Easily extensible plugin system for adding new data sources
 - **Automated Daily Imports**: Scheduled daily imports from all configured sources
 - **Local Database**: All data stored locally in SQLite (lightweight, low RAM usage)
-- **OpenAI Chat API**: Uses OpenAI's Chat Completions API with Vector Stores for intelligent chat
+- **OpenAI Chat API**: Uses OpenAI's Responses API (with Chat Completions fallback) with Vector Stores for intelligent chat, supporting the latest models
 - **Web UI Control Plane**: Responsive web interface for:
   - Viewing import logs
   - Manually triggering imports
@@ -77,7 +77,7 @@ nano .env
 
 **Note**: You'll need to set `OPENAI_API_KEY` in your `.env` file. This is required for:
 - Uploading data to OpenAI Vector Stores
-- Using the Chat Completions API for chat functionality
+- Using the Responses API (with Chat Completions fallback) for chat functionality
 
 ```bash
 OPENAI_API_KEY=sk-your-api-key-here
@@ -306,8 +306,8 @@ This application uses OpenAI's Chat Completions API with Vector Stores to provid
 - **Backend**: Flask (lightweight web framework) with REST API endpoints
 - **Scheduler**: APScheduler (background task scheduling)
 - **Frontend**: Vanilla HTML/CSS/JS (responsive, mobile-friendly) with integrated chat interface
-- **Vector Stores**: OpenAI Vector Stores (one per plugin) for semantic search
-- **Chat API**: OpenAI Chat Completions with Vector Store integration
+- **Vector Stores**: OpenAI Vector Stores (unified per user) for semantic search
+- **Chat API**: OpenAI Responses API (with Chat Completions fallback) with Vector Store integration, supporting the latest models
 
 ### How It Works
 
@@ -318,7 +318,7 @@ This application uses OpenAI's Chat Completions API with Vector Stores to provid
 5. **Chat**: Users can chat directly in the web UI, and the AI uses Vector Store data to answer questions
 6. **Export**: Export endpoints allow downloading data as text files for external use
 
-This provides a seamless chat experience where you can ask questions about your personal data (emails, WhatsApp messages, WHOOP health data) and get intelligent answers using OpenAI's Chat Completions API with Vector Stores.
+This provides a seamless chat experience where you can ask questions about your personal data (emails, WhatsApp messages, WHOOP health data) and get intelligent answers using OpenAI's Responses API (with Chat Completions fallback) with Vector Stores. The system automatically uses the Responses API for newer models (like GPT-5.1-codex-mini) and falls back to Chat Completions for older models.
 
 ## Low RAM Optimization
 

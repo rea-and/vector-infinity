@@ -84,7 +84,7 @@ def create_chat_thread():
 @bp.route("/threads/<thread_id>/messages", methods=["POST"])
 @login_required
 def send_chat_message(thread_id):
-    """Send a message in a chat thread using Chat Completions API."""
+    """Send a message in a chat thread using Responses API (with Chat Completions fallback)."""
     db = SessionLocal()
     try:
         data = request.get_json() or {}
@@ -110,22 +110,28 @@ def send_chat_message(thread_id):
         if not vector_store_id:
             return jsonify({"error": "No vector store found. Please run an import first."}), 404
         
-        # Get conversation history from database
+        # Get conversation history from database (for Chat Completions fallback)
         conversation_history = chat_thread.conversation_history if chat_thread.conversation_history else None
+        
+        # Get previous_response_id for Responses API state management
+        previous_response_id = chat_thread.previous_response_id
         
         # Send message and get response
         result = chat_service.send_message(
             message=message,
             conversation_history=conversation_history,
             vector_store_id=vector_store_id,
-            user_id=current_user.id
+            user_id=current_user.id,
+            previous_response_id=previous_response_id
         )
         
         if result is None:
             return jsonify({"error": "Failed to get response from chat service"}), 500
         
         # Update thread with new conversation history and response ID
-        # SQLAlchemy JSON column handles serialization automatically
+        # For Responses API: previous_response_id is used for state management
+        # For Chat Completions fallback: conversation_history is used for context
+        # We store both for compatibility
         chat_thread.conversation_history = result["messages"]
         chat_thread.previous_response_id = result["response_id"]
         chat_thread.updated_at = datetime.now(timezone.utc)
