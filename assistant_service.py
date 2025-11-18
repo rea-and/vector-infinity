@@ -81,17 +81,41 @@ class AssistantService:
                 
                 if [vector_store_id] != current_vs_ids or assistant.instructions != instructions or assistant.model != model:
                     # Update assistant with new vector store, instructions, and/or model
-                    assistant = self.client.beta.assistants.update(
-                        assistant.id,
-                        instructions=instructions,
-                        model=model,
-                        tool_resources={
-                            "file_search": {
-                                "vector_store_ids": [vector_store_id]
+                    try:
+                        assistant = self.client.beta.assistants.update(
+                            assistant.id,
+                            instructions=instructions,
+                            model=model,
+                            tool_resources={
+                                "file_search": {
+                                    "vector_store_ids": [vector_store_id]
+                                }
                             }
-                        }
-                    )
-                    logger.info(f"Updated unified assistant {assistant.id} with new vector store, instructions, and/or model")
+                        )
+                        logger.info(f"Updated unified assistant {assistant.id} with new vector store, instructions, and/or model")
+                    except Exception as update_error:
+                        # Check if it's an unsupported model error
+                        error_str = str(update_error)
+                        if "unsupported_model" in error_str or "cannot be used with the Assistants API" in error_str:
+                            logger.error(f"Model {model} is not supported by Assistants API. Falling back to default model {config.DEFAULT_MODEL}")
+                            # Clear the invalid model from user settings
+                            if user_id:
+                                self._clear_invalid_model(user_id, model)
+                            # Retry with default model
+                            model = config.DEFAULT_MODEL
+                            assistant = self.client.beta.assistants.update(
+                                assistant.id,
+                                instructions=instructions,
+                                model=model,
+                                tool_resources={
+                                    "file_search": {
+                                        "vector_store_ids": [vector_store_id]
+                                    }
+                                }
+                            )
+                            logger.info(f"Updated unified assistant {assistant.id} with default model {model}")
+                        else:
+                            raise
                 
                 return assistant.id
             except Exception as e:
@@ -105,16 +129,40 @@ class AssistantService:
                 if assistant.name == assistant_name:
                     logger.info(f"Found existing unified assistant for user {user_id}: {assistant.id}")
                     # Update vector store, instructions, and model
-                    assistant = self.client.beta.assistants.update(
-                        assistant.id,
-                        instructions=instructions,
-                        model=model,
-                        tool_resources={
-                            "file_search": {
-                                "vector_store_ids": [vector_store_id]
+                    try:
+                        assistant = self.client.beta.assistants.update(
+                            assistant.id,
+                            instructions=instructions,
+                            model=model,
+                            tool_resources={
+                                "file_search": {
+                                    "vector_store_ids": [vector_store_id]
+                                }
                             }
-                        }
-                    )
+                        )
+                    except Exception as update_error:
+                        # Check if it's an unsupported model error
+                        error_str = str(update_error)
+                        if "unsupported_model" in error_str or "cannot be used with the Assistants API" in error_str:
+                            logger.error(f"Model {model} is not supported by Assistants API. Falling back to default model {config.DEFAULT_MODEL}")
+                            # Clear the invalid model from user settings
+                            if user_id:
+                                self._clear_invalid_model(user_id, model)
+                            # Retry with default model
+                            model = config.DEFAULT_MODEL
+                            assistant = self.client.beta.assistants.update(
+                                assistant.id,
+                                instructions=instructions,
+                                model=model,
+                                tool_resources={
+                                    "file_search": {
+                                        "vector_store_ids": [vector_store_id]
+                                    }
+                                }
+                            )
+                            logger.info(f"Updated unified assistant {assistant.id} with default model {model}")
+                        else:
+                            raise
                     setattr(self, f'_unified_assistant_id_{cache_key}', assistant.id)
                     return assistant.id
         except Exception as e:
@@ -128,19 +176,58 @@ class AssistantService:
                 }
             }
             
-            assistant = self.client.beta.assistants.create(
-                name=assistant_name,
-                instructions=instructions,
-                model=model,
-                tools=[{"type": "file_search"}],
-                tool_resources=tool_resources
-            )
-            logger.info(f"Created new unified assistant for user {user_id}: {assistant.id} with model {model}")
+            try:
+                assistant = self.client.beta.assistants.create(
+                    name=assistant_name,
+                    instructions=instructions,
+                    model=model,
+                    tools=[{"type": "file_search"}],
+                    tool_resources=tool_resources
+                )
+                logger.info(f"Created new unified assistant for user {user_id}: {assistant.id} with model {model}")
+            except Exception as create_error:
+                # Check if it's an unsupported model error
+                error_str = str(create_error)
+                if "unsupported_model" in error_str or "cannot be used with the Assistants API" in error_str:
+                    logger.error(f"Model {model} is not supported by Assistants API. Falling back to default model {config.DEFAULT_MODEL}")
+                    # Clear the invalid model from user settings
+                    if user_id:
+                        self._clear_invalid_model(user_id, model)
+                    # Retry with default model
+                    model = config.DEFAULT_MODEL
+                    assistant = self.client.beta.assistants.create(
+                        name=assistant_name,
+                        instructions=instructions,
+                        model=model,
+                        tools=[{"type": "file_search"}],
+                        tool_resources=tool_resources
+                    )
+                    logger.info(f"Created new unified assistant for user {user_id}: {assistant.id} with default model {model}")
+                else:
+                    raise
+            
             setattr(self, f'_unified_assistant_id_{cache_key}', assistant.id)
             return assistant.id
         except Exception as e:
             logger.error(f"Error creating unified assistant: {e}")
             return None
+    
+    def _clear_invalid_model(self, user_id: int, invalid_model: str):
+        """Clear an invalid model from user settings and fall back to default."""
+        db = SessionLocal()
+        try:
+            settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).first()
+            if settings and settings.assistant_model == invalid_model:
+                settings.assistant_model = None
+                from datetime import datetime, timezone
+                settings.updated_at = datetime.now(timezone.utc)
+                db.commit()
+                logger.info(f"Cleared invalid model '{invalid_model}' for user {user_id}, reset to default")
+        except Exception as e:
+            logger.warning(f"Error clearing invalid model for user {user_id}: {e}")
+            db.rollback()
+        finally:
+            db.close()
     
     def create_thread(self) -> Optional[str]:
         """Create a new chat thread."""
