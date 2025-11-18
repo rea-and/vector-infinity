@@ -204,27 +204,27 @@ class ChatService:
         user_id: int = None
     ) -> Dict[str, Any]:
         """Send a message using Chat Completions API (fallback for older models)."""
-            # Build messages list with system instruction and conversation history
-            messages_list = [
-                {"role": "system", "content": instructions}
-            ]
-            
-            # Add conversation history if provided
-            if conversation_history:
-                messages_list.extend(conversation_history)
-            
-            # Add current user message
-            messages_list.append({"role": "user", "content": message})
-            
-            # Build request parameters
-            request_params = {
-                "model": model,
-                "messages": messages_list
-            }
-            
-            # Add vector store for file search if provided
+        # Build messages list with system instruction and conversation history
+        messages_list = [
+            {"role": "system", "content": instructions}
+        ]
+        
+        # Add conversation history if provided
+        if conversation_history:
+            messages_list.extend(conversation_history)
+        
+        # Add current user message
+        messages_list.append({"role": "user", "content": message})
+        
+        # Build request parameters
+        request_params = {
+            "model": model,
+            "messages": messages_list
+        }
+        
+        # Add vector store for file search if provided
         # Chat Completions API uses attachments on messages for file search
-            if vector_store_id:
+        if vector_store_id:
             try:
                 # Get all file IDs from the vector store (handle pagination)
                 file_ids = []
