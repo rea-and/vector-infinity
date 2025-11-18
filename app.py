@@ -11,6 +11,7 @@ from pathlib import Path
 from routes import plugins, imports, chat, data, export, auth, users
 from database import User, SessionLocal, init_db
 import sqlite3
+from security import security_middleware, add_security_headers
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -122,6 +123,10 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login_page'
 login_manager.session_protection = "strong"
+
+# Security middleware: block automated scans and attacks
+app.before_request(security_middleware)
+app.after_request(add_security_headers)
 
 
 @login_manager.user_loader
