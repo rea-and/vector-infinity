@@ -307,7 +307,7 @@ This application uses OpenAI's Chat Completions API with Vector Stores to provid
 - **Scheduler**: APScheduler (background task scheduling)
 - **Frontend**: Vanilla HTML/CSS/JS (responsive, mobile-friendly) with integrated chat interface
 - **Vector Stores**: OpenAI Vector Stores (unified per user) for semantic search
-- **Chat API**: OpenAI Responses API (with Chat Completions fallback) with Vector Store integration, supporting the latest models
+- **Chat API**: OpenAI Chat Completions API with Vector Store integration via tool_resources
 
 ### How It Works
 
@@ -318,7 +318,7 @@ This application uses OpenAI's Chat Completions API with Vector Stores to provid
 5. **Chat**: Users can chat directly in the web UI, and the AI uses Vector Store data to answer questions
 6. **Export**: Export endpoints allow downloading data as text files for external use
 
-This provides a seamless chat experience where you can ask questions about your personal data (emails, WhatsApp messages, WHOOP health data) and get intelligent answers using OpenAI's Responses API (with Chat Completions fallback) with Vector Stores. The system automatically uses the Responses API for newer models (like GPT-5.1-codex-mini) and falls back to Chat Completions for older models.
+This provides a seamless chat experience where you can ask questions about your personal data (emails, WhatsApp messages, WHOOP health data) and get intelligent answers using OpenAI's Chat Completions API with Vector Stores. The system uses the Chat Completions API with `tool_resources` to enable vector store search, supporting models like GPT-4o-mini, GPT-4o, and GPT-4 Turbo.
 
 ## Low RAM Optimization
 

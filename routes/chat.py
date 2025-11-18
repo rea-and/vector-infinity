@@ -48,7 +48,7 @@ def create_chat_thread():
     """Create a new chat thread (conversation)."""
     db = SessionLocal()
     try:
-        # Create new conversation thread (no OpenAI thread needed with Responses API)
+        # Create new conversation thread
         # Generate a unique thread ID
         import uuid
         thread_id = f"conv_{uuid.uuid4().hex[:16]}"
@@ -84,7 +84,7 @@ def create_chat_thread():
 @bp.route("/threads/<thread_id>/messages", methods=["POST"])
 @login_required
 def send_chat_message(thread_id):
-    """Send a message in a chat thread using Responses API (with Chat Completions fallback)."""
+    """Send a message in a chat thread using Chat Completions API with vector store support."""
     db = SessionLocal()
     try:
         data = request.get_json() or {}
@@ -110,10 +110,10 @@ def send_chat_message(thread_id):
         if not vector_store_id:
             return jsonify({"error": "No vector store found. Please run an import first."}), 404
         
-        # Get conversation history from database (for Chat Completions fallback)
+        # Get conversation history from database
         conversation_history = chat_thread.conversation_history if chat_thread.conversation_history else None
         
-        # Get previous_response_id for Responses API state management
+        # Get previous_response_id (kept for backward compatibility, but not used)
         previous_response_id = chat_thread.previous_response_id
         
         # Send message and get response
@@ -129,9 +129,7 @@ def send_chat_message(thread_id):
             return jsonify({"error": "Failed to get response from chat service"}), 500
         
         # Update thread with new conversation history and response ID
-        # For Responses API: previous_response_id is used for state management
-        # For Chat Completions fallback: conversation_history is used for context
-        # We store both for compatibility
+        # conversation_history is used for context in Chat Completions API
         chat_thread.conversation_history = result["messages"]
         chat_thread.previous_response_id = result["response_id"]
         chat_thread.updated_at = datetime.now(timezone.utc)
