@@ -48,7 +48,7 @@ class ChatService:
                 # a model that was later removed from the list, or a model not in the default list)
                 # We'll validate it works when actually calling the API
                 logger.debug(f"Using user-selected model: {settings.assistant_model} for user {user_id}")
-                return settings.assistant_model
+                    return settings.assistant_model
             return config.DEFAULT_MODEL
         finally:
             db.close()
@@ -315,18 +315,18 @@ User question: {message}"""
         user_id: int = None
     ) -> Dict[str, Any]:
         """Send a message using Chat Completions API only (no vector store)."""
-        # Build messages list with system instruction and conversation history
-        messages_list = [
-            {"role": "system", "content": instructions}
-        ]
-        
-        # Add conversation history if provided
-        if conversation_history:
-            messages_list.extend(conversation_history)
-        
-        # Add current user message
-        messages_list.append({"role": "user", "content": message})
-        
+            # Build messages list with system instruction and conversation history
+            messages_list = [
+                {"role": "system", "content": instructions}
+            ]
+            
+            # Add conversation history if provided
+            if conversation_history:
+                messages_list.extend(conversation_history)
+            
+            # Add current user message
+            messages_list.append({"role": "user", "content": message})
+            
         # Call Chat Completions API
         try:
             response = self.client.chat.completions.create(
