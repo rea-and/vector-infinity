@@ -188,3 +188,33 @@ def get_chat_messages(thread_id):
     finally:
         db.close()
 
+
+@bp.route("/threads/<thread_id>", methods=["DELETE"])
+@login_required
+def delete_chat_thread(thread_id):
+    """Delete a chat thread."""
+    db = SessionLocal()
+    try:
+        # Verify thread belongs to user
+        chat_thread = db.query(ChatThread).filter(
+            ChatThread.thread_id == thread_id,
+            ChatThread.user_id == current_user.id
+        ).first()
+        
+        if not chat_thread:
+            return jsonify({"error": "Thread not found or access denied"}), 404
+        
+        # Delete the thread
+        db.delete(chat_thread)
+        db.commit()
+        
+        logger.info(f"Deleted chat thread {thread_id} for user {current_user.id}")
+        
+        return jsonify({"success": True, "message": "Thread deleted successfully"})
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting thread: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+

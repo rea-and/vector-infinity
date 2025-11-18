@@ -603,6 +603,10 @@
             transition: background-color 0.2s ease;
             color: var(--text-primary);
             font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
         }
         
         .chat-thread-item:hover {
@@ -612,6 +616,11 @@
         .chat-thread-item.active {
             background: var(--accent-color);
             color: white;
+        }
+        
+        .chat-thread-content {
+            flex: 1;
+            min-width: 0;
         }
         
         .chat-thread-title {
@@ -625,6 +634,35 @@
         .chat-thread-time {
             font-size: 12px;
             opacity: 0.7;
+        }
+        
+        .chat-thread-delete {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .chat-thread-item:hover .chat-thread-delete {
+            opacity: 0.6;
+        }
+        
+        .chat-thread-item:hover .chat-thread-delete:hover {
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .chat-thread-item.active .chat-thread-delete {
+            opacity: 0.7;
+        }
+        
+        .chat-thread-item.active:hover .chat-thread-delete:hover {
+            background: rgba(255, 255, 255, 0.2);
         }
         
         .chat-main-area {
@@ -730,6 +768,10 @@
             transition: background-color 0.2s ease;
             color: var(--text-primary);
             font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
         }
         
         .sidebar-thread-item:hover {
@@ -741,12 +783,46 @@
             color: white;
         }
         
+        .sidebar-thread-content {
+            flex: 1;
+            min-width: 0;
+        }
+        
         .sidebar-thread-title {
             font-weight: 500;
             margin-bottom: 4px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+        
+        .sidebar-thread-delete {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .sidebar-thread-item:hover .sidebar-thread-delete {
+            opacity: 0.6;
+        }
+        
+        .sidebar-thread-item:hover .sidebar-thread-delete:hover {
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar-thread-item.active .sidebar-thread-delete {
+            opacity: 0.7;
+        }
+        
+        .sidebar-thread-item.active:hover .sidebar-thread-delete:hover {
+            background: rgba(255, 255, 255, 0.2);
         }
         
         .sidebar-thread-time {
@@ -3580,8 +3656,13 @@
                         
                         return `
                             <div class="chat-thread-item ${isActive ? 'active' : ''}" onclick="switchToThread('${thread.thread_id}')">
-                                <div class="chat-thread-title">${escapeHtml(thread.title || 'New Chat')}</div>
-                                <div class="chat-thread-time">${timeStr}</div>
+                                <div class="chat-thread-content">
+                                    <div class="chat-thread-title">${escapeHtml(thread.title || 'New Chat')}</div>
+                                    <div class="chat-thread-time">${timeStr}</div>
+                                </div>
+                                <div class="chat-thread-delete" onclick="event.stopPropagation(); deleteChatThread('${thread.thread_id}')" title="Delete conversation">
+                                    🗑️
+                                </div>
                             </div>
                         `;
                     }).join('');
@@ -3601,8 +3682,13 @@
                         
                         return `
                             <div class="sidebar-thread-item ${isActive ? 'active' : ''}" onclick="switchToThread('${thread.thread_id}'); showTab('chat');">
-                                <div class="sidebar-thread-title">${escapeHtml(thread.title || 'New Chat')}</div>
-                                <div class="sidebar-thread-time">${timeStr}</div>
+                                <div class="sidebar-thread-content">
+                                    <div class="sidebar-thread-title">${escapeHtml(thread.title || 'New Chat')}</div>
+                                    <div class="sidebar-thread-time">${timeStr}</div>
+                                </div>
+                                <div class="sidebar-thread-delete" onclick="event.stopPropagation(); deleteChatThread('${thread.thread_id}')" title="Delete conversation">
+                                    🗑️
+                                </div>
                             </div>
                         `;
                     }).join('');
@@ -3639,6 +3725,46 @@
             
             renderThreadsList();
             await loadChatMessages();
+        }
+        
+        async function deleteChatThread(threadId) {
+            if (!confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/chat/threads/${threadId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+                }
+                
+                // If we deleted the current thread, switch to another one or create new
+                if (threadId === currentThreadId) {
+                    // Remove from allThreads
+                    allThreads = allThreads.filter(t => t.thread_id !== threadId);
+                    
+                    if (allThreads.length > 0) {
+                        // Switch to the most recent thread
+                        await switchToThread(allThreads[0].thread_id);
+                    } else {
+                        // Create a new thread if none exist
+                        currentThreadId = null;
+                        localStorage.removeItem('currentThreadId');
+                        await newChatThread();
+                    }
+                } else {
+                    // Just remove from list
+                    allThreads = allThreads.filter(t => t.thread_id !== threadId);
+                    renderThreadsList();
+                }
+            } catch (error) {
+                console.error('Error deleting thread:', error);
+                alert('Failed to delete conversation: ' + error.message);
+            }
         }
         
         async function newChatThread() {
