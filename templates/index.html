@@ -4601,12 +4601,15 @@
         initTheme();
         
         // Check authentication and load user info
-        checkAuth().then(isAuthenticated => {
-            if (isAuthenticated) {
-                // Load initial data only if authenticated
-                loadImports();
-            }
-        });
+        // Add a small delay to ensure session cookie is available after redirect
+        setTimeout(() => {
+            checkAuth().then(isAuthenticated => {
+                if (isAuthenticated) {
+                    // Load initial data only if authenticated
+                    loadImports();
+                }
+            });
+        }, 100); // Small delay to ensure cookie is available
         
         // Load users management page
         async function loadUsers() {
