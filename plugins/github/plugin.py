@@ -206,7 +206,7 @@ class Plugin(DataSourcePlugin):
                 safe_path = file_data['path'].replace('/', '_').replace('\\', '_').replace(' ', '_')
                 safe_path = ''.join(c if c.isalnum() or c in ('_', '-', '.') else '_' for c in safe_path)
                 
-                # Split file content into lines and create a record for each non-empty line
+                # Split file content into lines
                 lines = content.split('\n')
                 non_empty_lines = [line.strip() for line in lines if line.strip()]
                 
@@ -216,23 +216,61 @@ class Plugin(DataSourcePlugin):
                 
                 logger.info(f"Processing {len(non_empty_lines)} lines from file: {file_data['filename']}")
                 
-                # Create a data item for each line
-                for line_num, line_content in enumerate(non_empty_lines, start=1):
-                    # Create unique source_id for each line
-                    source_id = f"github_{file_data['owner']}_{file_data['repo']}_{safe_path}_line_{line_num}"
+                # Extract key context from the file (first few lines often contain important info)
+                # This helps with semantic search by providing context for each chunk
+                file_context = ""
+                context_lines = min(5, len(non_empty_lines))
+                if context_lines > 0:
+                    file_context = "\n".join(non_empty_lines[:context_lines])
+                    # Extract person/entity names from context if present
+                    # Look for patterns like "about [Name]", "information about [Name]", etc.
+                    import re
+                    name_patterns = [
+                        r'about\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)',
+                        r'information\s+about\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)',
+                        r'name\s+is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)',
+                        r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+was\s+born',
+                        r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+is\s+based',
+                    ]
+                    extracted_names = []
+                    for pattern in name_patterns:
+                        matches = re.findall(pattern, file_context, re.IGNORECASE)
+                        extracted_names.extend(matches)
+                    if extracted_names:
+                        # Use the first name found as the primary subject
+                        primary_subject = extracted_names[0]
+                        file_context = f"Subject: {primary_subject}\n\n{file_context}"
+                
+                # Create chunks with context - group lines into chunks of 3-5 lines
+                # This preserves context while keeping chunks manageable
+                chunk_size = 5
+                chunk_num = 0
+                
+                for chunk_start in range(0, len(non_empty_lines), chunk_size):
+                    chunk_end = min(chunk_start + chunk_size, len(non_empty_lines))
+                    chunk_lines = non_empty_lines[chunk_start:chunk_end]
+                    chunk_num += 1
                     
-                    # Format content with proper structure
+                    # Create unique source_id for each chunk
+                    source_id = f"github_{file_data['owner']}_{file_data['repo']}_{safe_path}_chunk_{chunk_num}"
+                    
+                    # Format content with proper structure and context
                     formatted_content = f"Source: GitHub - {file_data['owner']}/{file_data['repo']}\n"
                     formatted_content += f"File: {file_data['path']}\n"
                     formatted_content += f"Branch: {file_data['branch']}\n"
                     formatted_content += f"URL: {file_data['url']}\n"
-                    formatted_content += f"Line: {line_num}\n\n"
-                    formatted_content += f"Content:\n{line_content}"
+                    formatted_content += f"Chunk: {chunk_num} (Lines {chunk_start + 1}-{chunk_end})\n\n"
+                    
+                    # Add file context if available (helps with semantic search)
+                    if file_context and chunk_num == 1:
+                        formatted_content += f"File Context:\n{file_context}\n\n"
+                    
+                    formatted_content += f"Content:\n" + "\n".join(chunk_lines)
                     
                     data_item = {
                         "source_id": source_id,
                         "item_type": "github_file",
-                        "title": f"{file_data['filename']} - Line {line_num} ({file_data['repo']})",
+                        "title": f"{file_data['filename']} - Chunk {chunk_num} ({file_data['repo']})",
                         "content": formatted_content,
                         "metadata": {
                             "github_url": file_data['url'],
@@ -241,8 +279,11 @@ class Plugin(DataSourcePlugin):
                             "branch": file_data['branch'],
                             "path": file_data['path'],
                             "filename": file_data['filename'],
-                            "line_number": line_num,
+                            "chunk_number": chunk_num,
+                            "line_start": chunk_start + 1,
+                            "line_end": chunk_end,
                             "total_lines": len(non_empty_lines),
+                            "total_chunks": (len(non_empty_lines) + chunk_size - 1) // chunk_size,
                             **file_data['metadata']
                         },
                         "source_timestamp": datetime.now(timezone.utc)
