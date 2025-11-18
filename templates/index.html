@@ -4422,6 +4422,11 @@
                 return authCheckPromise;
             }
             
+            // Don't check auth if we're already on the login page
+            if (window.location.pathname === '/login') {
+                return false;
+            }
+            
             authCheckInProgress = true;
             authCheckPromise = (async () => {
                 try {
@@ -4430,31 +4435,41 @@
                     });
                     
                     if (response.ok) {
-                        const user = await response.json();
-                        currentUser = user;
-                        document.getElementById('user-email').textContent = user.email || 'User';
-                        
-                        // Show Users tab if admin
-                        if (user.is_admin) {
-                            document.getElementById('nav-users').style.display = 'block';
+                        try {
+                            const user = await response.json();
+                            currentUser = user;
+                            
+                            // Safely update UI elements
+                            const userEmailEl = document.getElementById('user-email');
+                            if (userEmailEl) {
+                                userEmailEl.textContent = user.email || 'User';
+                            }
+                            
+                            // Show Users tab if admin
+                            if (user.is_admin) {
+                                const navUsersEl = document.getElementById('nav-users');
+                                if (navUsersEl) {
+                                    navUsersEl.style.display = 'block';
+                                }
+                            }
+                            
+                            authCheckInProgress = false;
+                            return true;
+                        } catch (jsonError) {
+                            console.error('Error parsing user JSON:', jsonError);
+                            // If we can't parse the response, treat as auth failure
+                            authCheckInProgress = false;
+                            return false;
                         }
-                        
-                        authCheckInProgress = false;
-                        return true;
                     } else {
-                        // Not authenticated, redirect to login only if not already there
-                        if (window.location.pathname !== '/login') {
-                            window.location.href = '/login';
-                        }
+                        // Not authenticated (401 or 403)
+                        const status = response.status;
+                        console.log(`Auth check failed with status ${status}`);
                         authCheckInProgress = false;
                         return false;
                     }
                 } catch (error) {
                     console.error('Error checking auth:', error);
-                    // Only redirect if not already on login page
-                    if (window.location.pathname !== '/login') {
-                        window.location.href = '/login';
-                    }
                     authCheckInProgress = false;
                     return false;
                 }
@@ -4737,6 +4752,11 @@
         
         // Single initialization function to avoid multiple auth checks
         async function initializeApp() {
+            // Don't initialize if we're on the login page
+            if (window.location.pathname === '/login') {
+                return;
+            }
+            
             // Add a small delay to ensure session cookie is available after redirect
             await new Promise(resolve => setTimeout(resolve, 200));
             
@@ -4748,6 +4768,12 @@
                 loadImports();
                 // Initialize chat
                 initChat();
+            } else {
+                // Not authenticated - redirect to login
+                // Only redirect if not already on login page
+                if (window.location.pathname !== '/login') {
+                    window.location.href = '/login';
+                }
             }
         }
         
