@@ -180,18 +180,11 @@ class ChatService:
     ) -> Dict[str, Any]:
         """Send a message using Responses API (stateful, supports newer models)."""
         # Build request parameters for Responses API
-        # Responses API uses 'input' instead of 'messages'
-        # Combine system instructions with user message if this is the first message
-        if previous_response_id:
-            # For continuation, just use the user message (system instructions are in state)
-            input_text = message
-        else:
-            # For first message, include system instructions
-            input_text = f"{instructions}\n\n{message}"
-        
+        # Responses API uses 'input' for user message and 'instructions' for system prompt
         request_params = {
             "model": model,
-            "input": input_text
+            "input": message,
+            "instructions": instructions
         }
         
         # Add previous_response_id for state management (if this is a continuation)
@@ -199,15 +192,14 @@ class ChatService:
             request_params["previous_response_id"] = previous_response_id
             logger.info(f"Using previous_response_id for state management: {previous_response_id}")
         
-        # Add vector store for file search if provided
-        # Responses API uses tool_resources for vector stores
+        # Note: Vector store support in Responses API may be different
+        # For now, we'll try without vector stores and see if the API supports them
+        # If vector stores are needed, we may need to use a different approach
         if vector_store_id:
-            request_params["tool_resources"] = {
-                "file_search": {
-                    "vector_store_ids": [vector_store_id]
-                }
-            }
-            logger.info(f"Using vector store {vector_store_id} for file search")
+            # Try different possible parameter names for vector stores
+            # The Responses API might not support vector stores yet, or use a different structure
+            logger.warning(f"Vector store {vector_store_id} requested but Responses API vector store support is not yet implemented")
+            # TODO: Implement vector store support for Responses API when available
         
         # Call Responses API
         # Note: The Responses API endpoint might be client.responses.create() or client.beta.responses.create()
