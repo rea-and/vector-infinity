@@ -226,6 +226,26 @@ class ChatService:
         # Responses API structure may differ from Chat Completions
         # Try different possible response structures
         response_text = None
+        response_id = None
+        
+        # Log the response structure for debugging
+        logger.info(f"Responses API response type: {type(response)}")
+        logger.info(f"Responses API response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}")
+        
+        # Try to get a string representation for debugging
+        try:
+            response_repr = str(response)[:500]
+            logger.info(f"Responses API response repr: {response_repr}")
+        except:
+            pass
+        
+        # Try to get response ID first
+        if hasattr(response, 'id'):
+            response_id = response.id
+        elif hasattr(response, 'response_id'):
+            response_id = response.response_id
+        
+        # Try different possible content fields
         if hasattr(response, 'output') and response.output:
             # Responses API might use 'output' field
             if isinstance(response.output, str):
@@ -234,22 +254,73 @@ class ChatService:
                 response_text = response.output.content
             elif hasattr(response.output, 'text'):
                 response_text = response.output.text
+            elif hasattr(response.output, 'message'):
+                if isinstance(response.output.message, str):
+                    response_text = response.output.message
+                elif hasattr(response.output.message, 'content'):
+                    response_text = response.output.message.content
         elif hasattr(response, 'content'):
-            response_text = response.content
+            if isinstance(response.content, str):
+                response_text = response.content
+            elif hasattr(response.content, 'text'):
+                response_text = response.content.text
+        elif hasattr(response, 'text'):
+            response_text = response.text
+        elif hasattr(response, 'message'):
+            if isinstance(response.message, str):
+                response_text = response.message
+            elif hasattr(response.message, 'content'):
+                response_text = response.message.content
         elif hasattr(response, 'choices') and response.choices:
             # Fallback to Chat Completions-like structure
             response_text = response.choices[0].message.content
-        elif hasattr(response, 'text'):
-            response_text = response.text
-        else:
-            # Last resort: try to get content from response object
-            response_text = str(response)
-            logger.warning(f"Unexpected Responses API response structure: {type(response)}")
+        elif hasattr(response, 'data'):
+            # Try data field
+            if isinstance(response.data, str):
+                response_text = response.data
+            elif hasattr(response.data, 'content'):
+                response_text = response.data.content
         
+        # If still no content, try to inspect the response object
         if not response_text:
-            raise Exception("Could not extract response content from Responses API response")
+            # Try to convert response to dict and look for common fields
+            try:
+                if hasattr(response, 'model_dump'):
+                    response_dict = response.model_dump()
+                elif hasattr(response, 'dict'):
+                    response_dict = response.dict()
+                elif hasattr(response, '__dict__'):
+                    response_dict = response.__dict__
+                else:
+                    response_dict = {}
+                
+                logger.debug(f"Responses API response dict keys: {list(response_dict.keys()) if isinstance(response_dict, dict) else 'Not a dict'}")
+                
+                # Look for common content fields in the dict
+                for key in ['output', 'content', 'text', 'message', 'data', 'response']:
+                    if key in response_dict and response_dict[key]:
+                        if isinstance(response_dict[key], str):
+                            response_text = response_dict[key]
+                            break
+                        elif isinstance(response_dict[key], dict):
+                            # Try nested content
+                            for nested_key in ['content', 'text', 'message']:
+                                if nested_key in response_dict[key] and response_dict[key][nested_key]:
+                                    response_text = response_dict[key][nested_key]
+                                    break
+                            if response_text:
+                                break
+            except Exception as dict_error:
+                logger.debug(f"Error converting response to dict: {dict_error}")
         
-        response_id = response.id if hasattr(response, 'id') else None
+        # Last resort: convert to string
+        if not response_text:
+            response_str = str(response)
+            logger.warning(f"Could not extract response content from Responses API response. Response: {response_str[:500]}")
+            raise Exception(f"Could not extract response content from Responses API response. Response type: {type(response)}, Response: {str(response)[:200]}")
+        
+        if not response_id:
+            logger.warning("Could not extract response_id from Responses API response")
         
         # For Responses API, we don't need to manage conversation history locally
         # The API handles state via previous_response_id
