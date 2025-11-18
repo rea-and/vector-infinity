@@ -548,7 +548,8 @@ class ChatService:
                         instructions=instructions,
                         model=model,
                         vector_store_id=vector_store_id,
-                        previous_response_id=None
+                        previous_response_id=None,
+                        conversation_history=conversation_history
                     )
                 except Exception as responses_error:
                     logger.error(f"Responses API also failed: {responses_error}")
