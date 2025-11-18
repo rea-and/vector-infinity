@@ -1,11 +1,13 @@
 #!/bin/bash
 # List all available OpenAI models using the OpenAI API
 
-# Get the directory where this script is located
+# Get the directory where this script is located (tools folder)
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# Get the project root (parent of tools folder)
+PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
-# Load OPENAI_API_KEY from .env file if it exists
-if [ -f "$SCRIPT_DIR/.env" ]; then
+# Load OPENAI_API_KEY from .env file if it exists (in project root)
+if [ -f "$PROJECT_ROOT/.env" ]; then
     echo "Loading API key from .env file..."
     # Parse .env file and extract OPENAI_API_KEY (handles special characters)
     # This method is safer than sourcing the entire .env file
@@ -23,7 +25,7 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
             export OPENAI_API_KEY="$value"
             break
         fi
-    done < "$SCRIPT_DIR/.env"
+    done < "$PROJECT_ROOT/.env"
 fi
 
 # Check if OPENAI_API_KEY is set
@@ -34,13 +36,13 @@ if [ -z "$OPENAI_API_KEY" ]; then
     exit 1
 fi
 
-# Check for virtual environment and activate it if it exists
-if [ -d "$SCRIPT_DIR/venv" ]; then
+# Check for virtual environment and activate it if it exists (in project root)
+if [ -d "$PROJECT_ROOT/venv" ]; then
     echo "Activating virtual environment..."
-    source "$SCRIPT_DIR/venv/bin/activate"
-elif [ -d "$SCRIPT_DIR/.venv" ]; then
+    source "$PROJECT_ROOT/venv/bin/activate"
+elif [ -d "$PROJECT_ROOT/.venv" ]; then
     echo "Activating virtual environment..."
-    source "$SCRIPT_DIR/.venv/bin/activate"
+    source "$PROJECT_ROOT/.venv/bin/activate"
 fi
 
 # Run the Python script

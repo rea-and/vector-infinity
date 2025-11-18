@@ -102,8 +102,8 @@ export OPENAI_API_KEY=sk-your-key-here
 # Or: source .env
 
 # Run the script
-./list_openai_models.sh
-# Or: python3 list_openai_models.py
+./tools/list_openai_models.sh
+# Or: python3 tools/list_openai_models.py
 ```
 
 This will list all available models from OpenAI and show which ones are compatible with the Chat Completions API.
