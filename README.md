@@ -95,6 +95,19 @@ AVAILABLE_MODELS=gpt-4o-mini:GPT-4o Mini (Fast, Cost-Effective),gpt-4o:GPT-4o (B
 
 If not set, defaults to: `gpt-4o-mini`, `gpt-4o`, `gpt-4-turbo`, `gpt-4`, and `gpt-3.5-turbo` with descriptive display names.
 
+**To check available models programmatically**, you can use the included script:
+```bash
+# Make sure OPENAI_API_KEY is set (or load from .env)
+export OPENAI_API_KEY=sk-your-key-here
+# Or: source .env
+
+# Run the script
+./list_openai_models.sh
+# Or: python3 list_openai_models.py
+```
+
+This will list all available models from OpenAI and show which ones are compatible with the Assistants API.
+
 The default port is 80. If you have an existing `.env` file with `WEB_PORT=5000`, update it to `WEB_PORT=80` or delete the line to use the default.
 
 #### Plugin Configuration
