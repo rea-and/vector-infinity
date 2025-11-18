@@ -2317,7 +2317,7 @@
                                             Upload WhatsApp Chat Export (ZIP):
                                         </label>
                                         <input type="file" id="file-${plugin.name}" accept=".zip" style="margin-bottom: 10px; font-size: 12px;">
-                                        <button class="btn" id="btn-${plugin.name}" onclick="runImportWithFile('${plugin.name}')" ${!plugin.enabled || hasRunningImport ? 'disabled' : ''} style="margin-top: 5px; width: 100%;">
+                                        <button class="btn" id="btn-${plugin.name}" onclick="runImportWithFile('${plugin.name}', event)" ${!plugin.enabled || hasRunningImport ? 'disabled' : ''} style="margin-top: 5px; width: 100%;">
                                             ${hasRunningImport ? '<span class="loading"></span> Importing...' : 'Upload & Import'}
                                         </button>
                                     </div>
@@ -2579,9 +2579,9 @@
             activePluginPollers.set(pluginName, pollInterval);
         }
         
-        async function runImportWithFile(pluginName) {
+        async function runImportWithFile(pluginName, event) {
             const fileInput = document.getElementById(`file-${pluginName}`);
-            const file = fileInput.files[0];
+            const file = fileInput?.files[0];
             
             if (!file) {
                 alert('Please select a ZIP file to upload');
@@ -2593,7 +2593,14 @@
                 return;
             }
             
-            const btn = event.target;
+            // Get button element - try event.target first, then fall back to ID
+            const btn = (event && event.target) ? event.target : document.getElementById(`btn-${pluginName}`);
+            if (!btn) {
+                console.error(`Could not find button for plugin ${pluginName}`);
+                alert('Error: Could not find import button');
+                return;
+            }
+            
             const originalText = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = '<span class="loading"></span> Uploading...';
@@ -2608,6 +2615,11 @@
                     method: 'POST',
                     body: formData
                 });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+                }
                 
                 const result = await response.json();
                 
