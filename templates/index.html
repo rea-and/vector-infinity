@@ -4413,34 +4413,54 @@
         
         // Authentication functions
         let currentUser = null;
+        let authCheckInProgress = false;
+        let authCheckPromise = null;
         
         async function checkAuth() {
-            try {
-                const response = await apiFetch(`${API_BASE}/auth/me`, {
-                    method: 'GET'
-                });
-                
-                if (response.ok) {
-                    const user = await response.json();
-                    currentUser = user;
-                    document.getElementById('user-email').textContent = user.email || 'User';
+            // Prevent multiple simultaneous auth checks
+            if (authCheckInProgress && authCheckPromise) {
+                return authCheckPromise;
+            }
+            
+            authCheckInProgress = true;
+            authCheckPromise = (async () => {
+                try {
+                    const response = await apiFetch(`${API_BASE}/auth/me`, {
+                        method: 'GET'
+                    });
                     
-                    // Show Users tab if admin
-                    if (user.is_admin) {
-                        document.getElementById('nav-users').style.display = 'block';
+                    if (response.ok) {
+                        const user = await response.json();
+                        currentUser = user;
+                        document.getElementById('user-email').textContent = user.email || 'User';
+                        
+                        // Show Users tab if admin
+                        if (user.is_admin) {
+                            document.getElementById('nav-users').style.display = 'block';
+                        }
+                        
+                        authCheckInProgress = false;
+                        return true;
+                    } else {
+                        // Not authenticated, redirect to login only if not already there
+                        if (window.location.pathname !== '/login') {
+                            window.location.href = '/login';
+                        }
+                        authCheckInProgress = false;
+                        return false;
                     }
-                    
-                    return true;
-                } else {
-                    // Not authenticated, redirect to login
-                    window.location.href = '/login';
+                } catch (error) {
+                    console.error('Error checking auth:', error);
+                    // Only redirect if not already on login page
+                    if (window.location.pathname !== '/login') {
+                        window.location.href = '/login';
+                    }
+                    authCheckInProgress = false;
                     return false;
                 }
-            } catch (error) {
-                console.error('Error checking auth:', error);
-                window.location.href = '/login';
-                return false;
-            }
+            })();
+            
+            return authCheckPromise;
         }
         
         async function handleLogout() {
@@ -4715,16 +4735,29 @@
         // Initialize theme on page load
         initTheme();
         
-        // Check authentication and load user info
-        // Add a small delay to ensure session cookie is available after redirect
-        setTimeout(() => {
-            checkAuth().then(isAuthenticated => {
-                if (isAuthenticated) {
-                    // Load initial data only if authenticated
-                    loadImports();
-                }
-            });
-        }, 100); // Small delay to ensure cookie is available
+        // Single initialization function to avoid multiple auth checks
+        async function initializeApp() {
+            // Add a small delay to ensure session cookie is available after redirect
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            // Check authentication once
+            const isAuthenticated = await checkAuth();
+            
+            if (isAuthenticated) {
+                // Load initial data only if authenticated
+                loadImports();
+                // Initialize chat
+                initChat();
+            }
+        }
+        
+        // Initialize app when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
+            // DOM is already ready
+            initializeApp();
+        }
         
         // Load users management page
         async function loadUsers() {
@@ -4904,16 +4937,7 @@
             }
         }
         
-        // Initialize chat on page load - wait for authentication
-        window.addEventListener('DOMContentLoaded', async function() {
-            // Add a small delay to ensure session cookie is available after redirect
-            await new Promise(resolve => setTimeout(resolve, 100));
-            // Wait for authentication to complete before initializing chat
-            const isAuthenticated = await checkAuth();
-            if (isAuthenticated) {
-                initChat();
-            }
-        });
+        // Chat initialization is now handled in initializeApp() above
     </script>
 </body>
 </html>
