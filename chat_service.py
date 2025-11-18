@@ -200,14 +200,18 @@ class ChatService:
                 logger.info(f"Using previous_response_id for state management: {previous_response_id}")
         
         # Add vector store for file search if provided
-        # According to OpenAI documentation: https://platform.openai.com/docs/api-reference/responses
-        # Responses API uses 'tools' parameter with file_search tool
+        # According to OpenAI Python library: https://github.com/openai/openai-python
+        # Responses API uses both 'tools' and 'tool_resources' parameters:
+        # - tools: [{"type": "file_search"}] (just the tool type)
+        # - tool_resources: {"file_search": {"vector_store_ids": [...]}} (separate parameter)
         if vector_store_id:
-            request_params["tools"] = [{
-                "type": "file_search",
-                "vector_store_ids": [vector_store_id]
-            }]
-            logger.info(f"Using vector store {vector_store_id} for file search via tools (Responses API)")
+            request_params["tools"] = [{"type": "file_search"}]
+            request_params["tool_resources"] = {
+                "file_search": {
+                    "vector_store_ids": [vector_store_id]
+                }
+            }
+            logger.info(f"Using vector store {vector_store_id} for file search via tools + tool_resources (Responses API)")
         
         # Call Responses API
         # Note: The Responses API endpoint might be client.responses.create() or client.beta.responses.create()
@@ -235,10 +239,12 @@ class ChatService:
             # Some models (like gpt-5.1-codex-mini) don't support file_search tool
             if "file_search" in error_str.lower() and "not supported" in error_str.lower():
                 logger.warning(f"Model {model} does not support file_search tool. Retrying without file_search...")
-                # Retry without file_search tool
+                # Retry without file_search tool (remove both tools and tool_resources)
                 request_params_no_file_search = request_params.copy()
                 if "tools" in request_params_no_file_search:
                     del request_params_no_file_search["tools"]
+                if "tool_resources" in request_params_no_file_search:
+                    del request_params_no_file_search["tool_resources"]
                 
                 try:
                     if hasattr(self.client, 'responses'):
