@@ -2,7 +2,14 @@
 """List all available OpenAI models."""
 import os
 import sys
-from openai import OpenAI
+
+try:
+    from openai import OpenAI
+except ImportError:
+    print("Error: 'openai' module not found", file=sys.stderr)
+    print("Install it with: pip install openai", file=sys.stderr)
+    print("Or activate your virtual environment and install: pip install -r requirements.txt", file=sys.stderr)
+    sys.exit(1)
 
 def main():
     # Get API key from environment variable
