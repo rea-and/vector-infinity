@@ -44,11 +44,12 @@ class ChatService:
         try:
             settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).first()
             if settings and settings.assistant_model:
-                # Validate that the user's model is still in the available models list
-                if settings.assistant_model in config.AVAILABLE_MODELS:
-                    return settings.assistant_model
-                # If user's model is no longer available, fall back to default
-                logger.warning(f"User {user_id} has model {settings.assistant_model} which is no longer available, using default")
+                # Return the user's selected model even if not in AVAILABLE_MODELS
+                # (AVAILABLE_MODELS is just for the UI dropdown - user may have selected
+                # a model that was later removed from the list, or a model not in the default list)
+                # We'll validate it works when actually calling the API
+                logger.debug(f"Using user-selected model: {settings.assistant_model} for user {user_id}")
+                return settings.assistant_model
             return config.DEFAULT_MODEL
         finally:
             db.close()
