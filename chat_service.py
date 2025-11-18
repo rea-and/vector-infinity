@@ -180,12 +180,18 @@ class ChatService:
     ) -> Dict[str, Any]:
         """Send a message using Responses API (stateful, supports newer models)."""
         # Build request parameters for Responses API
+        # Responses API uses 'input' instead of 'messages'
+        # Combine system instructions with user message if this is the first message
+        if previous_response_id:
+            # For continuation, just use the user message (system instructions are in state)
+            input_text = message
+        else:
+            # For first message, include system instructions
+            input_text = f"{instructions}\n\n{message}"
+        
         request_params = {
             "model": model,
-            "messages": [
-                {"role": "system", "content": instructions},
-                {"role": "user", "content": message}
-            ]
+            "input": input_text
         }
         
         # Add previous_response_id for state management (if this is a continuation)
@@ -224,14 +230,31 @@ class ChatService:
             raise
         
         # Extract response content
-        # Responses API structure may differ - adapt based on actual response structure
-        if hasattr(response, 'choices') and response.choices:
-            response_text = response.choices[0].message.content
+        # Responses API structure may differ from Chat Completions
+        # Try different possible response structures
+        response_text = None
+        if hasattr(response, 'output') and response.output:
+            # Responses API might use 'output' field
+            if isinstance(response.output, str):
+                response_text = response.output
+            elif hasattr(response.output, 'content'):
+                response_text = response.output.content
+            elif hasattr(response.output, 'text'):
+                response_text = response.output.text
         elif hasattr(response, 'content'):
             response_text = response.content
+        elif hasattr(response, 'choices') and response.choices:
+            # Fallback to Chat Completions-like structure
+            response_text = response.choices[0].message.content
+        elif hasattr(response, 'text'):
+            response_text = response.text
         else:
-            # Try to get content from response object
+            # Last resort: try to get content from response object
             response_text = str(response)
+            logger.warning(f"Unexpected Responses API response structure: {type(response)}")
+        
+        if not response_text:
+            raise Exception("Could not extract response content from Responses API response")
         
         response_id = response.id if hasattr(response, 'id') else None
         
