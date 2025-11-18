@@ -230,16 +230,41 @@ class ChatService:
             error_str = str(api_error)
             logger.error(f"Responses API error: {api_error}")
             logger.error(f"Responses API error type: {type(api_error)}")
-            if hasattr(api_error, 'response'):
+            
+            # Check if the error is about file_search not being supported
+            # Some models (like gpt-5.1-codex-mini) don't support file_search tool
+            if "file_search" in error_str.lower() and "not supported" in error_str.lower():
+                logger.warning(f"Model {model} does not support file_search tool. Retrying without file_search...")
+                # Retry without file_search tool
+                request_params_no_file_search = request_params.copy()
+                if "tools" in request_params_no_file_search:
+                    del request_params_no_file_search["tools"]
+                
                 try:
-                    error_response = api_error.response
-                    logger.error(f"Responses API error response: {error_response}")
-                    if hasattr(error_response, 'text'):
-                        logger.error(f"Responses API error response text: {error_response.text}")
-                except:
-                    pass
-            # Re-raise API errors (like model not supported, etc.) to be handled by caller
-            raise
+                    if hasattr(self.client, 'responses'):
+                        response = self.client.responses.create(**request_params_no_file_search)
+                    elif hasattr(self.client, 'beta') and hasattr(self.client.beta, 'responses'):
+                        response = self.client.beta.responses.create(**request_params_no_file_search)
+                    else:
+                        raise AttributeError("Responses API not available in this OpenAI client version")
+                    logger.info(f"Successfully sent message without file_search tool (model {model} doesn't support it)")
+                    # Continue to extract response below
+                except Exception as retry_error:
+                    logger.error(f"Responses API failed even without file_search: {retry_error}")
+                    # Re-raise to be handled by caller
+                    raise
+            else:
+                # For other errors, log and re-raise
+                if hasattr(api_error, 'response'):
+                    try:
+                        error_response = api_error.response
+                        logger.error(f"Responses API error response: {error_response}")
+                        if hasattr(error_response, 'text'):
+                            logger.error(f"Responses API error response text: {error_response.text}")
+                    except:
+                        pass
+                # Re-raise API errors (like model not supported, etc.) to be handled by caller
+                raise
         
         # Extract response content
         # Responses API structure may differ from Chat Completions
@@ -398,14 +423,15 @@ class ChatService:
         }
         
         # Add vector store for file search if provided
-        # According to OpenAI documentation: https://platform.openai.com/docs/api-reference/vector-stores
-        # Chat Completions API uses tools parameter with file_search tool
+        # According to OpenAI documentation: https://platform.openai.com/docs/api-reference/chat/completions
+        # Chat Completions API uses tool_resources (not tools) with file_search
         if vector_store_id:
-            request_params["tools"] = [{
-                "type": "file_search",
-                "vector_store_ids": [vector_store_id]
-            }]
-            logger.info(f"Using vector store {vector_store_id} for file search via tools (Chat Completions API)")
+            request_params["tool_resources"] = {
+                "file_search": {
+                    "vector_store_ids": [vector_store_id]
+                }
+            }
+            logger.info(f"Using vector store {vector_store_id} for file search via tool_resources (Chat Completions API)")
         
         try:
             # Call chat.completions API
