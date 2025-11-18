@@ -199,14 +199,16 @@ class ChatService:
                 request_params["previous_response_id"] = previous_response_id
                 logger.info(f"Using previous_response_id for state management: {previous_response_id}")
         
-        # Note: Vector store support in Responses API may be different
-        # For now, we'll try without vector stores and see if the API supports them
-        # If vector stores are needed, we may need to use a different approach
+        # Add vector store for file search if provided
+        # According to OpenAI documentation, Responses API also supports tool_resources with vector_store_ids
+        # Same structure as Chat Completions API
         if vector_store_id:
-            # Try different possible parameter names for vector stores
-            # The Responses API might not support vector stores yet, or use a different structure
-            logger.warning(f"Vector store {vector_store_id} requested but Responses API vector store support is not yet implemented")
-            # TODO: Implement vector store support for Responses API when available
+            request_params["tool_resources"] = {
+                "file_search": {
+                    "vector_store_ids": [vector_store_id]
+                }
+            }
+            logger.info(f"Using vector store {vector_store_id} for file search via tool_resources (Responses API)")
         
         # Call Responses API
         # Note: The Responses API endpoint might be client.responses.create() or client.beta.responses.create()
