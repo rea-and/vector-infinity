@@ -124,6 +124,25 @@ login_manager.init_app(app)
 login_manager.login_view = 'login_page'
 login_manager.session_protection = "strong"
 
+# Configure session cookie settings for better security and compatibility
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to True if using HTTPS
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Allows cookies to be sent with top-level navigations
+
+# Custom unauthorized handler for API endpoints
+@login_manager.unauthorized_handler
+def unauthorized():
+    """Handle unauthorized access - return JSON for API requests, redirect for HTML."""
+    from flask import request, jsonify
+    # If it's an API request, return JSON error instead of redirect
+    if request.path.startswith('/api/'):
+        return jsonify({"error": "Authentication required", "authenticated": False}), 401
+    # For non-API requests, redirect to login (default behavior)
+    from flask_login import current_user
+    if not current_user.is_authenticated:
+        return redirect(url_for('login_page'))
+    return jsonify({"error": "Access denied"}), 403
+
 # Security middleware: block automated scans and attacks
 app.before_request(security_middleware)
 app.after_request(add_security_headers)

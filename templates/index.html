@@ -1773,6 +1773,19 @@
     <script>
         const API_BASE = '/api';
         
+        // Wrapper for fetch that always includes credentials (cookies)
+        // This ensures session cookies are sent with all API requests
+        async function apiFetch(url, options = {}) {
+            const defaultOptions = {
+                credentials: 'include',  // Always include cookies
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                }
+            };
+            return fetch(url, { ...defaultOptions, ...options });
+        }
+        
         // Event delegation for reset buttons (works with dynamically generated content)
         document.addEventListener('click', function(e) {
             if (e.target && e.target.hasAttribute('data-reset-plugin')) {
@@ -1953,7 +1966,7 @@
         
         async function loadImports() {
             try {
-                const response = await fetch(`${API_BASE}/imports?limit=50`);
+                const response = await apiFetch(`${API_BASE}/imports?limit=50`);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -2031,7 +2044,7 @@
             
             const pollInterval = setInterval(async () => {
                 try {
-                    const statusResponse = await fetch(`${API_BASE}/imports/${logId}/status`);
+                    const statusResponse = await apiFetch(`${API_BASE}/imports/${logId}/status`);
                     if (!statusResponse.ok) {
                         clearInterval(pollInterval);
                         activeImportPollers.delete(logId);
@@ -2523,7 +2536,7 @@
             
             const pollInterval = setInterval(async () => {
                 try {
-                    const statusResponse = await fetch(`${API_BASE}/imports/${logId}/status`);
+                    const statusResponse = await apiFetch(`${API_BASE}/imports/${logId}/status`);
                     if (!statusResponse.ok) {
                         clearInterval(pollInterval);
                         activePluginPollers.delete(pluginName);
@@ -2611,7 +2624,7 @@
                 formData.append('plugin_name', pluginName);
                 
                 // Start the import with file upload
-                const response = await fetch(`${API_BASE}/imports/run`, {
+                const response = await apiFetch(`${API_BASE}/imports/run`, {
                     method: 'POST',
                     body: formData
                 });
@@ -2657,7 +2670,7 @@
             
             try {
                 // Start the import
-                const response = await fetch(`${API_BASE}/imports/run`, {
+                const response = await apiFetch(`${API_BASE}/imports/run`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({plugin_name: pluginName})
@@ -2698,7 +2711,7 @@
             btn.innerHTML = '<span class="loading"></span> Starting all imports...';
             
             try {
-                const response = await fetch(`${API_BASE}/imports/run`, {
+                const response = await apiFetch(`${API_BASE}/imports/run`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({})
@@ -2748,7 +2761,7 @@
         async function configureGitHubPlugin(pluginName) {
             try {
                 // Fetch current configuration
-                const configResponse = await fetch(`${API_BASE}/plugins/${pluginName}/config`);
+                const configResponse = await apiFetch(`${API_BASE}/plugins/${pluginName}/config`);
                 if (!configResponse.ok) {
                     throw new Error('Failed to load plugin configuration');
                 }
@@ -2876,7 +2889,7 @@
                 }
                 
                 // Save configuration
-                const response = await fetch(`${API_BASE}/plugins/${pluginName}/config`, {
+                const response = await apiFetch(`${API_BASE}/plugins/${pluginName}/config`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'include',
@@ -2918,7 +2931,7 @@
         async function configureGmailPlugin(pluginName) {
             try {
                 // Fetch current configuration
-                const configResponse = await fetch(`${API_BASE}/plugins/${pluginName}/config`);
+                const configResponse = await apiFetch(`${API_BASE}/plugins/${pluginName}/config`);
                 if (!configResponse.ok) {
                     throw new Error('Failed to load plugin configuration');
                 }
@@ -3064,7 +3077,7 @@
                 };
                 
                 // Save configuration
-                const response = await fetch(`${API_BASE}/plugins/${pluginName}/config`, {
+                const response = await apiFetch(`${API_BASE}/plugins/${pluginName}/config`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'include',
@@ -3105,7 +3118,7 @@
         async function configureWhatsAppPlugin(pluginName) {
             try {
                 // Fetch current configuration
-                const configResponse = await fetch(`${API_BASE}/plugins/${pluginName}/config`);
+                const configResponse = await apiFetch(`${API_BASE}/plugins/${pluginName}/config`);
                 if (!configResponse.ok) {
                     throw new Error('Failed to load plugin configuration');
                 }
@@ -3174,7 +3187,7 @@
         async function configureWhoopPlugin(pluginName) {
             try {
                 // Fetch current configuration
-                const configResponse = await fetch(`${API_BASE}/plugins/${pluginName}/config`);
+                const configResponse = await apiFetch(`${API_BASE}/plugins/${pluginName}/config`);
                 if (!configResponse.ok) {
                     throw new Error('Failed to load plugin configuration');
                 }
@@ -3243,7 +3256,7 @@
         async function configureSlackPlugin(pluginName) {
             try {
                 // Fetch current configuration
-                const configResponse = await fetch(`${API_BASE}/plugins/${pluginName}/config`);
+                const configResponse = await apiFetch(`${API_BASE}/plugins/${pluginName}/config`);
                 if (!configResponse.ok) {
                     throw new Error('Failed to load plugin configuration');
                 }
@@ -3311,7 +3324,7 @@
         
         async function togglePlugin(pluginName, enabled) {
             try {
-                const response = await fetch(`${API_BASE}/plugins/${pluginName}/toggle`, {
+                const response = await apiFetch(`${API_BASE}/plugins/${pluginName}/toggle`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'include',
@@ -3351,7 +3364,7 @@
         
         async function authenticatePlugin(pluginName) {
             try {
-                const response = await fetch(`${API_BASE}/plugins/${pluginName}/auth/start`, {
+                const response = await apiFetch(`${API_BASE}/plugins/${pluginName}/auth/start`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'}
                 });
@@ -3419,7 +3432,7 @@
             btn.innerHTML = '<span class="loading"></span> Re-uploading...';
             
             try {
-                const response = await fetch(`${API_BASE}/vector-store/reupload`, {
+                const response = await apiFetch(`${API_BASE}/vector-store/reupload`, {
                     method: 'POST'
                 });
                 
@@ -3511,7 +3524,7 @@
         
         async function exportEmails() {
             try {
-                const response = await fetch(`${API_BASE}/export/emails`);
+                const response = await apiFetch(`${API_BASE}/export/emails`);
                 if (!response.ok) {
                     const error = await response.json();
                     throw new Error(error.error || `HTTP error! status: ${response.status}`);
@@ -3548,7 +3561,7 @@
         
         async function exportWhoop() {
             try {
-                const response = await fetch(`${API_BASE}/export/whoop`);
+                const response = await apiFetch(`${API_BASE}/export/whoop`);
                 if (!response.ok) {
                     const error = await response.json();
                     throw new Error(error.error || `HTTP error! status: ${response.status}`);
@@ -3636,7 +3649,7 @@
         
         async function loadChatThreads() {
             try {
-                const response = await fetch(`${API_BASE}/chat/threads`);
+                const response = await apiFetch(`${API_BASE}/chat/threads`);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -3745,7 +3758,7 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE}/chat/threads/${threadId}`, {
+                const response = await apiFetch(`${API_BASE}/chat/threads/${threadId}`, {
                     method: 'DELETE'
                 });
                 
@@ -3781,7 +3794,7 @@
         
         async function newChatThread() {
             try {
-                const response = await fetch(`${API_BASE}/chat/threads`, {
+                const response = await apiFetch(`${API_BASE}/chat/threads`, {
                     method: 'POST'
                 });
                 
@@ -3863,7 +3876,7 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
             
             try {
-                const response = await fetch(`${API_BASE}/chat/threads/${currentThreadId}/messages`, {
+                const response = await apiFetch(`${API_BASE}/chat/threads/${currentThreadId}/messages`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -3935,7 +3948,7 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE}/chat/threads/${currentThreadId}/messages`);
+                const response = await apiFetch(`${API_BASE}/chat/threads/${currentThreadId}/messages`);
                 
                 if (!response.ok) {
                     if (response.status === 404) {
@@ -4067,7 +4080,7 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE}/data/clear`, {
+                const response = await apiFetch(`${API_BASE}/data/clear`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({confirm: true})
@@ -4102,7 +4115,7 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE}/factory-reset`, {
+                const response = await apiFetch(`${API_BASE}/factory-reset`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({confirm: true})
@@ -4150,7 +4163,7 @@
         
         async function checkAuth() {
             try {
-                const response = await fetch(`${API_BASE}/auth/me`, {
+                const response = await apiFetch(`${API_BASE}/auth/me`, {
                     method: 'GET',
                     credentials: 'include'
                 });
@@ -4180,7 +4193,7 @@
         
         async function handleLogout() {
             try {
-                const response = await fetch(`${API_BASE}/auth/logout`, {
+                const response = await apiFetch(`${API_BASE}/auth/logout`, {
                     method: 'POST',
                     credentials: 'include'
                 });
@@ -4202,7 +4215,7 @@
         
         async function loadChatInstructions() {
             try {
-                const response = await fetch(`${API_BASE}/settings/assistant-instructions`);
+                const response = await apiFetch(`${API_BASE}/settings/assistant-instructions`);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -4249,7 +4262,7 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE}/settings/assistant-instructions`, {
+                const response = await apiFetch(`${API_BASE}/settings/assistant-instructions`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -4312,7 +4325,7 @@
         // Load model for chat interface
         async function loadChatModel() {
             try {
-                const response = await fetch(`${API_BASE}/settings/assistant-model`);
+                const response = await apiFetch(`${API_BASE}/settings/assistant-model`);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -4337,7 +4350,7 @@
         // Assistant Model functions
         async function loadAssistantModel() {
             try {
-                const response = await fetch(`${API_BASE}/settings/assistant-model`);
+                const response = await apiFetch(`${API_BASE}/settings/assistant-model`);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -4405,7 +4418,7 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE}/settings/assistant-model`, {
+                const response = await apiFetch(`${API_BASE}/settings/assistant-model`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -4461,7 +4474,7 @@
         // Load users management page
         async function loadUsers() {
             try {
-                const response = await fetch(`${API_BASE}/users/pending`);
+                const response = await apiFetch(`${API_BASE}/users/pending`);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -4515,7 +4528,7 @@
         
         async function loadAllUsers() {
             try {
-                const response = await fetch(`${API_BASE}/users`);
+                const response = await apiFetch(`${API_BASE}/users`);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -4567,7 +4580,7 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE}/users/${userId}/approve`, {
+                const response = await apiFetch(`${API_BASE}/users/${userId}/approve`, {
                     method: 'POST',
                     credentials: 'include'
                 });
@@ -4592,7 +4605,7 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE}/users/${userId}/decline`, {
+                const response = await apiFetch(`${API_BASE}/users/${userId}/decline`, {
                     method: 'POST',
                     credentials: 'include'
                 });
@@ -4617,7 +4630,7 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE}/users/${userId}/deactivate`, {
+                const response = await apiFetch(`${API_BASE}/users/${userId}/deactivate`, {
                     method: 'POST',
                     credentials: 'include'
                 });
