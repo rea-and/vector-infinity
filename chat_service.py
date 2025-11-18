@@ -119,6 +119,7 @@ class ChatService:
         # Use Responses API if:
         # 1. It's available AND
         # 2. (The model requires it OR we have a previous_response_id for state management)
+        # Note: Vector store support in Responses API is being tested - if it fails, we'll fall back
         use_responses_api = responses_api_available and (requires_responses or previous_response_id is not None)
         
         if use_responses_api:
