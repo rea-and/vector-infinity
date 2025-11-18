@@ -4,6 +4,7 @@ import logging
 from typing import Optional, List, Dict, Any
 from openai import OpenAI
 from database import UserSettings, SessionLocal
+import config
 
 logger = logging.getLogger(__name__)
 
@@ -36,17 +37,19 @@ class AssistantService:
     
     def _get_model(self, user_id: int = None) -> str:
         """Get assistant model for a user (custom or default)."""
-        DEFAULT_MODEL = "gpt-4o-mini"  # Default model for cost efficiency
-        
         if user_id is None:
-            return DEFAULT_MODEL
+            return config.DEFAULT_MODEL
         
         db = SessionLocal()
         try:
             settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).first()
             if settings and settings.assistant_model:
-                return settings.assistant_model
-            return DEFAULT_MODEL
+                # Validate that the user's model is still in the available models list
+                if settings.assistant_model in config.AVAILABLE_MODELS:
+                    return settings.assistant_model
+                # If user's model is no longer available, fall back to default
+                logger.warning(f"User {user_id} has model {settings.assistant_model} which is no longer available, using default")
+            return config.DEFAULT_MODEL
         finally:
             db.close()
     

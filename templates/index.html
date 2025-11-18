@@ -1429,11 +1429,7 @@
                                         id="assistant-model-select" 
                                         style="width: 100%; max-width: 400px; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-primary); color: var(--text-primary); font-family: inherit; font-size: 14px; cursor: pointer;"
                                     >
-                                        <option value="gpt-4o-mini">GPT-4o Mini (Fast, Cost-Effective)</option>
-                                        <option value="gpt-4o">GPT-4o (Balanced)</option>
-                                        <option value="gpt-4-turbo">GPT-4 Turbo (High Performance)</option>
-                                        <option value="gpt-4">GPT-4 (Legacy)</option>
-                                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Fastest, Lowest Cost)</option>
+                                        <option value="">Loading models...</option>
                                     </select>
                                 </div>
                                 <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
@@ -3976,7 +3972,9 @@
                 const modelNameSpan = document.getElementById('chat-model-name');
                 
                 if (modelNameSpan) {
-                    modelNameSpan.textContent = data.model || 'gpt-4o-mini';
+                    // Find the display name for the current model
+                    const currentModel = data.available_models?.find(m => m.value === data.model);
+                    modelNameSpan.textContent = currentModel ? currentModel.label : (data.model || data.default_model || 'gpt-4o-mini');
                 }
             } catch (error) {
                 console.error('Error loading chat model:', error);
@@ -4000,12 +3998,23 @@
                 const currentSpan = document.getElementById('assistant-model-current');
                 const statusSpan = document.getElementById('assistant-model-status');
                 
-                if (select) {
-                    select.value = data.model || 'gpt-4o-mini';
+                // Populate dropdown with available models
+                if (select && data.available_models) {
+                    select.innerHTML = ''; // Clear loading message
+                    data.available_models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.value;
+                        option.textContent = model.label;
+                        select.appendChild(option);
+                    });
+                    // Set selected value
+                    select.value = data.model || data.default_model || 'gpt-4o-mini';
                 }
                 
                 if (currentSpan) {
-                    currentSpan.textContent = data.model || 'gpt-4o-mini';
+                    // Find the display name for the current model
+                    const currentModel = data.available_models?.find(m => m.value === data.model);
+                    currentSpan.textContent = currentModel ? currentModel.label : (data.model || data.default_model || 'gpt-4o-mini');
                 }
                 
                 if (statusSpan) {
@@ -4022,10 +4031,10 @@
                 const select = document.getElementById('assistant-model-select');
                 const currentSpan = document.getElementById('assistant-model-current');
                 if (select) {
-                    select.value = 'gpt-4o-mini';
+                    select.innerHTML = '<option value="">Error loading models</option>';
                 }
                 if (currentSpan) {
-                    currentSpan.textContent = 'gpt-4o-mini (default)';
+                    currentSpan.textContent = 'Error loading model';
                 }
             }
         }
@@ -4071,15 +4080,11 @@
                     }, 2000);
                 }
                 
-                if (currentSpan) {
-                    currentSpan.textContent = data.model || model;
-                }
+                // Reload the model list to get updated display names
+                await loadAssistantModel();
                 
                 // Update chat interface model indicator
-                const chatModelNameSpan = document.getElementById('chat-model-name');
-                if (chatModelNameSpan) {
-                    chatModelNameSpan.textContent = data.model || model;
-                }
+                await loadChatModel();
                 
                 // Note: The assistant will be updated with new model on the next chat message
                 // when get_or_create_unified_assistant is called

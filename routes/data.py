@@ -413,20 +413,33 @@ def update_assistant_instructions():
 @bp.route("/settings/assistant-model", methods=["GET"])
 @login_required
 def get_assistant_model():
-    """Get the current assistant model for the user."""
+    """Get the current assistant model for the user and available models."""
     db = SessionLocal()
     try:
         settings = db.query(UserSettings).filter(UserSettings.user_id == current_user.id).first()
         
-        DEFAULT_MODEL = "gpt-4o-mini"
-        
-        model = DEFAULT_MODEL
+        model = config.DEFAULT_MODEL
         if settings and settings.assistant_model:
-            model = settings.assistant_model
+            # Validate that the user's model is still available
+            if settings.assistant_model in config.AVAILABLE_MODELS:
+                model = settings.assistant_model
+            else:
+                # User's model is no longer available, use default
+                logger.warning(f"User {current_user.id} has model {settings.assistant_model} which is no longer available")
+        
+        # Return available models with their display names
+        available_models = []
+        for model_name in config.AVAILABLE_MODELS:
+            available_models.append({
+                "value": model_name,
+                "label": config.MODEL_DISPLAY_NAMES.get(model_name, model_name)
+            })
         
         return jsonify({
             "model": model,
-            "is_custom": settings is not None and settings.assistant_model is not None
+            "is_custom": settings is not None and settings.assistant_model is not None and settings.assistant_model in config.AVAILABLE_MODELS,
+            "available_models": available_models,
+            "default_model": config.DEFAULT_MODEL
         })
     finally:
         db.close()
@@ -442,19 +455,11 @@ def update_assistant_model():
         model = data.get("model", "").strip()
         
         # Validate model
-        VALID_MODELS = [
-            "gpt-4o-mini",
-            "gpt-4o",
-            "gpt-4-turbo",
-            "gpt-4",
-            "gpt-3.5-turbo"
-        ]
-        
         if not model:
             return jsonify({"error": "Model cannot be empty"}), 400
         
-        if model not in VALID_MODELS:
-            return jsonify({"error": f"Invalid model. Must be one of: {', '.join(VALID_MODELS)}"}), 400
+        if model not in config.AVAILABLE_MODELS:
+            return jsonify({"error": f"Invalid model. Must be one of: {', '.join(config.AVAILABLE_MODELS)}"}), 400
         
         # Get or create user settings
         settings = db.query(UserSettings).filter(UserSettings.user_id == current_user.id).first()

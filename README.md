@@ -83,6 +83,18 @@ nano .env
 OPENAI_API_KEY=sk-your-api-key-here
 ```
 
+**Available GPT Models**: You can configure which GPT models are available for users to select by setting `AVAILABLE_MODELS` in your `.env` file. The format is a comma-separated list, optionally with display names:
+
+```bash
+# Simple format (model name used as display name)
+AVAILABLE_MODELS=gpt-4o-mini,gpt-4o,gpt-4-turbo
+
+# With custom display names (format: model:Display Name)
+AVAILABLE_MODELS=gpt-4o-mini:GPT-4o Mini (Fast, Cost-Effective),gpt-4o:GPT-4o (Balanced),gpt-4-turbo:GPT-4 Turbo (High Performance)
+```
+
+If not set, defaults to: `gpt-4o-mini`, `gpt-4o`, `gpt-4-turbo`, `gpt-4`, and `gpt-3.5-turbo` with descriptive display names.
+
 The default port is 80. If you have an existing `.env` file with `WEB_PORT=5000`, update it to `WEB_PORT=80` or delete the line to use the default.
 
 #### Plugin Configuration
