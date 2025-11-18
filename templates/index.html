@@ -1142,6 +1142,93 @@
             margin-bottom: 0;
         }
         
+        /* Mobile-specific markdown improvements */
+        @media (max-width: 768px) {
+            .markdown-content {
+                font-size: 16px; /* Ensure readable base font size on mobile */
+                -webkit-text-size-adjust: 100%; /* Prevent iOS text size adjustment */
+            }
+            
+            /* Make headers more visible on mobile */
+            .markdown-content h1 {
+                font-size: 1.75em !important;
+                font-weight: 700 !important;
+                margin-top: 20px;
+                margin-bottom: 12px;
+            }
+            
+            .markdown-content h2 {
+                font-size: 1.5em !important;
+                font-weight: 700 !important;
+                margin-top: 18px;
+                margin-bottom: 10px;
+            }
+            
+            .markdown-content h3 {
+                font-size: 1.3em !important;
+                font-weight: 600 !important;
+                margin-top: 16px;
+                margin-bottom: 8px;
+            }
+            
+            .markdown-content h4 {
+                font-size: 1.15em !important;
+                font-weight: 600 !important;
+                margin-top: 14px;
+                margin-bottom: 6px;
+            }
+            
+            .markdown-content h5 {
+                font-size: 1.05em !important;
+                font-weight: 600 !important;
+            }
+            
+            .markdown-content h6 {
+                font-size: 1em !important;
+                font-weight: 600 !important;
+            }
+            
+            /* Ensure bold and strong text is visible */
+            .markdown-content strong,
+            .markdown-content b {
+                font-weight: 700 !important;
+                color: var(--text-primary) !important;
+            }
+            
+            /* Ensure italic text is visible */
+            .markdown-content em,
+            .markdown-content i {
+                font-style: italic !important;
+            }
+            
+            /* Make code blocks more readable on mobile */
+            .markdown-content code {
+                font-size: 14px;
+                padding: 3px 6px;
+            }
+            
+            .markdown-content pre {
+                font-size: 14px;
+                padding: 12px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            /* Ensure tables are scrollable on mobile */
+            .markdown-content table {
+                display: block;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                white-space: nowrap;
+            }
+            
+            /* Make links more visible */
+            .markdown-content a {
+                text-decoration: underline;
+                color: var(--link-color) !important;
+            }
+        }
+        
         .chat-input-container {
             padding: 16px;
             padding-bottom: max(16px, env(safe-area-inset-bottom));
@@ -1835,7 +1922,12 @@
             configureMarkdown();
             if (typeof marked !== 'undefined') {
                 try {
-                    return marked.parse(text);
+                    const html = marked.parse(text);
+                    // Log for debugging on mobile (can be removed in production)
+                    if (window.innerWidth <= 768) {
+                        console.log('Markdown rendered on mobile, length:', html.length);
+                    }
+                    return html;
                 } catch (err) {
                     console.error('Markdown rendering error:', err);
                     // Fallback to plain text with line breaks
@@ -1843,6 +1935,7 @@
                 }
             }
             // Fallback if marked.js is not loaded
+            console.warn('marked.js not loaded, using plain text fallback');
             return text.replace(/\n/g, '<br>');
         }
         
