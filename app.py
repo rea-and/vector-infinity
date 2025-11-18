@@ -8,10 +8,48 @@ import secrets
 
 # Import route blueprints
 from routes import plugins, imports, chat, data, export, auth, users
-from database import User, SessionLocal
+from database import User, SessionLocal, init_db
+import sqlite3
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def migrate_database():
+    """Run database migrations on startup."""
+    try:
+        # Initialize database (creates tables if they don't exist)
+        init_db()
+        
+        # Check and add assistant_model column if needed
+        db_path = config.DATABASE_PATH
+        if db_path.exists():
+            conn = sqlite3.connect(str(db_path))
+            cursor = conn.cursor()
+            try:
+                # Check if table exists
+                cursor.execute("""
+                    SELECT name FROM sqlite_master 
+                    WHERE type='table' AND name='user_settings'
+                """)
+                if cursor.fetchone():
+                    # Check if column exists
+                    cursor.execute("PRAGMA table_info(user_settings)")
+                    columns = [row[1] for row in cursor.fetchall()]
+                    if 'assistant_model' not in columns:
+                        logger.info("Adding 'assistant_model' column to user_settings table...")
+                        cursor.execute("""
+                            ALTER TABLE user_settings 
+                            ADD COLUMN assistant_model VARCHAR(50)
+                        """)
+                        conn.commit()
+                        logger.info("✓ Successfully added 'assistant_model' column")
+            except sqlite3.Error as e:
+                logger.warning(f"Database migration check failed: {e}")
+            finally:
+                conn.close()
+    except Exception as e:
+        logger.warning(f"Database migration check failed: {e}", exc_info=True)
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
@@ -40,6 +78,9 @@ def load_user(user_id):
     finally:
         db.close()
 
+
+# Run database migrations on startup
+migrate_database()
 
 # Make OAuth flows accessible to plugins (via services module)
 from services import oauth_flows
