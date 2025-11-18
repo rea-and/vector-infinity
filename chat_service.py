@@ -591,4 +591,130 @@ class ChatService:
             db.rollback()
         finally:
             db.close()
+    
+    def _send_message_assistants_api_fallback(
+        self,
+        message: str,
+        instructions: str,
+        model: str,
+        vector_store_id: Optional[str] = None,
+        conversation_history: Optional[List[Dict[str, str]]] = None
+    ) -> Dict[str, Any]:
+        """Fallback to Assistants API when file_search is not supported in Responses/Chat Completions APIs."""
+        import uuid
+        
+        # Create a temporary assistant with the vector store
+        assistant = self.client.beta.assistants.create(
+            name=f"Temp Assistant {uuid.uuid4().hex[:8]}",
+            instructions=instructions,
+            model=model,
+            tool_resources={
+                "file_search": {
+                    "vector_store_ids": [vector_store_id]
+                }
+            } if vector_store_id else None,
+            tools=[{"type": "file_search"}] if vector_store_id else []
+        )
+        
+        try:
+            # Create a thread
+            thread = self.client.beta.threads.create()
+            
+            try:
+                # Add conversation history as messages
+                if conversation_history:
+                    for msg in conversation_history:
+                        if msg.get("role") == "user":
+                            self.client.beta.threads.messages.create(
+                                thread_id=thread.id,
+                                role="user",
+                                content=msg.get("content", "")
+                            )
+                        elif msg.get("role") == "assistant":
+                            self.client.beta.threads.messages.create(
+                                thread_id=thread.id,
+                                role="assistant",
+                                content=msg.get("content", "")
+                            )
+                
+                # Add current message
+                self.client.beta.threads.messages.create(
+                    thread_id=thread.id,
+                    role="user",
+                    content=message
+                )
+                
+                # Run the assistant
+                run = self.client.beta.threads.runs.create(
+                    thread_id=thread.id,
+                    assistant_id=assistant.id
+                )
+                
+                # Wait for completion
+                import time
+                max_wait = 60
+                wait_time = 0
+                while wait_time < max_wait:
+                    run_status = self.client.beta.threads.runs.retrieve(
+                        thread_id=thread.id,
+                        run_id=run.id
+                    )
+                    
+                    if run_status.status == "completed":
+                        break
+                    elif run_status.status == "failed":
+                        raise Exception(f"Assistant run failed: {run_status.last_error}")
+                    elif run_status.status in ["cancelled", "expired"]:
+                        raise Exception(f"Assistant run {run_status.status}")
+                    
+                    time.sleep(1)
+                    wait_time += 1
+                
+                if wait_time >= max_wait:
+                    raise Exception("Assistant run timeout")
+                
+                # Get the response
+                messages = self.client.beta.threads.messages.list(
+                    thread_id=thread.id,
+                    order="asc"
+                )
+                
+                # Find the assistant's response (last message from assistant)
+                response_text = ""
+                for msg in reversed(messages.data):
+                    if msg.role == "assistant":
+                        if msg.content and len(msg.content) > 0:
+                            if hasattr(msg.content[0], 'text'):
+                                response_text = msg.content[0].text.value
+                            elif isinstance(msg.content[0], dict) and 'text' in msg.content[0]:
+                                response_text = msg.content[0]['text'].get('value', '')
+                            break
+                
+                if not response_text:
+                    raise Exception("No response from assistant")
+                
+                # Build conversation history
+                updated_history = conversation_history.copy() if conversation_history else []
+                updated_history.append({"role": "user", "content": message})
+                updated_history.append({"role": "assistant", "content": response_text})
+                
+                logger.info(f"Successfully used Assistants API fallback (model {model} doesn't support file_search in Responses API)")
+                
+                return {
+                    "response_id": run.id,
+                    "content": response_text,
+                    "messages": updated_history
+                }
+            finally:
+                # Clean up thread
+                try:
+                    self.client.beta.threads.delete(thread.id)
+                except:
+                    pass
+        finally:
+            # Clean up assistant
+            try:
+                self.client.beta.assistants.delete(assistant.id)
+            except:
+                pass
 
