@@ -409,3 +409,77 @@ def update_assistant_instructions():
     finally:
         db.close()
 
+
+@bp.route("/settings/assistant-model", methods=["GET"])
+@login_required
+def get_assistant_model():
+    """Get the current assistant model for the user."""
+    db = SessionLocal()
+    try:
+        settings = db.query(UserSettings).filter(UserSettings.user_id == current_user.id).first()
+        
+        DEFAULT_MODEL = "gpt-4o-mini"
+        
+        model = DEFAULT_MODEL
+        if settings and settings.assistant_model:
+            model = settings.assistant_model
+        
+        return jsonify({
+            "model": model,
+            "is_custom": settings is not None and settings.assistant_model is not None
+        })
+    finally:
+        db.close()
+
+
+@bp.route("/settings/assistant-model", methods=["POST"])
+@login_required
+def update_assistant_model():
+    """Update the assistant model for the user."""
+    db = SessionLocal()
+    try:
+        data = request.get_json() or {}
+        model = data.get("model", "").strip()
+        
+        # Validate model
+        VALID_MODELS = [
+            "gpt-4o-mini",
+            "gpt-4o",
+            "gpt-4-turbo",
+            "gpt-4",
+            "gpt-3.5-turbo"
+        ]
+        
+        if not model:
+            return jsonify({"error": "Model cannot be empty"}), 400
+        
+        if model not in VALID_MODELS:
+            return jsonify({"error": f"Invalid model. Must be one of: {', '.join(VALID_MODELS)}"}), 400
+        
+        # Get or create user settings
+        settings = db.query(UserSettings).filter(UserSettings.user_id == current_user.id).first()
+        
+        if not settings:
+            settings = UserSettings(user_id=current_user.id, assistant_model=model)
+            db.add(settings)
+        else:
+            settings.assistant_model = model
+            settings.updated_at = datetime.now(timezone.utc)
+        
+        db.commit()
+        db.refresh(settings)
+        
+        logger.info(f"Updated assistant model for user {current_user.id} to {model}")
+        
+        return jsonify({
+            "success": True,
+            "message": "Assistant model updated successfully",
+            "model": settings.assistant_model
+        })
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating assistant model: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+

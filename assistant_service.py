@@ -34,6 +34,22 @@ class AssistantService:
         finally:
             db.close()
     
+    def _get_model(self, user_id: int = None) -> str:
+        """Get assistant model for a user (custom or default)."""
+        DEFAULT_MODEL = "gpt-4o-mini"  # Default model for cost efficiency
+        
+        if user_id is None:
+            return DEFAULT_MODEL
+        
+        db = SessionLocal()
+        try:
+            settings = db.query(UserSettings).filter(UserSettings.user_id == user_id).first()
+            if settings and settings.assistant_model:
+                return settings.assistant_model
+            return DEFAULT_MODEL
+        finally:
+            db.close()
+    
     def get_or_create_unified_assistant(self, vector_store_id: str, user_id: int = None) -> Optional[str]:
         """
         Get or create a unified assistant for all plugins (user-specific).
@@ -46,6 +62,7 @@ class AssistantService:
             Assistant ID or None
         """
         instructions = self._get_instructions(user_id)
+        model = self._get_model(user_id)
         cache_key = f"user_{user_id}" if user_id else "default"
         cached_id = getattr(self, f'_unified_assistant_id_{cache_key}', None)
         assistant_name = f"vector_infinity_unified_user_{user_id}" if user_id else "vector_infinity_unified"
@@ -54,23 +71,24 @@ class AssistantService:
             # Verify assistant still exists and update vector store if needed
             try:
                 assistant = self.client.beta.assistants.retrieve(cached_id)
-                # Update vector store if it changed, or instructions if they changed
+                # Update vector store if it changed, or instructions if they changed, or model if it changed
                 current_vs_ids = []
                 if assistant.tool_resources and assistant.tool_resources.file_search:
                     current_vs_ids = assistant.tool_resources.file_search.vector_store_ids or []
                 
-                if [vector_store_id] != current_vs_ids or assistant.instructions != instructions:
-                    # Update assistant with new vector store and instructions
+                if [vector_store_id] != current_vs_ids or assistant.instructions != instructions or assistant.model != model:
+                    # Update assistant with new vector store, instructions, and/or model
                     assistant = self.client.beta.assistants.update(
                         assistant.id,
                         instructions=instructions,
+                        model=model,
                         tool_resources={
                             "file_search": {
                                 "vector_store_ids": [vector_store_id]
                             }
                         }
                     )
-                    logger.info(f"Updated unified assistant {assistant.id} with new vector store and/or instructions")
+                    logger.info(f"Updated unified assistant {assistant.id} with new vector store, instructions, and/or model")
                 
                 return assistant.id
             except Exception as e:
@@ -83,10 +101,11 @@ class AssistantService:
             for assistant in assistants.data:
                 if assistant.name == assistant_name:
                     logger.info(f"Found existing unified assistant for user {user_id}: {assistant.id}")
-                    # Update vector store and instructions
+                    # Update vector store, instructions, and model
                     assistant = self.client.beta.assistants.update(
                         assistant.id,
                         instructions=instructions,
+                        model=model,
                         tool_resources={
                             "file_search": {
                                 "vector_store_ids": [vector_store_id]
@@ -109,11 +128,11 @@ class AssistantService:
             assistant = self.client.beta.assistants.create(
                 name=assistant_name,
                 instructions=instructions,
-                model="gpt-4o-mini",  # Use gpt-4o-mini for cost efficiency
+                model=model,
                 tools=[{"type": "file_search"}],
                 tool_resources=tool_resources
             )
-            logger.info(f"Created new unified assistant for user {user_id}: {assistant.id}")
+            logger.info(f"Created new unified assistant for user {user_id}: {assistant.id} with model {model}")
             setattr(self, f'_unified_assistant_id_{cache_key}', assistant.id)
             return assistant.id
         except Exception as e:
