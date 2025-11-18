@@ -98,13 +98,46 @@ class ChatService:
             }
             
             # Add vector store for file search if provided
+            # Note: Chat Completions API uses attachments on messages for file search
+            # We need to get file IDs from the vector store and attach them to the user message
             if vector_store_id:
-                request_params["tools"] = [{"type": "file_search"}]
-                request_params["tool_resources"] = {
-                    "file_search": {
-                        "vector_store_ids": [vector_store_id]
-                    }
-                }
+                try:
+                    # Get all file IDs from the vector store (handle pagination)
+                    file_ids = []
+                    has_more = True
+                    after = None
+                    
+                    while has_more:
+                        params = {"vector_store_id": vector_store_id, "limit": 100}
+                        if after:
+                            params["after"] = after
+                        
+                        vector_store_files = self.client.vector_stores.files.list(**params)
+                        
+                        if hasattr(vector_store_files, 'data') and vector_store_files.data:
+                            file_ids.extend([file_item.id for file_item in vector_store_files.data])
+                            # Check if there are more pages
+                            has_more = hasattr(vector_store_files, 'has_more') and vector_store_files.has_more
+                            if has_more and vector_store_files.data:
+                                after = vector_store_files.data[-1].id
+                            else:
+                                has_more = False
+                        else:
+                            has_more = False
+                    
+                    if file_ids:
+                        # Attach file IDs to the user message for file search
+                        # The last message in messages_list is the user message
+                        if messages_list and messages_list[-1]["role"] == "user":
+                            messages_list[-1]["attachments"] = [
+                                {"file_id": file_id, "tools": [{"type": "file_search"}]}
+                                for file_id in file_ids
+                            ]
+                        logger.info(f"Attached {len(file_ids)} files from vector store to chat message")
+                    else:
+                        logger.warning(f"No files found in vector store {vector_store_id}")
+                except Exception as vs_error:
+                    logger.warning(f"Error getting files from vector store {vector_store_id}: {vs_error}. Continuing without file search.")
             
             # Call chat.completions API
             response = self.client.chat.completions.create(**request_params)
@@ -139,13 +172,8 @@ class ChatService:
                     "model": fallback_model,
                     "messages": messages_list  # Reuse the same messages list
                 }
-                if vector_store_id:
-                    fallback_params["tools"] = [{"type": "file_search"}]
-                    fallback_params["tool_resources"] = {
-                        "file_search": {
-                            "vector_store_ids": [vector_store_id]
-                        }
-                    }
+                # Note: file_ids are already attached to messages_list if vector_store_id was provided
+                # No need to add them again here since we're reusing messages_list
                 try:
                     response = self.client.chat.completions.create(**fallback_params)
                     response_text = response.choices[0].message.content
