@@ -352,9 +352,10 @@
 
                 if (response.ok && data.success) {
                     showSuccess('Login successful! Redirecting...');
+                    // Wait a bit longer to ensure session cookie is set
                     setTimeout(() => {
                         window.location.href = '/';
-                    }, 500);
+                    }, 1000);
                 } else {
                     const errorMsg = data.error || `Login failed (${response.status}). Please check your credentials.`;
                     console.error('Login failed:', data);

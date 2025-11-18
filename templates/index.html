@@ -2060,7 +2060,8 @@
             });
             
             // Load chat instructions and model when Settings tab is shown
-            if (tabName === 'settings') {
+            // Only if authenticated (checkAuth ensures currentUser is set)
+            if (tabName === 'settings' && currentUser) {
                 loadChatInstructions();
                 loadAssistantModel();
             }
@@ -4785,9 +4786,13 @@
             }
         }
         
-        // Initialize chat on page load
-        window.addEventListener('DOMContentLoaded', function() {
-            initChat();
+        // Initialize chat on page load - wait for authentication
+        window.addEventListener('DOMContentLoaded', async function() {
+            // Wait for authentication to complete before initializing chat
+            const isAuthenticated = await checkAuth();
+            if (isAuthenticated) {
+                initChat();
+            }
         });
     </script>
 </body>
