@@ -4437,6 +4437,7 @@
                     if (response.ok) {
                         try {
                             const user = await response.json();
+                            console.log('Auth check successful, user:', user.email);
                             currentUser = user;
                             
                             // Safely update UI elements
@@ -4751,27 +4752,43 @@
         initTheme();
         
         // Single initialization function to avoid multiple auth checks
+        let appInitialized = false;
         async function initializeApp() {
-            // Don't initialize if we're on the login page
-            if (window.location.pathname === '/login') {
+            // Prevent multiple initializations
+            if (appInitialized) {
+                console.log('App already initialized, skipping');
                 return;
             }
+            
+            // Don't initialize if we're on the login page
+            if (window.location.pathname === '/login') {
+                console.log('On login page, skipping initialization');
+                return;
+            }
+            
+            appInitialized = true;
+            console.log('Initializing app...');
             
             // Add a small delay to ensure session cookie is available after redirect
             await new Promise(resolve => setTimeout(resolve, 200));
             
             // Check authentication once
+            console.log('Checking authentication...');
             const isAuthenticated = await checkAuth();
+            console.log('Auth check result:', isAuthenticated);
             
             if (isAuthenticated) {
+                console.log('User authenticated, loading app...');
                 // Load initial data only if authenticated
                 loadImports();
                 // Initialize chat
                 initChat();
             } else {
+                console.log('User not authenticated, redirecting to login');
                 // Not authenticated - redirect to login
                 // Only redirect if not already on login page
                 if (window.location.pathname !== '/login') {
+                    console.log('Redirecting to /login');
                     window.location.href = '/login';
                 }
             }
