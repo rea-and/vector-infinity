@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Vector Infinity</title>
     <!-- Markdown rendering libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js" 
+            onerror="console.error('Failed to load marked.js from CDN')"
+            onload="console.log('marked.js loaded successfully')"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="hljs-theme">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <style>
@@ -1915,35 +1917,73 @@
             }
         }
         
+        // Simple markdown parser fallback (if marked.js fails to load)
+        function simpleMarkdownFallback(text) {
+            if (!text) return '';
+            let html = escapeHtml(text);
+            
+            // Convert **bold** to <strong>bold</strong>
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            // Convert *italic* to <em>italic</em> (but not if it's part of **)
+            html = html.replace(/(?<!\*)\*([^*]+?)\*(?!\*)/g, '<em>$1</em>');
+            // Convert `code` to <code>code</code>
+            html = html.replace(/`([^`]+?)`/g, '<code>$1</code>');
+            // Convert line breaks
+            html = html.replace(/\n/g, '<br>');
+            
+            return html;
+        }
+        
         // Function to safely render markdown
         function renderMarkdown(text) {
             if (!text) return '';
+            
+            // Check if marked.js is available
+            if (typeof marked === 'undefined') {
+                console.error('marked.js is not loaded! Using fallback markdown parser.');
+                // Use simple fallback parser
+                return simpleMarkdownFallback(text);
+            }
+            
             // Ensure markdown is configured
             configureMarkdown();
-            if (typeof marked !== 'undefined') {
-                try {
-                    const html = marked.parse(text);
-                    // Log for debugging on mobile (can be removed in production)
-                    if (window.innerWidth <= 768) {
-                        console.log('Markdown rendered on mobile, length:', html.length);
-                    }
-                    return html;
-                } catch (err) {
-                    console.error('Markdown rendering error:', err);
-                    // Fallback to plain text with line breaks
-                    return text.replace(/\n/g, '<br>');
+            
+            try {
+                const html = marked.parse(text);
+                // Log for debugging
+                if (window.innerWidth <= 768) {
+                    console.log('Markdown rendered on mobile:', {
+                        originalLength: text.length,
+                        htmlLength: html.length,
+                        hasBold: html.includes('<strong>') || html.includes('<b>'),
+                        preview: html.substring(0, 100)
+                    });
                 }
+                return html;
+            } catch (err) {
+                console.error('Markdown rendering error:', err);
+                // Fallback to simple parser
+                return simpleMarkdownFallback(text);
             }
-            // Fallback if marked.js is not loaded
-            console.warn('marked.js not loaded, using plain text fallback');
-            return text.replace(/\n/g, '<br>');
         }
         
-        // Configure markdown on page load
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', configureMarkdown);
-        } else {
+        // Configure markdown on page load - wait for libraries to load
+        function initMarkdown() {
+            // Wait for marked.js to be available
+            if (typeof marked === 'undefined') {
+                // Try again after a short delay
+                setTimeout(initMarkdown, 100);
+                return;
+            }
             configureMarkdown();
+            console.log('Markdown configured successfully, marked.js version:', typeof marked !== 'undefined' ? 'loaded' : 'not loaded');
+        }
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initMarkdown);
+        } else {
+            // If already loaded, wait a bit for scripts to load
+            setTimeout(initMarkdown, 100);
         }
         
         // Theme management
