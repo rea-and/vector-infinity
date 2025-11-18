@@ -4791,6 +4791,8 @@
         
         // Initialize chat on page load - wait for authentication
         window.addEventListener('DOMContentLoaded', async function() {
+            // Add a small delay to ensure session cookie is available after redirect
+            await new Promise(resolve => setTimeout(resolve, 100));
             // Wait for authentication to complete before initializing chat
             const isAuthenticated = await checkAuth();
             if (isAuthenticated) {
