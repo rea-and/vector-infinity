@@ -264,7 +264,11 @@ class ChatService:
             response_id = response.response_id
         
         # Try different possible content fields
-        if hasattr(response, 'output') and response.output:
+        # Based on the actual response structure, try output_text first, then output, then text
+        if hasattr(response, 'output_text') and response.output_text:
+            # Responses API uses 'output_text' field (string)
+            response_text = response.output_text
+        elif hasattr(response, 'output') and response.output:
             # Responses API might use 'output' field
             if isinstance(response.output, str):
                 response_text = response.output
@@ -277,6 +281,9 @@ class ChatService:
                     response_text = response.output.message
                 elif hasattr(response.output.message, 'content'):
                     response_text = response.output.message.content
+        elif hasattr(response, 'text') and response.text:
+            # Direct text field
+            response_text = response.text
         elif hasattr(response, 'content'):
             if isinstance(response.content, str):
                 response_text = response.content
