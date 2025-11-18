@@ -49,7 +49,7 @@ class ChatService:
                 # a model that was later removed from the list, or a model not in the default list)
                 # We'll validate it works when actually calling the API
                 logger.debug(f"Using user-selected model: {settings.assistant_model} for user {user_id}")
-                return settings.assistant_model
+                    return settings.assistant_model
             return config.DEFAULT_MODEL
         finally:
             db.close()
@@ -130,7 +130,8 @@ class ChatService:
                     instructions=instructions,
                     model=model,
                     vector_store_id=vector_store_id,
-                    previous_response_id=previous_response_id
+                    previous_response_id=previous_response_id,
+                    conversation_history=conversation_history
                 )
             except Exception as responses_error:
                 error_str = str(responses_error)
@@ -178,7 +179,8 @@ class ChatService:
         instructions: str,
         model: str,
         vector_store_id: Optional[str] = None,
-        previous_response_id: Optional[str] = None
+        previous_response_id: Optional[str] = None,
+        conversation_history: Optional[List[Dict[str, str]]] = None
     ) -> Dict[str, Any]:
         """Send a message using Responses API (stateful, supports newer models)."""
         # Build request parameters for Responses API
@@ -242,9 +244,10 @@ class ChatService:
                 messages_list = [
                     {"role": "system", "content": instructions}
                 ]
-                # Add conversation history if available (for Responses API, we use previous_response_id, 
-                # but for fallback we need to reconstruct from conversation_history if available)
-                # Note: conversation_history is not available here, so we'll just use the current message
+                # Add conversation history if available
+                if conversation_history:
+                    messages_list.extend(conversation_history)
+                # Add current user message
                 messages_list.append({"role": "user", "content": message})
                 
                 # Try Chat Completions with tool_resources
@@ -450,34 +453,34 @@ class ChatService:
         user_id: int = None
     ) -> Dict[str, Any]:
         """Send a message using Chat Completions API (fallback for older models)."""
-        # Build messages list with system instruction and conversation history
-        messages_list = [
-            {"role": "system", "content": instructions}
-        ]
-        
-        # Add conversation history if provided
-        if conversation_history:
-            messages_list.extend(conversation_history)
-        
-        # Add current user message
-        messages_list.append({"role": "user", "content": message})
-        
-        # Build request parameters
-        request_params = {
-            "model": model,
-            "messages": messages_list
-        }
-        
-        # Add vector store for file search if provided
+            # Build messages list with system instruction and conversation history
+            messages_list = [
+                {"role": "system", "content": instructions}
+            ]
+            
+            # Add conversation history if provided
+            if conversation_history:
+                messages_list.extend(conversation_history)
+            
+            # Add current user message
+            messages_list.append({"role": "user", "content": message})
+            
+            # Build request parameters
+            request_params = {
+                "model": model,
+                "messages": messages_list
+            }
+            
+            # Add vector store for file search if provided
         # Note: Chat Completions API may not support file_search in all Python SDK versions
         # Try using tools parameter similar to Responses API
-        if vector_store_id:
+            if vector_store_id:
             request_params["tools"] = [{
                 "type": "file_search",
-                "vector_store_ids": [vector_store_id]
+                        "vector_store_ids": [vector_store_id]
             }]
             logger.info(f"Using vector store {vector_store_id} for file search via tools (Chat Completions API)")
-        
+            
         try:
             # Call chat.completions API
             response = self.client.chat.completions.create(**request_params)
