@@ -218,6 +218,7 @@ class Plugin(DataSourcePlugin):
                 
                 # Extract key context from the file (first few lines often contain important info)
                 # This helps with semantic search by providing context for each chunk
+                primary_subject = None
                 file_context = ""
                 context_lines = min(5, len(non_empty_lines))
                 if context_lines > 0:
@@ -231,6 +232,8 @@ class Plugin(DataSourcePlugin):
                         r'name\s+is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)',
                         r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+was\s+born',
                         r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+is\s+based',
+                        r'Her\s+official\s+name\s+is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)',  # "Her official name is Angel"
+                        r'([A-Z][a-z]+)\s+uses',  # "Angel uses" or "She uses" (capture name before "uses")
                     ]
                     extracted_names = []
                     for pattern in name_patterns:
@@ -261,7 +264,13 @@ class Plugin(DataSourcePlugin):
                     formatted_content += f"URL: {file_data['url']}\n"
                     formatted_content += f"Chunk: {chunk_num} (Lines {chunk_start + 1}-{chunk_end})\n\n"
                     
-                    # Add file context if available (helps with semantic search)
+                    # Add subject context to all chunks (helps with semantic search)
+                    # This ensures queries like "What headphones does Angel use?" can find "AirPods" 
+                    # even when the chunk only says "She uses AirPods"
+                    if primary_subject:
+                        formatted_content += f"Subject: {primary_subject}\n\n"
+                    
+                    # Add full file context to first chunk only
                     if file_context and chunk_num == 1:
                         formatted_content += f"File Context:\n{file_context}\n\n"
                     
