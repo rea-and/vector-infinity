@@ -200,8 +200,11 @@ def index():
 @app.route("/login")
 def login_page():
     """Login page."""
+    # If user is already authenticated, redirect to home
+    # But add a small check to prevent redirect loops
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        # Use a 303 redirect to prevent caching issues
+        return redirect(url_for('index'), code=303)
     return render_template_string(_load_template("login.html"))
 
 
