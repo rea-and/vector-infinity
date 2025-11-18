@@ -322,11 +322,11 @@ User question: {message}"""
         
         # Add conversation history if provided
         if conversation_history:
-                messages_list.extend(conversation_history)
-            
-            # Add current user message
-            messages_list.append({"role": "user", "content": message})
-            
+            messages_list.extend(conversation_history)
+        
+        # Add current user message
+        messages_list.append({"role": "user", "content": message})
+        
         # Call Chat Completions API
         try:
             response = self.client.chat.completions.create(
