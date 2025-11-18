@@ -315,13 +315,13 @@ User question: {message}"""
         user_id: int = None
     ) -> Dict[str, Any]:
         """Send a message using Chat Completions API only (no vector store)."""
-            # Build messages list with system instruction and conversation history
-            messages_list = [
-                {"role": "system", "content": instructions}
-            ]
-            
-            # Add conversation history if provided
-            if conversation_history:
+        # Build messages list with system instruction and conversation history
+        messages_list = [
+            {"role": "system", "content": instructions}
+        ]
+        
+        # Add conversation history if provided
+        if conversation_history:
                 messages_list.extend(conversation_history)
             
             # Add current user message
