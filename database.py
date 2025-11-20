@@ -93,7 +93,7 @@ class UserSettings(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False, unique=True, index=True)
     assistant_instructions = Column(Text, nullable=True)  # Custom AI assistant instructions
-    assistant_model = Column(String(50), nullable=True)  # GPT model preference (e.g., "gpt-4o-mini", "gpt-4o", "gpt-4-turbo")
+    assistant_model = Column(String(50), nullable=True)  # Model preference (e.g., "gemini-3-pro-preview")
     assistant_id = Column(String(255), nullable=True)  # Assistant ID (kept for backward compatibility, not used with Gemini)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

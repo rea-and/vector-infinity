@@ -561,7 +561,7 @@
             margin: 1em 0;
         }
         
-        /* ChatGPT-style Chat Interface */
+        /* Chat Interface */
         .chat-container {
             display: flex;
             flex-direction: row;
@@ -933,7 +933,7 @@
             color: var(--text-primary);
         }
         
-        /* Markdown content styling - ChatGPT-like formatting */
+        /* Markdown content styling */
         .markdown-content {
             line-height: 1.75;
             word-wrap: break-word;
@@ -1838,7 +1838,7 @@
                             <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color);">
                                 <h3>AI Chat Model</h3>
                                 <p style="color: var(--text-secondary); margin-bottom: 15px;">
-                                    Select which GPT model to use for chat. The model will be updated on your next chat message. Different models have different capabilities and costs.
+                                    Select which Gemini model to use for chat. The model will be updated on your next chat message.
                                 </p>
                                 <div style="margin-bottom: 15px;">
                                     <label for="assistant-model-select" style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary);">
@@ -4096,7 +4096,7 @@
                 emptyState.remove();
             }
             
-            // Add user message to UI with ChatGPT-style structure
+            // Add user message to UI
             const userMessageDiv = document.createElement('div');
             userMessageDiv.className = 'chat-message';
             userMessageDiv.innerHTML = `
@@ -4150,7 +4150,7 @@
                 // Remove loading indicator
                 loadingDiv.remove();
                 
-                // Add assistant response with ChatGPT-style structure
+                // Add assistant response
                 const assistantMessageDiv = document.createElement('div');
                 assistantMessageDiv.className = 'chat-message';
                 const messageContent = document.createElement('div');
@@ -4624,13 +4624,13 @@
                 if (modelNameSpan) {
                     // Find the display name for the current model
                     const currentModel = data.available_models?.find(m => m.value === data.model);
-                    modelNameSpan.textContent = currentModel ? currentModel.label : (data.model || data.default_model || 'gpt-4o-mini');
+                    modelNameSpan.textContent = currentModel ? currentModel.label : (data.model || data.default_model || 'gemini-3-pro-preview');
                 }
             } catch (error) {
                 console.error('Error loading chat model:', error);
                 const modelNameSpan = document.getElementById('chat-model-name');
                 if (modelNameSpan) {
-                    modelNameSpan.textContent = 'gpt-4o-mini';
+                    modelNameSpan.textContent = 'gemini-3-pro-preview';
                 }
             }
         }
@@ -4658,13 +4658,13 @@
                         select.appendChild(option);
                     });
                     // Set selected value
-                    select.value = data.model || data.default_model || 'gpt-4o-mini';
+                    select.value = data.model || data.default_model || 'gemini-3-pro-preview';
                 }
                 
                 if (currentSpan) {
                     // Find the display name for the current model
                     const currentModel = data.available_models?.find(m => m.value === data.model);
-                    currentSpan.textContent = currentModel ? currentModel.label : (data.model || data.default_model || 'gpt-4o-mini');
+                    currentSpan.textContent = currentModel ? currentModel.label : (data.model || data.default_model || 'gemini-3-pro-preview');
                 }
                 
                 if (statusSpan) {

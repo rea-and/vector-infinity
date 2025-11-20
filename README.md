@@ -1,13 +1,13 @@
 # Vector Infinity
 
-A personal data aggregation system that imports data from multiple sources (Gmail, WhatsApp, WHOOP, etc.) and provides it as context via OpenAI's Responses API (with Chat Completions fallback) with Vector Stores. Chat directly with your data through the web UI.
+A personal data aggregation system that imports data from multiple sources (Gmail, WhatsApp, WHOOP, etc.) and provides it as context via Gemini 3 Pro for intelligent chat. Chat directly with your data through the web UI.
 
 ## Features
 
 - **Plugin Architecture**: Easily extensible plugin system for adding new data sources
 - **Automated Daily Imports**: Scheduled daily imports from all configured sources
 - **Local Database**: All data stored locally in SQLite (lightweight, low RAM usage)
-- **OpenAI Chat API**: Uses OpenAI's Responses API (with Chat Completions fallback) with Vector Stores for intelligent chat, supporting the latest models
+- **Gemini 3 Pro Chat**: Uses Google's Gemini 3 Pro with 1M token context window for intelligent chat with your data
 - **Web UI Control Plane**: Responsive web interface for:
   - Viewing import logs
   - Manually triggering imports
@@ -75,38 +75,24 @@ Edit the `.env` file:
 nano .env
 ```
 
-**Note**: You'll need to set `OPENAI_API_KEY` in your `.env` file. This is required for:
-- Uploading data to OpenAI Vector Stores
-- Using the Responses API (with Chat Completions fallback) for chat functionality
+**Note**: You'll need to set `GEMINI_API_KEY` in your `.env` file. This is required for:
+- Using Gemini 3 Pro for chat functionality
 
 ```bash
-OPENAI_API_KEY=sk-your-api-key-here
+GEMINI_API_KEY=your-api-key-here
 ```
 
-**Available GPT Models**: You can configure which GPT models are available for users to select by setting `AVAILABLE_MODELS` in your `.env` file. The format is a comma-separated list, optionally with display names:
+**Available Models**: You can configure which Gemini models are available for users to select by setting `AVAILABLE_MODELS` in your `.env` file. The format is a comma-separated list, optionally with display names:
 
 ```bash
 # Simple format (model name used as display name)
-AVAILABLE_MODELS=gpt-4o-mini,gpt-4o,gpt-4-turbo
+AVAILABLE_MODELS=gemini-3-pro-preview
 
 # With custom display names (format: model:Display Name)
-AVAILABLE_MODELS=gpt-4o-mini:GPT-4o Mini (Fast, Cost-Effective),gpt-4o:GPT-4o (Balanced),gpt-4-turbo:GPT-4 Turbo (High Performance)
+AVAILABLE_MODELS=gemini-3-pro-preview:Gemini 3 Pro (Advanced Reasoning, 1M Context)
 ```
 
-If not set, defaults to: `gpt-4o-mini`, `gpt-4o`, `gpt-4-turbo`, `gpt-4`, and `gpt-3.5-turbo` with descriptive display names.
-
-**To check available models programmatically**, you can use the included script:
-```bash
-# Make sure OPENAI_API_KEY is set (or load from .env)
-export OPENAI_API_KEY=sk-your-key-here
-# Or: source .env
-
-# Run the script
-./tools/list_openai_models.sh
-# Or: python3 tools/list_openai_models.py
-```
-
-This will list all available models from OpenAI and show which ones are compatible with the Chat Completions API.
+If not set, defaults to: `gemini-3-pro-preview` with descriptive display name.
 
 The default port is 80. If you have an existing `.env` file with `WEB_PORT=5000`, update it to `WEB_PORT=80` or delete the line to use the default.
 
@@ -235,21 +221,21 @@ To create a new plugin:
 
 ## Chat with Your Data
 
-This application uses OpenAI's Chat Completions API with Vector Stores to provide intelligent chat functionality directly in the web UI.
+This application uses Google's Gemini 3 Pro to provide intelligent chat functionality directly in the web UI. Gemini 3 Pro has a 1M token context window, allowing it to process large amounts of your data directly.
 
 ### How It Works
 
-1. **Import**: When you import data, it's automatically uploaded to OpenAI Vector Stores (one per plugin)
-2. **Vector Stores**: OpenAI handles embeddings and vector search automatically
-3. **Chat API**: The chat service uses Vector Stores for context when answering questions
+1. **Import**: When you import data, it's stored in the local SQLite database
+2. **Context Retrieval**: The chat service retrieves relevant context from the database based on your query
+3. **Chat API**: Gemini 3 Pro uses the retrieved context along with its 1M token context window to answer questions
 4. **Chat**: Use the "Chat" tab in the web UI to ask questions about your data
 
 ### Prerequisites
 
-1. **OpenAI API Key**: Required for Vector Stores and Chat Completions API
+1. **Gemini API Key**: Required for Gemini 3 Pro chat functionality
 2. **Set in `.env` file**:
    ```
-   OPENAI_API_KEY=sk-your-api-key-here
+   GEMINI_API_KEY=your-api-key-here
    ```
 
 ### Using the Chat Interface
@@ -257,7 +243,7 @@ This application uses OpenAI's Chat Completions API with Vector Stores to provid
 1. **Import Your Data**:
    - Go to the "Run Imports" tab
    - Click "Run Import" for the plugin you want to use
-   - Wait for the import to complete (data will be uploaded to Vector Stores)
+   - Wait for the import to complete (data will be stored in the database)
 
 2. **Start Chatting**:
    - Go to the "Chat" tab
@@ -273,8 +259,8 @@ This application uses OpenAI's Chat Completions API with Vector Stores to provid
 ### Benefits
 
 - **Native Chat Experience**: Chat directly in the web UI, no external tools needed
-- **Semantic Understanding**: OpenAI's Vector Stores provide semantic search automatically
-- **No Manual Embedding Management**: OpenAI handles all embedding generation and storage
+- **Large Context Window**: Gemini 3 Pro's 1M token context allows processing large amounts of data
+- **Intelligent Context Retrieval**: Automatically retrieves relevant data from your database
 - **Scalable**: Can handle large amounts of data efficiently
 - **Multi-Plugin Support**: Switch between different data sources easily
 
@@ -297,8 +283,8 @@ This application uses OpenAI's Chat Completions API with Vector Stores to provid
   - Returns: `{"messages": [{"role": "user|assistant", "content": "...", "created_at": "..."}]}`
 
 ### Export Endpoints
-- `GET /api/export/emails` - Export all imported emails to a text file for ChatGPT knowledge upload
-- `GET /api/export/whoop` - Export all imported WHOOP health data to a text file for ChatGPT knowledge upload
+- `GET /api/export/emails` - Export all imported emails to a text file
+- `GET /api/export/whoop` - Export all imported WHOOP health data to a text file
 
 ## Architecture
 
@@ -306,19 +292,19 @@ This application uses OpenAI's Chat Completions API with Vector Stores to provid
 - **Backend**: Flask (lightweight web framework) with REST API endpoints
 - **Scheduler**: APScheduler (background task scheduling)
 - **Frontend**: Vanilla HTML/CSS/JS (responsive, mobile-friendly) with integrated chat interface
-- **Vector Stores**: OpenAI Vector Stores (unified per user) for semantic search
-- **Chat API**: OpenAI Assistants API with Vector Store integration (recommended approach)
+- **Database**: SQLite database for storing imported data
+- **Chat API**: Gemini 3 Pro with database-based context retrieval
 
 ### How It Works
 
 1. **Import**: Plugins fetch data from various sources (Gmail, WhatsApp, WHOOP, etc.) on a schedule
 2. **Storage**: Data is stored in SQLite with metadata (title, content, timestamps, etc.)
-3. **Vector Store Upload**: Data is automatically uploaded to OpenAI Vector Stores during import
-4. **Chat Service**: The chat service uses Vector Stores for context when answering questions
-5. **Chat**: Users can chat directly in the web UI, and the AI uses Vector Store data to answer questions
+3. **Context Retrieval**: When you ask a question, the chat service retrieves relevant data from the database
+4. **Chat Service**: Gemini 3 Pro uses the retrieved context along with its 1M token context window to answer questions
+5. **Chat**: Users can chat directly in the web UI, and Gemini 3 Pro uses the retrieved data to answer questions
 6. **Export**: Export endpoints allow downloading data as text files for external use
 
-This provides a seamless chat experience where you can ask questions about your personal data (emails, WhatsApp messages, WHOOP health data) and get intelligent answers using OpenAI's Assistants API with Vector Stores. The system creates a persistent assistant per user with vector store access, allowing the AI to automatically search and retrieve relevant information from your imported data. This follows OpenAI's recommended approach for vector store integration, supporting models like GPT-4o-mini, GPT-4o, and GPT-4 Turbo.
+This provides a seamless chat experience where you can ask questions about your personal data (emails, WhatsApp messages, WHOOP health data) and get intelligent answers using Gemini 3 Pro. The system retrieves relevant context from your database and leverages Gemini 3 Pro's large context window to provide accurate, context-aware responses.
 
 ## Low RAM Optimization
 
@@ -327,7 +313,7 @@ The system is optimized for low RAM usage:
 - Lightweight Flask framework
 - Minimal dependencies
 - Efficient data storage
-- Vector Stores managed by OpenAI (no local vector database needed)
+- Direct database queries for context retrieval (no external vector database needed)
 - Batch processing during import to minimize memory usage
 
 ## Troubleshooting

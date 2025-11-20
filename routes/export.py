@@ -14,7 +14,7 @@ bp = Blueprint('export', __name__, url_prefix='/api/export')
 @bp.route("/emails", methods=["GET"])
 @login_required
 def export_emails():
-    """Export all imported emails to a text file for ChatGPT knowledge upload."""
+    """Export all imported emails to a text file."""
     db = SessionLocal()
     try:
         # Query all emails from gmail plugin for this user
@@ -27,10 +27,10 @@ def export_emails():
         if not emails:
             return jsonify({"error": "No emails found to export"}), 404
         
-        # Format emails for ChatGPT knowledge upload
+        # Format emails for export
         lines = []
         lines.append("=" * 80)
-        lines.append("EMAIL EXPORT FOR CHATGPT KNOWLEDGE")
+        lines.append("EMAIL EXPORT")
         lines.append(f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
         lines.append(f"Total Emails: {len(emails)}")
         lines.append("=" * 80)
@@ -101,7 +101,7 @@ def export_emails():
 @bp.route("/whoop", methods=["GET"])
 @login_required
 def export_whoop():
-    """Export all imported WHOOP health data to a text file for ChatGPT knowledge upload."""
+    """Export all imported WHOOP health data to a text file."""
     db = SessionLocal()
     try:
         # Query all WHOOP data items for this user
@@ -118,10 +118,10 @@ def export_whoop():
         sleep_items = [item for item in whoop_items if item.item_type == "whoop_sleep"]
         workout_items = [item for item in whoop_items if item.item_type == "whoop_workout"]
         
-        # Format WHOOP data for ChatGPT knowledge upload
+        # Format WHOOP data for export
         lines = []
         lines.append("=" * 80)
-        lines.append("WHOOP HEALTH DATA EXPORT FOR CHATGPT KNOWLEDGE")
+        lines.append("WHOOP HEALTH DATA EXPORT")
         lines.append(f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
         lines.append(f"Total Items: {len(whoop_items)}")
         lines.append(f"  - Recovery Records: {len(recovery_items)}")

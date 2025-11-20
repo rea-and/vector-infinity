@@ -70,8 +70,8 @@ pip install --only-binary :all: flask flask-cors flask-login apscheduler python-
 echo "Installing Google API dependencies..."
 pip install --only-binary :all: google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
 
-echo "Installing OpenAI and vector search dependencies..."
-pip install --only-binary :all: openai numpy
+echo "Installing dependencies..."
+pip install --only-binary :all: numpy
 
 echo "All dependencies installed successfully!"
 

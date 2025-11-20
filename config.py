@@ -59,7 +59,7 @@ DEFAULT_MODEL = "gemini-3-pro-preview"
 
 if AVAILABLE_MODELS_STR:
     # Split by comma, then reconstruct entries by grouping items
-    # Model entries typically start with patterns like "gpt-", "o1-", "claude-", etc.
+        # Model entries typically start with patterns like "gemini-", "gpt-", "o1-", "claude-", etc.
     parts = [p.strip() for p in AVAILABLE_MODELS_STR.split(",")]
     
     current_entry = None
@@ -68,11 +68,11 @@ if AVAILABLE_MODELS_STR:
             continue
             
         # Check if this part starts a new model entry (starts with model name pattern)
-        # Common patterns: gpt-, o1-, claude-, gemini-, etc.
+        # Common patterns: gemini-, gpt-, o1-, claude-, etc.
         is_model_start = any(part.startswith(prefix) for prefix in [
-            "gpt-", "o1-", "claude-", "gemini-", "llama-", "mistral-", "anthropic-"
+            "gemini-", "gpt-", "o1-", "claude-", "llama-", "mistral-", "anthropic-"
         ]) or (":" in part and any(part.split(":")[0].strip().startswith(prefix) for prefix in [
-            "gpt-", "o1-", "claude-", "gemini-", "llama-", "mistral-", "anthropic-"
+            "gemini-", "gpt-", "o1-", "claude-", "llama-", "mistral-", "anthropic-"
         ]))
         
         if is_model_start:
