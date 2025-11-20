@@ -65,13 +65,14 @@ pip install --upgrade pip
 # Use --only-binary to prefer pre-built wheels and avoid compilation where possible
 # Install in smaller batches to reduce memory pressure
 echo "Installing core dependencies first..."
-pip install --only-binary :all: flask flask-cors flask-login apscheduler python-dotenv gunicorn requests python-dateutil pytz sqlalchemy bcrypt
+pip install --only-binary :all: flask flask-cors flask-login apscheduler python-dotenv gunicorn requests python-dateutil pytz bcrypt
+pip install "sqlalchemy>=2.0.40"  # Python 3.13 compatibility
 
 echo "Installing Google API dependencies..."
 pip install --only-binary :all: google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
 
 echo "Installing Gemini AI dependencies..."
-pip install google-generativeai>=0.8.0
+pip install google-genai>=0.2.0
 
 echo "Installing remaining dependencies..."
 pip install --only-binary :all: numpy
