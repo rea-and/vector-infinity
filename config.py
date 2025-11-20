@@ -28,8 +28,8 @@ WEB_PORT = int(os.getenv("WEB_PORT", "5000"))  # Changed to 5000 for Nginx rever
 SCHEDULER_TIMEZONE = os.getenv("TZ", "UTC")
 DAILY_IMPORT_TIME = os.getenv("DAILY_IMPORT_TIME", "02:00")  # 2 AM
 
-# OpenAI Vector Store (optional)
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+# Gemini API Key (required)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # Secret key for session management
 SECRET_KEY = os.getenv("SECRET_KEY", "change-this-secret-key-in-production")
@@ -42,21 +42,20 @@ USER_DATA_DIR = BASE_DIR / "data" / "users"
 # Example: "https://vectorinfinity.com" or "https://your-domain.com"
 BASE_URL = os.getenv("BASE_URL", "")
 
-# Available GPT models for assistant (comma-separated list)
+# Available Gemini models for assistant (comma-separated list)
 # Format: "model1,model2,model3" or "model1:Display Name 1,model2:Display Name 2"
 # If no display name is provided, the model name will be used
 # Note: Display names can contain commas - they will be preserved
-# Example: "gpt-4o-mini:GPT-4o Mini (Fast, Cost-Effective),gpt-4o:GPT-4o (Balanced)"
 AVAILABLE_MODELS_STR = os.getenv(
     "AVAILABLE_MODELS",
-    "gpt-4o-mini:GPT-4o Mini (Fast, Cost-Effective),gpt-4o:GPT-4o (Balanced),gpt-4-turbo:GPT-4 Turbo (High Performance),gpt-4:GPT-4 (Legacy),gpt-3.5-turbo:GPT-3.5 Turbo (Fastest, Lowest Cost)"
+    "gemini-3-pro-preview:Gemini 3 Pro (Advanced Reasoning, 1M Context)"
 )
 
 # Parse available models into a list of model names and a dict of display names
 # Handle commas in display names by identifying model entries by their prefixes
 AVAILABLE_MODELS = []
 MODEL_DISPLAY_NAMES = {}
-DEFAULT_MODEL = "gpt-4o-mini"
+DEFAULT_MODEL = "gemini-3-pro-preview"
 
 if AVAILABLE_MODELS_STR:
     # Split by comma, then reconstruct entries by grouping items

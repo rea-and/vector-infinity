@@ -1885,7 +1885,7 @@
                                     <li>All import logs</li>
                                     <li>All temporary files</li>
                                     <li>All log files</li>
-                                    <li>All OpenAI vector store files</li>
+                                    <li>All vector store files</li>
                                     <li>OAuth authentication tokens</li>
                                     <li>The entire database (will be recreated empty)</li>
                                 </ul>
@@ -3745,7 +3745,7 @@
                         ` : `
                             <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 4px; border: 1px solid #ffc107;">
                                 <h3 style="margin-top: 0;">Vector Store Status</h3>
-                                <p style="color: #856404;"><strong>⚠️ Vector store not available.</strong> Make sure OPENAI_API_KEY is set and try re-uploading your data.</p>
+                                <p style="color: #856404;"><strong>⚠️ No data available.</strong> Please run an import first to add data to your database.</p>
                             </div>
                         `}
                         <h3 style="margin-top: 20px;">By Plugin:</h3>
@@ -4357,7 +4357,7 @@
         
         async function factoryReset() {
             // Double confirmation for factory reset
-            const confirm1 = confirm('🔥 FACTORY RESET WARNING 🔥\n\nThis will PERMANENTLY DELETE EVERYTHING:\n\n- All imported data (emails, WhatsApp, WHOOP, etc.)\n- All import logs\n- All temporary files\n- All log files\n- All OpenAI vector store files\n- OAuth authentication tokens\n- The entire database (will be recreated empty)\n\nThis action CANNOT be undone!\n\nAre you absolutely sure you want to continue?');
+            const confirm1 = confirm('🔥 FACTORY RESET WARNING 🔥\n\nThis will PERMANENTLY DELETE EVERYTHING:\n\n- All imported data (emails, WhatsApp, WHOOP, etc.)\n- All import logs\n- All temporary files\n- All log files\n- All vector store files\n- OAuth authentication tokens\n- The entire database (will be recreated empty)\n\nThis action CANNOT be undone!\n\nAre you absolutely sure you want to continue?');
             if (!confirm1) {
                 return;
             }

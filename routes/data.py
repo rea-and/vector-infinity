@@ -142,7 +142,7 @@ def factory_reset():
             logger.warning(error_msg)
             results["errors"].append(error_msg)
         
-        # 5. Delete OpenAI vector store files (optional - may fail if API key not set)
+        # 5. Delete vector store files (optional - may fail if API key not set)
         try:
             vector_store_service = VectorStoreService()
             vector_store_id = vector_store_service.get_unified_vector_store_id()

@@ -3,7 +3,6 @@ from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 import logging
 from chat_service import ChatService
-from vector_store_service import VectorStoreService
 from database import ChatThread, SessionLocal
 from datetime import datetime, timezone
 
@@ -52,12 +51,12 @@ def create_chat_thread():
         import uuid
         thread_id = f"conv_{uuid.uuid4().hex[:16]}"
         
-        # OpenAI thread will be created when first message is sent
+        # Thread ID will be set when first message is sent
         # Save thread to database
         chat_thread = ChatThread(
             user_id=current_user.id,
             thread_id=thread_id,  # Internal thread ID
-            openai_thread_id=None,  # Will be set when first message is sent
+            openai_thread_id=None,  # Will be set when first message is sent (reusing field name for compatibility)
             previous_response_id=None,
             conversation_history=None,
             title=None  # Will be set from first message
@@ -104,31 +103,24 @@ def send_chat_message(thread_id):
             return jsonify({"error": "Thread not found or access denied"}), 404
         
         chat_service = ChatService()
-        vector_store_service = VectorStoreService()
         
-        # Get unified vector store ID (user-specific)
-        vector_store_id = vector_store_service.get_unified_vector_store_id(user_id=current_user.id)
-        if not vector_store_id:
-            return jsonify({"error": "No vector store found. Please run an import first."}), 404
-        
-        # Get OpenAI thread ID (create if doesn't exist)
-        openai_thread_id = chat_thread.openai_thread_id
+        # Get thread ID (stored in openai_thread_id field for database compatibility)
+        thread_id = chat_thread.openai_thread_id
         
         # Send message and get response
         result = chat_service.send_message(
             message=message,
-            openai_thread_id=openai_thread_id,
-            vector_store_id=vector_store_id,
+            thread_id=thread_id,
             user_id=current_user.id
         )
         
         if result is None:
             return jsonify({"error": "Failed to get response from chat service"}), 500
         
-        # Update thread with OpenAI thread ID and conversation history
-        chat_thread.openai_thread_id = result["openai_thread_id"]
-        chat_thread.conversation_history = result["messages"]  # For backward compatibility
-        chat_thread.previous_response_id = result["response_id"]  # For backward compatibility
+        # Update thread with thread ID and conversation history
+        chat_thread.openai_thread_id = result["openai_thread_id"]  # Reusing field name for compatibility
+        chat_thread.conversation_history = result["messages"]
+        chat_thread.previous_response_id = result["response_id"]
         chat_thread.updated_at = datetime.now(timezone.utc)
         
         # Update thread title from first message if not set
@@ -170,36 +162,7 @@ def get_chat_messages(thread_id):
         if not chat_thread:
             return jsonify({"error": "Thread not found or access denied"}), 404
         
-        # If we have an OpenAI thread ID, fetch messages from OpenAI
-        if chat_thread.openai_thread_id:
-            try:
-                from chat_service import ChatService
-                chat_service = ChatService()
-                messages_list = chat_service.client.beta.threads.messages.list(
-                    thread_id=chat_thread.openai_thread_id,
-                    order="asc"
-                )
-                
-                messages = []
-                for msg in messages_list.data:
-                    if msg.role in ["user", "assistant"]:
-                        content = ""
-                        if msg.content and len(msg.content) > 0:
-                            if hasattr(msg.content[0], 'text'):
-                                content = msg.content[0].text.value
-                            elif isinstance(msg.content[0], dict) and 'text' in msg.content[0]:
-                                content = msg.content[0]['text'].get('value', '')
-                        messages.append({
-                            "role": msg.role,
-                            "content": content,
-                            "created_at": chat_thread.updated_at.isoformat() if chat_thread.updated_at else None
-                        })
-                
-                return jsonify({"messages": messages})
-            except Exception as e:
-                logger.warning(f"Error fetching messages from OpenAI, falling back to local storage: {e}")
-        
-        # Fallback to local conversation history
+        # Use local conversation history (Gemini stores history in database)
         conversation_history = chat_thread.conversation_history if chat_thread.conversation_history else []
         
         # Convert to the format expected by the frontend

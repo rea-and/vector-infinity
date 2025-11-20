@@ -90,7 +90,7 @@ def update_database_schema():
                         conn.commit()
                         logger.info("✓ Successfully added 'previous_response_id' column")
                     
-                    # Add openai_thread_id column if needed
+                    # Add openai_thread_id column if needed (reusing field name for compatibility)
                     if 'openai_thread_id' not in columns:
                         logger.info("Adding 'openai_thread_id' column to chat_threads table...")
                         cursor.execute("""
