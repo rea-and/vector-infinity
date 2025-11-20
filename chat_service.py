@@ -47,8 +47,8 @@ class ChatService:
             if settings and settings.assistant_model:
                 # Check if it's a Gemini model
                 if settings.assistant_model.startswith("gemini-"):
-                logger.debug(f"Using user-selected model: {settings.assistant_model} for user {user_id}")
-                return settings.assistant_model
+                    logger.debug(f"Using user-selected model: {settings.assistant_model} for user {user_id}")
+                    return settings.assistant_model
             return "gemini-3-pro-preview"
         finally:
             db.close()
@@ -187,8 +187,8 @@ class ChatService:
             if context_parts:
                 return "\n\n---\n\n".join(context_parts)
             return ""
-                    
-            except Exception as e:
+            
+        except Exception as e:
             logger.error(f"Error retrieving context: {e}", exc_info=True)
             return ""
         finally:
@@ -300,13 +300,13 @@ class ChatService:
             ]
             
             logger.info(f"Successfully sent message using Gemini 3 (model: {model}, thread: {thread_id})")
-        
-        return {
+            
+            return {
                 "response_id": thread_id or "gemini_thread",
-            "content": response_text,
+                "content": response_text,
                 "openai_thread_id": thread_id,  # Store in openai_thread_id field for database compatibility
                 "messages": updated_history
-        }
+            }
             
         except Exception as e:
             logger.error(f"Error generating response with Gemini 3: {e}", exc_info=True)
