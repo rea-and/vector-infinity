@@ -104,7 +104,7 @@ class DataImporter:
             db.commit()
             
             records_imported = 0
-            items_to_upload = []  # Collect items for vector store upload
+            items_to_upload = []  # Collect items for file search store upload
             
             for idx, item_data in enumerate(data_items):
                 # Update progress every 10 items or on last item
@@ -141,9 +141,46 @@ class DataImporter:
             
             db.commit()
             
-            # Note: Vector store upload is no longer needed - Gemini retrieves context directly from database
-            # Data is stored in the database and will be retrieved by Gemini chat service
-            logger.info(f"Data stored in database for {plugin_name} (user {user_id}) - Gemini will retrieve context directly from database")
+            # Upload new items to Gemini File Search Store
+            if items_to_upload:
+                try:
+                    from file_search_service import FileSearchService
+                    file_search_service = FileSearchService()
+                    
+                    log_entry.progress_message = f"Uploading {len(items_to_upload)} items to File Search Store..."
+                    db.commit()
+                    
+                    # Upload in batches to avoid overwhelming the API
+                    batch_size = 500  # Batch size for File Search Store uploads
+                    total_uploaded = 0
+                    total_batches = (len(items_to_upload) + batch_size - 1) // batch_size
+                    
+                    for batch_start in range(0, len(items_to_upload), batch_size):
+                        batch_end = min(batch_start + batch_size, len(items_to_upload))
+                        batch_items = items_to_upload[batch_start:batch_end]
+                        batch_num = batch_start // batch_size + 1
+                        
+                        log_entry.progress_message = f"Uploading to File Search Store: batch {batch_num}/{total_batches} ({batch_end}/{len(items_to_upload)} items)..."
+                        db.commit()
+                        
+                        # Only wait for processing on the last batch to ensure data is available
+                        wait_for_processing = (batch_num == total_batches)
+                        success = file_search_service.upload_data_to_file_search_store(
+                            plugin_name, batch_items, user_id=user_id, wait_for_processing=wait_for_processing
+                        )
+                        if success:
+                            total_uploaded += len(batch_items)
+                            logger.info(f"Uploaded batch {batch_num}/{total_batches} to File Search Store ({batch_end}/{len(items_to_upload)} items)")
+                        else:
+                            logger.warning(f"Failed to upload batch {batch_num}/{total_batches} to File Search Store")
+                    
+                    logger.info(f"Uploaded {total_uploaded} items to File Search Store for {plugin_name} (user {user_id})")
+                    log_entry.progress_message = f"Successfully uploaded {total_uploaded} items to File Search Store"
+                    db.commit()
+                except Exception as e:
+                    logger.error(f"Failed to upload to File Search Store: {e}", exc_info=True)
+                    log_entry.progress_message = f"Warning: File Search Store upload failed: {str(e)[:200]}"
+                    db.commit()
             
             db.commit()
             
@@ -420,12 +457,50 @@ class DataImporter:
                         logger.info(f"Skipped {skipped_count} existing items for {plugin_name} (user {user_id})")
                     logger.info(f"Saved {records_imported} new items to database for {plugin_name} (user {user_id})")
                     
-                    # Note: Vector store upload is no longer needed - Gemini retrieves context directly from database
-                    # Data is stored in the database and will be retrieved by Gemini chat service
+                    # Upload new items to Gemini File Search Store
                     if items_to_upload:
-                        logger.info(f"Data stored in database for {plugin_name} (user {user_id}) - Gemini will retrieve context directly from database")
+                        try:
+                            from file_search_service import FileSearchService
+                            file_search_service = FileSearchService()
+                            
+                            logger.info(f"Preparing to upload {len(items_to_upload)} items to File Search Store for {plugin_name} (user {user_id})")
+                            log_entry.progress_message = f"Uploading {len(items_to_upload)} items to File Search Store..."
+                            db.commit()
+                            
+                            # Upload in batches to avoid overwhelming the API
+                            batch_size = 500  # Batch size for File Search Store uploads
+                            total_uploaded = 0
+                            total_batches = (len(items_to_upload) + batch_size - 1) // batch_size
+                            
+                            for batch_start in range(0, len(items_to_upload), batch_size):
+                                batch_end = min(batch_start + batch_size, len(items_to_upload))
+                                batch_items = items_to_upload[batch_start:batch_end]
+                                batch_num = batch_start // batch_size + 1
+                                
+                                log_entry.progress_message = f"Uploading to File Search Store: batch {batch_num}/{total_batches} ({batch_end}/{len(items_to_upload)} items)..."
+                                db.commit()
+                                
+                                # Only wait for processing on the last batch to ensure data is available
+                                wait_for_processing = (batch_num == total_batches)
+                                logger.info(f"Uploading batch {batch_num}/{total_batches} to File Search Store for {plugin_name} (user {user_id}): {len(batch_items)} items")
+                                success = file_search_service.upload_data_to_file_search_store(
+                                    plugin_name, batch_items, user_id=user_id, wait_for_processing=wait_for_processing
+                                )
+                                if success:
+                                    total_uploaded += len(batch_items)
+                                    logger.info(f"Successfully uploaded batch {batch_num}/{total_batches} to File Search Store ({batch_end}/{len(items_to_upload)} items) for user {user_id}")
+                                else:
+                                    logger.warning(f"Failed to upload batch {batch_num}/{total_batches} to File Search Store for user {user_id}")
+                            
+                            logger.info(f"Uploaded {total_uploaded} items to File Search Store for {plugin_name} (user {user_id})")
+                            log_entry.progress_message = f"Successfully uploaded {total_uploaded} items to File Search Store"
+                            db.commit()
+                        except Exception as e:
+                            logger.error(f"Failed to upload to File Search Store for {plugin_name} (user {user_id}): {e}", exc_info=True)
+                            log_entry.progress_message = f"Warning: File Search Store upload failed: {str(e)[:200]}"
+                            db.commit()
                     else:
-                        logger.info(f"No new items to store for {plugin_name} (user {user_id}) - {records_imported} items were already in database")
+                        logger.info(f"No new items to upload to File Search Store for {plugin_name} (user {user_id}) - {records_imported} items were already in database")
                     
                     db.commit()
                     

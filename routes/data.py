@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from datetime import datetime, timezone
 from database import ImportLog, DataItem, SessionLocal, engine, Base, UserSettings
-from vector_store_service import VectorStoreService
+from file_search_service import FileSearchService
 import config
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ def clear_all_data():
 @bp.route("/factory-reset", methods=["POST"])
 @login_required
 def factory_reset():
-    """Factory reset: Delete absolutely everything - database, logs, temp files, vector store."""
+    """Factory reset: Delete absolutely everything - database, logs, temp files, file search store."""
     try:
         # Get confirmation from request
         data = request.get_json() or {}
@@ -71,7 +71,7 @@ def factory_reset():
             "database_logs_deleted": 0,
             "temp_files_deleted": 0,
             "log_files_deleted": 0,
-            "vector_store_files_deleted": 0,
+            "file_search_store_note": "",
             "errors": []
         }
         
@@ -142,53 +142,17 @@ def factory_reset():
             logger.warning(error_msg)
             results["errors"].append(error_msg)
         
-        # 5. Delete vector store files (optional - may fail if API key not set)
+        # 5. Note about File Search Store (files are managed automatically by Gemini)
         try:
-            vector_store_service = VectorStoreService()
-            vector_store_id = vector_store_service.get_unified_vector_store_id()
+            file_search_service = FileSearchService()
+            store_name = file_search_service.get_unified_file_search_store_name(user_id=current_user.id)
             
-            if vector_store_id:
-                # List all files in the vector store (handle pagination)
-                all_files = []
-                has_more = True
-                after = None
-                
-                while has_more:
-                    params = {"vector_store_id": vector_store_id, "limit": 100}
-                    if after:
-                        params["after"] = after
-                    
-                    files = vector_store_service.client.vector_stores.files.list(**params)
-                    
-                    if hasattr(files, 'data') and files.data:
-                        all_files.extend(files.data)
-                        # Check if there are more pages
-                        has_more = hasattr(files, 'has_more') and files.has_more
-                        if has_more and files.data:
-                            after = files.data[-1].id
-                        else:
-                            has_more = False
-                    else:
-                        has_more = False
-                
-                # Delete all files
-                for file_item in all_files:
-                    try:
-                        # Delete file from vector store
-                        vector_store_service.client.vector_stores.files.delete(
-                            vector_store_id=vector_store_id,
-                            file_id=file_item.id
-                        )
-                        results["vector_store_files_deleted"] += 1
-                    except Exception as e:
-                        error_msg = f"Error deleting vector store file {file_item.id}: {e}"
-                        logger.warning(error_msg)
-                        results["errors"].append(error_msg)
-                
-                logger.info(f"Deleted {results['vector_store_files_deleted']} files from vector store")
+            if store_name:
+                logger.info(f"File Search Store {store_name} exists. Files are managed automatically by Gemini.")
+                results["file_search_store_note"] = "File Search Store files are managed by Gemini and will be updated on next import"
         except Exception as e:
-            # This is optional - don't fail if vector store deletion fails
-            error_msg = f"Error clearing vector store (optional): {e}"
+            # This is optional - don't fail if File Search Store access fails
+            error_msg = f"Error accessing File Search Store (optional): {e}"
             logger.warning(error_msg)
             results["errors"].append(error_msg)
         
@@ -259,29 +223,29 @@ def get_stats():
         db.close()
 
 
-@bp.route("/vector-store/info", methods=["GET"])
+@bp.route("/file-search-store/info", methods=["GET"])
 @login_required
-def get_vector_store_info():
-    """Get information about the unified vector store."""
+def get_file_search_store_info():
+    """Get information about the unified File Search Store."""
     try:
-        vector_store_service = VectorStoreService()
+        file_search_service = FileSearchService()
         
-        info = vector_store_service.get_vector_store_info(user_id=current_user.id)
+        info = file_search_service.get_file_search_store_info(user_id=current_user.id)
         if not info:
-            return jsonify({"error": "Vector store not found or not accessible"}), 404
+            return jsonify({"error": "File Search Store not found or not accessible"}), 404
         
         return jsonify(info)
     except Exception as e:
-        logger.error(f"Error getting vector store info: {e}", exc_info=True)
+        logger.error(f"Error getting File Search Store info: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
-@bp.route("/vector-store/reupload", methods=["POST"])
+@bp.route("/file-search-store/reupload", methods=["POST"])
 @login_required
-def reupload_all_data_to_vector_store():
-    """Re-upload all existing data from the database to the vector store."""
+def reupload_all_data_to_file_search_store():
+    """Re-upload all existing data from the database to the File Search Store."""
     try:
-        vector_store_service = VectorStoreService()
+        file_search_service = FileSearchService()
         db = SessionLocal()
         
         try:
@@ -311,10 +275,10 @@ def reupload_all_data_to_vector_store():
             results = {}
             
             for plugin_name, items in items_by_plugin.items():
-                logger.info(f"Re-uploading {len(items)} items from {plugin_name} to vector store")
+                logger.info(f"Re-uploading {len(items)} items from {plugin_name} to File Search Store")
                 
                 # Upload in batches (optimized - don't wait for processing on each batch)
-                batch_size = 500  # Increased batch size for better performance
+                batch_size = 500  # Batch size for File Search Store uploads
                 plugin_uploaded = 0
                 total_batches = (len(items) + batch_size - 1) // batch_size
                 
@@ -325,7 +289,9 @@ def reupload_all_data_to_vector_store():
                     
                     # Only wait for processing on the last batch
                     wait_for_processing = (batch_num == total_batches)
-                    success = vector_store_service.upload_data_to_vector_store(plugin_name, batch_items, user_id=current_user.id, wait_for_processing=wait_for_processing)
+                    success = file_search_service.upload_data_to_file_search_store(
+                        plugin_name, batch_items, user_id=current_user.id, wait_for_processing=wait_for_processing
+                    )
                     if success:
                         plugin_uploaded += len(batch_items)
                         total_uploaded += len(batch_items)
@@ -344,7 +310,7 @@ def reupload_all_data_to_vector_store():
         finally:
             db.close()
     except Exception as e:
-        logger.error(f"Error re-uploading data to vector store: {e}", exc_info=True)
+        logger.error(f"Error re-uploading data to File Search Store: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 

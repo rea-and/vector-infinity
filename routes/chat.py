@@ -84,7 +84,7 @@ def create_chat_thread():
 @bp.route("/threads/<thread_id>/messages", methods=["POST"])
 @login_required
 def send_chat_message(thread_id):
-    """Send a message in a chat thread using Assistants API with vector store support."""
+    """Send a message in a chat thread using File Search Store for context retrieval."""
     db = SessionLocal()
     try:
         data = request.get_json() or {}

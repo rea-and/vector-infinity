@@ -70,7 +70,10 @@ pip install --only-binary :all: flask flask-cors flask-login apscheduler python-
 echo "Installing Google API dependencies..."
 pip install --only-binary :all: google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
 
-echo "Installing dependencies..."
+echo "Installing Gemini AI dependencies..."
+pip install google-generativeai>=0.8.0
+
+echo "Installing remaining dependencies..."
 pip install --only-binary :all: numpy
 
 echo "All dependencies installed successfully!"

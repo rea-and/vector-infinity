@@ -1885,7 +1885,7 @@
                                     <li>All import logs</li>
                                     <li>All temporary files</li>
                                     <li>All log files</li>
-                                    <li>All vector store files</li>
+                                    <li>All file search store files</li>
                                     <li>OAuth authentication tokens</li>
                                     <li>The entire database (will be recreated empty)</li>
                                 </ul>
@@ -1916,8 +1916,8 @@
                                     <button class="btn btn-success" onclick="exportWhoop()">
                                         📥 Export WHOOP Data
                                     </button>
-                                    <button class="btn btn-secondary" onclick="reuploadToVectorStore()">
-                                        🔄 Re-upload All Data to Vector Store
+                                    <button class="btn btn-secondary" onclick="reuploadToFileSearchStore()">
+                                        🔄 Re-upload All Data to File Search Store
                                     </button>
                                 </div>
                                 <div id="stats-content"></div>
@@ -3674,8 +3674,8 @@
             }
         }
         
-        async function reuploadToVectorStore() {
-            if (!confirm('This will re-upload all data from your database to the vector store. This may take a while. Continue?')) {
+        async function reuploadToFileSearchStore() {
+            if (!confirm('This will re-upload all data from your database to the file search store. This may take a while. Continue?')) {
                 return;
             }
             
@@ -3685,14 +3685,14 @@
             btn.innerHTML = '<span class="loading"></span> Re-uploading...';
             
             try {
-                const response = await apiFetch(`${API_BASE}/vector-store/reupload`, {
+                const response = await apiFetch(`${API_BASE}/file-search-store/reupload`, {
                     method: 'POST'
                 });
                 
                 const data = await response.json();
                 
                 if (response.ok) {
-                    alert(`✓ Success! Re-uploaded ${data.total_uploaded} items to vector store.\n\nResults:\n${Object.entries(data.results).map(([plugin, info]) => `- ${plugin}: ${info.uploaded}/${info.total_items} items`).join('\n')}`);
+                    alert(`✓ Success! Re-uploaded ${data.total_uploaded} items to file search store.\n\nResults:\n${Object.entries(data.results).map(([plugin, info]) => `- ${plugin}: ${info.uploaded}/${info.total_items} items`).join('\n')}`);
                     btn.innerHTML = '✓ Complete';
                     btn.style.background = '#28a745';
                     setTimeout(() => {
@@ -3706,7 +3706,7 @@
                     btn.innerHTML = originalText;
                 }
             } catch (error) {
-                console.error('Error re-uploading to vector store:', error);
+                console.error('Error re-uploading to file search store:', error);
                 alert(`❌ Error: ${error.message}`);
                 btn.disabled = false;
                 btn.innerHTML = originalText;
@@ -3715,9 +3715,9 @@
         
         async function loadStats() {
             try {
-                const [statsResponse, vectorStoreResponse] = await Promise.all([
+                const [statsResponse, fileSearchStoreResponse] = await Promise.all([
                     fetch(`${API_BASE}/stats`),
-                    fetch(`${API_BASE}/vector-store/info`).catch(() => null) // Don't fail if vector store not available
+                    fetch(`${API_BASE}/file-search-store/info`).catch(() => null) // Don't fail if file search store not available
                 ]);
                 
                 if (!statsResponse.ok) {
@@ -3725,26 +3725,24 @@
                 }
                 const stats = await statsResponse.json();
                 
-                let vectorStoreInfo = null;
-                if (vectorStoreResponse && vectorStoreResponse.ok) {
-                    vectorStoreInfo = await vectorStoreResponse.json();
+                let fileSearchStoreInfo = null;
+                if (fileSearchStoreResponse && fileSearchStoreResponse.ok) {
+                    fileSearchStoreInfo = await fileSearchStoreResponse.json();
                 }
                 
                 const html = `
                     <div style="margin-top: 20px;">
                         <h3>Total Items: ${stats.total_items || 0}</h3>
                         <h3 style="margin-top: 20px;">Database Size: ${stats.database_size || '0 B'}</h3>
-                        ${vectorStoreInfo ? `
-                            <div style="margin-top: 20px; padding: 15px; background: ${vectorStoreInfo.file_count > 0 ? '#d4edda' : '#fff3cd'}; border-radius: 4px; border: 1px solid ${vectorStoreInfo.file_count > 0 ? '#c3e6cb' : '#ffc107'};">
-                                <h3 style="margin-top: 0;">Vector Store Status</h3>
-                                <p><strong>Files in Vector Store:</strong> ${vectorStoreInfo.file_count}</p>
-                                <p><strong>Vector Store Size:</strong> ${vectorStoreInfo.total_size || '0 B'}</p>
-                                <p><strong>Status:</strong> ${vectorStoreInfo.status || 'unknown'}</p>
-                                ${vectorStoreInfo.file_count === 0 ? '<p style="color: #856404; margin-top: 10px;"><strong>⚠️ No files in vector store!</strong> Click "Re-upload All Data to Vector Store" to upload your data.</p>' : ''}
+                        ${fileSearchStoreInfo ? `
+                            <div style="margin-top: 20px; padding: 15px; background: ${fileSearchStoreInfo.file_count > 0 ? '#d4edda' : '#fff3cd'}; border-radius: 4px; border: 1px solid ${fileSearchStoreInfo.file_count > 0 ? '#c3e6cb' : '#ffc107'};">
+                                <h3 style="margin-top: 0;">File Search Store Status</h3>
+                                <p><strong>Status:</strong> ${fileSearchStoreInfo.status || 'unknown'}</p>
+                                <p><strong>Display Name:</strong> ${fileSearchStoreInfo.display_name || 'N/A'}</p>
                             </div>
                         ` : `
                             <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 4px; border: 1px solid #ffc107;">
-                                <h3 style="margin-top: 0;">Vector Store Status</h3>
+                                <h3 style="margin-top: 0;">File Search Store Status</h3>
                                 <p style="color: #856404;"><strong>⚠️ No data available.</strong> Please run an import first to add data to your database.</p>
                             </div>
                         `}
@@ -4357,7 +4355,7 @@
         
         async function factoryReset() {
             // Double confirmation for factory reset
-            const confirm1 = confirm('🔥 FACTORY RESET WARNING 🔥\n\nThis will PERMANENTLY DELETE EVERYTHING:\n\n- All imported data (emails, WhatsApp, WHOOP, etc.)\n- All import logs\n- All temporary files\n- All log files\n- All vector store files\n- OAuth authentication tokens\n- The entire database (will be recreated empty)\n\nThis action CANNOT be undone!\n\nAre you absolutely sure you want to continue?');
+            const confirm1 = confirm('🔥 FACTORY RESET WARNING 🔥\n\nThis will PERMANENTLY DELETE EVERYTHING:\n\n- All imported data (emails, WhatsApp, WHOOP, etc.)\n- All import logs\n- All temporary files\n- All log files\n- All file search store files\n- OAuth authentication tokens\n- The entire database (will be recreated empty)\n\nThis action CANNOT be undone!\n\nAre you absolutely sure you want to continue?');
             if (!confirm1) {
                 return;
             }
@@ -4390,7 +4388,7 @@
                     `- ${results.database_logs_deleted || 0} import logs`,
                     `- ${results.temp_files_deleted || 0} temporary files`,
                     `- ${results.log_files_deleted || 0} log files`,
-                    `- ${results.vector_store_files_deleted || 0} vector store files`,
+                    results.file_search_store_note ? `\nNote: ${results.file_search_store_note}` : '',
                     results.errors && results.errors.length > 0 ? `\n⚠️ Errors: ${results.errors.length}` : ''
                 ].join('\n');
                 

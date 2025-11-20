@@ -59,7 +59,7 @@ DEFAULT_MODEL = "gemini-3-pro-preview"
 
 if AVAILABLE_MODELS_STR:
     # Split by comma, then reconstruct entries by grouping items
-        # Model entries typically start with patterns like "gemini-", "gpt-", "o1-", "claude-", etc.
+    # Model entries typically start with patterns like "gemini-", "gpt-", "o1-", "claude-", etc.
     parts = [p.strip() for p in AVAILABLE_MODELS_STR.split(",")]
     
     current_entry = None

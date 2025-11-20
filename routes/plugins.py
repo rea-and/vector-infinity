@@ -8,7 +8,6 @@ import importlib.util
 import secrets
 import logging
 from database import ImportLog, SessionLocal, PluginConfiguration, DataItem
-from vector_store_service import VectorStoreService
 import config
 from services import plugin_loader, oauth_flows
 
@@ -659,7 +658,7 @@ def reset_plugin(plugin_name):
         
         logger.info(f"Reset plugin {plugin_name} for user {current_user.id}: deleted {items_count} data items and {logs_count} import logs")
         
-        # Note: Vector store cleanup would require re-uploading all remaining data
+        # Note: File Search Store cleanup would require re-uploading all remaining data
         # For now, we'll just delete from the database. The user can re-upload if needed.
         
         return jsonify({
