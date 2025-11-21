@@ -49,23 +49,36 @@ else
     echo "✓ Domain DNS looks correct"
 fi
 
-# Get SSL certificate
+# Check if certificate already exists
 echo ""
-echo "Getting SSL certificate from Let's Encrypt..."
-certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email
-
-if [ $? -eq 0 ]; then
+if sudo certbot certificates 2>/dev/null | grep -q "Certificate Name:.*$DOMAIN" 2>/dev/null || sudo certbot certificates 2>/dev/null | grep -q "Domains:.*$DOMAIN" 2>/dev/null; then
+    echo "✓ SSL certificate already exists for $DOMAIN"
+    echo "   Certificate will auto-renew. Test renewal with: sudo certbot renew --dry-run"
     echo ""
-    echo "✓ SSL certificate installed successfully!"
+    echo "If you need to renew the certificate manually, run:"
+    echo "   sudo certbot renew"
     echo ""
-    echo "Your site is now available at: https://$DOMAIN"
-    echo ""
-    echo "Add this redirect URI to Google Cloud Console:"
-    echo "  https://$DOMAIN/api/plugins/gmail/auth/callback"
-    echo ""
-    echo "Certificate will auto-renew. Test renewal with: sudo certbot renew --dry-run"
+    echo "If you need to force a new certificate, first revoke the old one:"
+    echo "   sudo certbot revoke --cert-path /etc/letsencrypt/live/$DOMAIN/cert.pem"
+    echo "   Then run this script again."
 else
-    echo "⚠️  SSL certificate installation failed. Please check the errors above."
-    exit 1
+    # Get SSL certificate
+    echo "Getting SSL certificate from Let's Encrypt..."
+    certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email
+    
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo "✓ SSL certificate installed successfully!"
+        echo ""
+        echo "Your site is now available at: https://$DOMAIN"
+        echo ""
+        echo "Add this redirect URI to Google Cloud Console:"
+        echo "  https://$DOMAIN/api/plugins/gmail/auth/callback"
+        echo ""
+        echo "Certificate will auto-renew. Test renewal with: sudo certbot renew --dry-run"
+    else
+        echo "⚠️  SSL certificate installation failed. Please check the errors above."
+        exit 1
+    fi
 fi
 

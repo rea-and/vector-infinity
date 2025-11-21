@@ -341,13 +341,19 @@ else
                 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
                     echo "Skipping SSL setup. Configure DNS first, then run: sudo ./setup_ssl.sh $DOMAIN_NAME"
                 else
-                    echo "Attempting SSL certificate setup (may fail if DNS is not configured)..."
-                    sudo certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --register-unsafely-without-email
-                    if [ $? -eq 0 ]; then
-                        echo "✓ SSL certificate installed successfully!"
+                    # Check if certificate already exists
+                    if sudo certbot certificates 2>/dev/null | grep -q "Certificate Name:.*$DOMAIN_NAME" 2>/dev/null; then
+                        echo "✓ SSL certificate already exists for $DOMAIN_NAME"
+                        echo "   Skipping certificate generation. Certificate will auto-renew."
                     else
-                        echo "⚠️  SSL certificate installation failed. This is likely because DNS is not configured."
-                        echo "   Configure DNS as shown above, then run: sudo ./setup_ssl.sh $DOMAIN_NAME"
+                        echo "Attempting SSL certificate setup (may fail if DNS is not configured)..."
+                        sudo certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --register-unsafely-without-email
+                        if [ $? -eq 0 ]; then
+                            echo "✓ SSL certificate installed successfully!"
+                        else
+                            echo "⚠️  SSL certificate installation failed. This is likely because DNS is not configured."
+                            echo "   Configure DNS as shown above, then run: sudo ./setup_ssl.sh $DOMAIN_NAME"
+                        fi
                     fi
                 fi
         elif [ "$DOMAIN_IP" = "127.0.0.1" ] || [ "$DOMAIN_IP" = "127.0.1.1" ] || [ "$DOMAIN_IP" = "127.0.0.0" ]; then
@@ -404,15 +410,22 @@ else
             fi
         else
             echo "✓ Domain DNS looks correct ($DOMAIN_NAME -> $DOMAIN_IP)"
-            echo "Getting SSL certificate from Let's Encrypt..."
-            sudo certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --register-unsafely-without-email
-            if [ $? -eq 0 ]; then
-                echo "✓ SSL certificate installed successfully!"
-                echo ""
-                echo "Your site is now available at: https://$DOMAIN_NAME"
+            
+            # Check if certificate already exists
+            if sudo certbot certificates 2>/dev/null | grep -q "Certificate Name:.*$DOMAIN_NAME" 2>/dev/null; then
+                echo "✓ SSL certificate already exists for $DOMAIN_NAME"
+                echo "   Skipping certificate generation. Certificate will auto-renew."
             else
-                echo "⚠️  SSL certificate installation failed. You can try again later with:"
-                echo "   sudo ./setup_ssl.sh $DOMAIN_NAME"
+                echo "Getting SSL certificate from Let's Encrypt..."
+                sudo certbot --nginx -d "$DOMAIN_NAME" --non-interactive --agree-tos --register-unsafely-without-email
+                if [ $? -eq 0 ]; then
+                    echo "✓ SSL certificate installed successfully!"
+                    echo ""
+                    echo "Your site is now available at: https://$DOMAIN_NAME"
+                else
+                    echo "⚠️  SSL certificate installation failed. You can try again later with:"
+                    echo "   sudo ./setup_ssl.sh $DOMAIN_NAME"
+                fi
             fi
         fi
     fi
