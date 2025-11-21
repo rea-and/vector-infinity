@@ -10,7 +10,17 @@ import config
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_INSTRUCTIONS = "You are a helpful assistant that can answer questions using both your general knowledge and any relevant context from imported data (Gmail, WhatsApp, WHOOP, etc.). Answer questions naturally and directly. If you find relevant information in the imported data, mention the source when helpful. If the question is about general topics not covered in the imported data, answer using your general knowledge without mentioning that the information wasn't found in the files. Be concise and helpful."
+DEFAULT_INSTRUCTIONS = """You are a helpful assistant with access to a File Search Tool that can search through imported user data (emails, WhatsApp messages, WHOOP health data, GitHub files, etc.).
+
+IMPORTANT: When the user asks questions about their data, you MUST use the File Search Tool to search for relevant information. The tool will automatically search through all imported data when you use it.
+
+Instructions:
+- ALWAYS use the File Search Tool when users ask about their emails, messages, health data, or any imported information
+- Search comprehensively - the tool can access thousands of items
+- Provide detailed insights based on what you find in the search results
+- If you find relevant information, cite it naturally (e.g., "Based on your emails..." or "From your data...")
+- If no relevant information is found after searching, you can use your general knowledge
+- Be thorough and analytical when answering questions about the user's data"""
 
 
 class ChatService:
@@ -137,9 +147,20 @@ class ChatService:
                 })
         
         # Add current user message
+        # If File Search Tool is available, explicitly prompt to use it for data-related questions
+        user_message = message
+        if file_search_store_name:
+            # Check if the message seems to be asking about user's data
+            data_keywords = ["my", "me", "my emails", "my messages", "my data", "tell me about", "what can you", "analyze", "insights", "summary"]
+            message_lower = message.lower()
+            if any(keyword in message_lower for keyword in data_keywords):
+                # Add explicit instruction to use File Search Tool
+                user_message = f"{message}\n\n[Use the File Search Tool to search through all imported data to answer this question comprehensively.]"
+                logger.info(f"Added explicit File Search Tool prompt for data-related question")
+        
         contents.append({
             "role": "user",
-            "parts": [{"text": message}]
+            "parts": [{"text": user_message}]
         })
         
         # Generate response with File Search Tool
@@ -155,7 +176,10 @@ class ChatService:
                         )
                     )
                 ]
-                logger.debug(f"Using File Search Tool with store: {file_search_store_name}")
+                logger.info(f"Using File Search Tool with store: {file_search_store_name}")
+                # Log that we're expecting the tool to be used
+                if "my" in message.lower() or "tell me" in message.lower() or "what can you" in message.lower():
+                    logger.info(f"Question appears to be about user data - File Search Tool should be invoked")
             
             # Generate content using the new SDK with File Search Tool
             response = self.client.models.generate_content(
