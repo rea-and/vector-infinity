@@ -191,6 +191,18 @@ class ChatService:
                 )
             )
             
+            # Check if File Search Tool was used
+            if file_search_store_name and hasattr(response, 'candidates') and response.candidates:
+                candidate = response.candidates[0]
+                if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                    for part in candidate.content.parts:
+                        # Check if this part indicates tool usage
+                        if hasattr(part, 'function_call') or hasattr(part, 'file_search_result'):
+                            logger.info(f"File Search Tool was invoked in the response")
+                        # Check for file search metadata
+                        if hasattr(part, 'metadata') and hasattr(part.metadata, 'file_search_queries'):
+                            logger.info(f"File Search Tool queries: {part.metadata.file_search_queries}")
+            
             # Extract response text
             if hasattr(response, 'text'):
                 response_text = response.text
@@ -198,11 +210,24 @@ class ChatService:
                 # Fallback: try to get text from candidates
                 candidate = response.candidates[0]
                 if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
-                    response_text = candidate.content.parts[0].text if candidate.content.parts else str(response)
+                    # Try to get text from all parts
+                    text_parts = []
+                    for part in candidate.content.parts:
+                        if hasattr(part, 'text') and part.text:
+                            text_parts.append(part.text)
+                    if text_parts:
+                        response_text = "\n".join(text_parts)
+                    else:
+                        response_text = str(response)
                 else:
                     response_text = str(response)
             else:
                 response_text = str(response)
+            
+            # Log if File Search Tool was available but response suggests it wasn't used
+            if file_search_store_name and ("cannot find" in response_text.lower() or "no data" in response_text.lower() or "no emails" in response_text.lower()):
+                logger.warning(f"File Search Tool was available but response suggests data wasn't found. Store: {file_search_store_name}")
+                logger.warning(f"Consider checking if files are indexed in the File Search Store")
             
             # Update conversation history
             updated_history = conversation_history + [
