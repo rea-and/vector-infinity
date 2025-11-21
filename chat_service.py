@@ -119,6 +119,17 @@ class ChatService:
         # Get file search store name for this user
         file_search_store_name = self.file_search_service.get_unified_file_search_store_name(user_id=user_id)
         
+        # Check if store has files (for debugging)
+        if file_search_store_name:
+            store_info = self.file_search_service.get_file_search_store_info(user_id=user_id)
+            if store_info:
+                file_count = store_info.get('file_count', 0)
+                if file_count == 0:
+                    logger.warning(f"File Search Store exists but has 0 files! Store: {file_search_store_name}")
+                    logger.warning("This means no data has been uploaded to the File Search Store yet.")
+                else:
+                    logger.info(f"File Search Store has {file_count} files available for search")
+        
         # Build conversation contents for Gemini
         contents = []
         

@@ -215,12 +215,55 @@ class FileSearchService:
             # Get store details
             store = self.client.file_search_stores.get(name=store_name)
             
+            # List files in the store
+            file_count = 0
+            try:
+                files = self.client.file_search_stores.files.list(parent=store_name, page_size=100)
+                file_count = len(list(files.file_search_store_files)) if hasattr(files, 'file_search_store_files') else 0
+                logger.info(f"File Search Store {store_name} has {file_count} files")
+            except Exception as e:
+                logger.warning(f"Could not list files in store: {e}")
+            
             return {
                 "name": store.name,
                 "display_name": getattr(store, 'display_name', 'Unknown'),
-                "status": "active"
+                "status": "active",
+                "file_count": file_count
             }
         except Exception as e:
             logger.error(f"Error getting file search store info: {e}", exc_info=True)
             return None
+    
+    def list_files_in_store(self, user_id: int = None) -> List[Dict[str, Any]]:
+        """List all files in the File Search Store."""
+        store_name = self.get_unified_file_search_store_name(user_id=user_id)
+        if not store_name:
+            return []
+        
+        try:
+            files = []
+            page_token = None
+            while True:
+                response = self.client.file_search_stores.files.list(
+                    parent=store_name,
+                    page_size=100,
+                    page_token=page_token
+                )
+                
+                if hasattr(response, 'file_search_store_files'):
+                    for file_item in response.file_search_store_files:
+                        files.append({
+                            "name": file_item.name,
+                            "display_name": getattr(file_item, 'display_name', 'Unknown'),
+                            "state": getattr(file_item, 'state', 'Unknown')
+                        })
+                
+                page_token = getattr(response, 'next_page_token', None)
+                if not page_token:
+                    break
+            
+            return files
+        except Exception as e:
+            logger.error(f"Error listing files in store: {e}", exc_info=True)
+            return []
 
