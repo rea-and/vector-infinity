@@ -123,10 +123,14 @@ class ChatService:
         if file_search_store_name:
             store_info = self.file_search_service.get_file_search_store_info(user_id=user_id)
             if store_info:
-                file_count = store_info.get('file_count', 0)
-                if file_count == 0:
+                file_count = store_info.get('file_count', 'unknown')
+                if file_count == 'unknown':
+                    logger.warning(f"File Search Store exists but file count is unavailable. Store: {file_search_store_name}")
+                    logger.warning("Cannot verify if files are in the store. If search doesn't work, try re-uploading data.")
+                elif file_count == 0:
                     logger.warning(f"File Search Store exists but has 0 files! Store: {file_search_store_name}")
                     logger.warning("This means no data has been uploaded to the File Search Store yet.")
+                    logger.warning("Please use the 'Re-upload All Data to File Search Store' button to upload your data.")
                 else:
                     logger.info(f"File Search Store has {file_count} files available for search")
         

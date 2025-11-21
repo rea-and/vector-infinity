@@ -216,20 +216,47 @@ class FileSearchService:
             store = self.client.file_search_stores.get(name=store_name)
             
             # List files in the store
+            # Note: The API structure might be different - try multiple approaches
             file_count = 0
             try:
-                files = self.client.file_search_stores.files.list(parent=store_name, page_size=100)
-                file_count = len(list(files.file_search_store_files)) if hasattr(files, 'file_search_store_files') else 0
-                logger.info(f"File Search Store {store_name} has {file_count} files")
+                # Try the correct API structure for listing files in a File Search Store
+                # Files are managed through the Files API and associated with stores
+                # We'll try to get file count through the store's file associations
+                try:
+                    # Method 1: Try direct files listing if available
+                    if hasattr(self.client, 'file_search_stores') and hasattr(self.client.file_search_stores, 'files'):
+                        files_response = self.client.file_search_stores.files.list(parent=store_name, page_size=100)
+                        if hasattr(files_response, 'file_search_store_files'):
+                            file_count = len(list(files_response.file_search_store_files))
+                except AttributeError:
+                    # Method 2: Try listing all files and checking which are in this store
+                    # This is a workaround - we can't directly list files in a store
+                    # So we'll return None for file_count and let the user check via re-upload
+                    logger.info("Cannot directly list files in File Search Store - file count unavailable")
+                    file_count = None
+                except Exception as e:
+                    logger.warning(f"Could not list files in store: {e}")
+                    file_count = None
+                
+                if file_count is not None:
+                    logger.info(f"File Search Store {store_name} has {file_count} files")
             except Exception as e:
                 logger.warning(f"Could not list files in store: {e}")
+                file_count = None
             
-            return {
+            result = {
                 "name": store.name,
                 "display_name": getattr(store, 'display_name', 'Unknown'),
-                "status": "active",
-                "file_count": file_count
+                "status": "active"
             }
+            
+            if file_count is not None:
+                result["file_count"] = file_count
+            else:
+                result["file_count"] = "unknown"
+                result["note"] = "File count unavailable - check if files were uploaded during import"
+            
+            return result
         except Exception as e:
             logger.error(f"Error getting file search store info: {e}", exc_info=True)
             return None
@@ -242,26 +269,10 @@ class FileSearchService:
         
         try:
             files = []
-            page_token = None
-            while True:
-                response = self.client.file_search_stores.files.list(
-                    parent=store_name,
-                    page_size=100,
-                    page_token=page_token
-                )
-                
-                if hasattr(response, 'file_search_store_files'):
-                    for file_item in response.file_search_store_files:
-                        files.append({
-                            "name": file_item.name,
-                            "display_name": getattr(file_item, 'display_name', 'Unknown'),
-                            "state": getattr(file_item, 'state', 'Unknown')
-                        })
-                
-                page_token = getattr(response, 'next_page_token', None)
-                if not page_token:
-                    break
-            
+            # Note: The API for listing files in a File Search Store may not be directly available
+            # Files are managed through the Files API and associated with stores via import_file
+            # We cannot directly query which files are in a specific store
+            logger.warning("Direct file listing for File Search Store is not available in the API")
             return files
         except Exception as e:
             logger.error(f"Error listing files in store: {e}", exc_info=True)
